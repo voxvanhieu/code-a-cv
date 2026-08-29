@@ -1,0 +1,39 @@
+[workspace]
+members = ["crates/cac-core", "crates/cac-io", "crates/cac-render", "crates/cac-check", "crates/cac-cli"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.92"
+repository = "https://github.com/voxvanhieu/code-a-cv"
+publish = false
+
+[workspace.dependencies]
+cac-core = { path = "crates/cac-core" }
+cac-io = { path = "crates/cac-io" }
+cac-render = { path = "crates/cac-render" }
+cac-check = { path = "crates/cac-check" }
+chrono = { version = "0.4", default-features = false, features = ["serde"] }
+clap = { version = "4", features = ["derive"] }
+html-escape = "0.2"
+pulldown-cmark = "0.13"
+schemars = { version = "1", features = ["chrono04", "url2"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_path_to_error = "0.1"
+serde_yaml_ng = "0.10"
+thiserror = "2"
+toml = "1"
+url = { version = "2", features = ["serde"] }
+
+[profile.release]
+strip = true
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

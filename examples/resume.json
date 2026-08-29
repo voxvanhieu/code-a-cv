@@ -1,0 +1,59 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jsonresume/resume-schema/master/schema.json",
+  "basics": {
+    "email": "ada@example.com",
+    "location": {
+      "city": "London, United Kingdom"
+    },
+    "name": "Ada Lovelace",
+    "phone": "+44 1632 960 000",
+    "summary": "Software engineer focused on reliable developer tools and clear technical communication.",
+    "url": "https://example.com/"
+  },
+  "education": [
+    {
+      "courses": [
+        "Graduated in the top 5% of the class"
+      ],
+      "endDate": "2020-06",
+      "institution": "University of London",
+      "startDate": "2016-09",
+      "studyType": "BSc Computer Science"
+    }
+  ],
+  "skills": [
+    {
+      "keywords": [
+        "Rust, TypeScript, PostgreSQL, and GitHub Actions"
+      ],
+      "name": "Languages and tools"
+    },
+    {
+      "keywords": [
+        "Automated testing, performance profiling, and technical writing"
+      ],
+      "name": "Engineering practices"
+    }
+  ],
+  "work": [
+    {
+      "endDate": "Present",
+      "highlights": [
+        "Reduced deployment time by 35% through parallel build stages",
+        "Led 4 engineers in delivering a new release workflow within 3 months"
+      ],
+      "name": "Analytical Engines Ltd",
+      "position": "Senior Software Engineer",
+      "startDate": "2023-01"
+    },
+    {
+      "endDate": "2022-12",
+      "highlights": [
+        "Improved test coverage from 72% to 91% across 6 services"
+      ],
+      "name": "Difference Engine Co",
+      "position": "Software Engineer",
+      "startDate": "2020-07"
+    }
+  ]
+}
