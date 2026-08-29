@@ -1,6 +1,6 @@
 [package]
-changelog = "../../CHANGELOG.md"
-readme = "../../README.md"
+changelog = "CHANGELOG.md"
+readme = "README.md"
 
 [dist]
 dist = true

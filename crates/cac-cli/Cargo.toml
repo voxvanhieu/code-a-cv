@@ -6,6 +6,7 @@ rust-version.workspace = true
 description = "Build CVs from Markdown or structured data"
 homepage = "https://github.com/voxvanhieu/code-a-cv"
 repository.workspace = true
+license.workspace = true
 publish.workspace = true
 
 [[bin]]

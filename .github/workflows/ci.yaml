@@ -2,14 +2,8 @@ name: CI
 
 on:
   push:
-    paths:
-      - 'crates/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'dist-workspace.toml'
-      - '.github/workflows/ci.yaml'
-      - '.github/workflows/release.yml'
-  pull_request:
+    branches:
+      - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

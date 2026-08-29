@@ -29,7 +29,9 @@ $ cargo run -p cac-cli -- build
 
 ## Releases
 
-`cargo-dist` builds the `cac` binary on native Linux, macOS, and Windows runners. It publishes archives, SHA-256 checksums, and shell and PowerShell installers to GitHub Releases.
+`cargo-dist` builds the `cac` binary on native Linux, macOS, and Windows runners. It publishes source and binary archives, SHA-256 checksums, and shell and PowerShell installers.
+
+Homebrew Core builds formulae from source. After publishing the first stable release, run the `Prepare initial Homebrew Core formula` workflow with its tag. The workflow requires a `HOMEBREW_CORE_TOKEN` Actions secret that can push to `voxvanhieu/homebrew-core`. It generates a source formula, builds and tests it on Linux and macOS, audits it as a new formula, and pushes a review branch to the fork. Review the branch and open the pull request to `Homebrew/homebrew-core` manually. The upstream repository must be public and meet Homebrew's acceptance requirements before submission. After the formula is accepted, use Homebrew's standard `brew bump-formula-pr` process for version updates.
 
 Prepare a release by updating the workspace version and `CHANGELOG.md`, then validate the release plan:
 

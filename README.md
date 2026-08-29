@@ -14,15 +14,31 @@
 
 ## Quick start
 
-Build and install the binary from the workspace:
+### Install `cac`
+
+After the formula is accepted into Homebrew Core, install it on macOS or Linux:
 
 ```console
-$ cargo install --path crates/cac-cli
-$ cac init
-$ cac build
+$ brew install code-a-cv
 ```
 
-Tagged releases publish prebuilt archives and installers for Linux, macOS, and Windows on GitHub Releases.
+Homebrew builds bottles for its supported platforms after the formula is accepted.
+
+To install from source, first install the Rust toolchain, then run:
+
+```console
+$ cargo install --locked --git https://github.com/voxvanhieu/code-a-cv cac-cli
+```
+
+### Create your first CV
+
+Create a directory for the CV and initialize it:
+
+```console
+$ mkdir my-cv
+$ cd my-cv
+$ cac init
+```
 
 `cac init` creates `cv.md`. Its headings match the visible CV:
 
@@ -39,7 +55,18 @@ Jan 2023–Present
 - Reduced build time by **35%**
 ```
 
-`cac build` creates `dist/cv.pdf`. Build more formats with:
+Edit `cv.md`, then build it:
+
+```console
+$ cac build
+BUILT dist/cv.pdf
+```
+
+The PDF is at `dist/cv.pdf`, relative to the directory where you ran `cac build`.
+The output name follows the input file name, so `cac build resume.md` creates
+`dist/resume.pdf`.
+
+Build more formats or choose another output directory with:
 
 ```console
 $ cac build --format pdf,html,json --output dist
@@ -104,4 +131,4 @@ See [the development guide](docs/development/README.md) for architecture details
 
 ## License
 
-The license has not been selected yet.
+Code a CV is available under the [MIT License](LICENSE).
