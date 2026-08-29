@@ -1,0 +1,137 @@
+name: Prepare initial Homebrew Core formula
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Stable release tag to submit
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  FORMULA_PATH: Formula/c/code-a-cv.rb
+
+jobs:
+  formula:
+    name: Generate formula
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out release sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@a657b8b0cd35d0f65cce41fce9b24cf054b49869
+      - name: Generate formula
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test "$(gh api "repos/${GITHUB_REPOSITORY}" --jq .visibility)" = public
+          [[ "${TAG}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+
+          release=$(gh release view "${TAG}" --json isDraft,isPrerelease,tagName)
+          test "$(jq -r .tagName <<<"${release}")" = "${TAG}"
+          test "$(jq -r .isDraft <<<"${release}")" = false
+          test "$(jq -r .isPrerelease <<<"${release}")" = false
+
+          version=${TAG#v}
+          test "$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "cac-cli") | .version')" = "${version}"
+
+          gh release download "${TAG}" --pattern source.tar.gz --dir release
+          sha256=$(sha256sum release/source.tar.gz | cut -d ' ' -f 1)
+          mkdir -p "$(dirname "${FORMULA_PATH}")"
+          ruby scripts/render-homebrew-core-formula.rb "${TAG}" "${sha256}" "${FORMULA_PATH}"
+
+          core_dir=$(brew --repository homebrew/core)
+          cp "${FORMULA_PATH}" "${core_dir}/${FORMULA_PATH}"
+          brew style --fix "${core_dir}/${FORMULA_PATH}"
+          cp "${core_dir}/${FORMULA_PATH}" "${FORMULA_PATH}"
+          brew style "${core_dir}/${FORMULA_PATH}"
+      - name: Upload formula
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: homebrew-core-formula
+          path: ${{ env.FORMULA_PATH }}
+
+  validate:
+    name: Validate formula on ${{ matrix.runner }}
+    needs: formula
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - ubuntu-22.04
+          - macos-14
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@a657b8b0cd35d0f65cce41fce9b24cf054b49869
+      - name: Download formula
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: homebrew-core-formula
+          path: Formula/c
+      - name: Build, test, and audit formula
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          core_dir=$(brew --repository homebrew/core)
+          cp "${FORMULA_PATH}" "${core_dir}/${FORMULA_PATH}"
+          HOMEBREW_NO_INSTALL_FROM_API=1 brew install --build-from-source code-a-cv
+          brew test code-a-cv
+          brew audit --new --strict code-a-cv
+
+  publish-branch:
+    name: Push review branch
+    needs: validate
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out Homebrew Core fork
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: voxvanhieu/homebrew-core
+          token: ${{ secrets.HOMEBREW_CORE_TOKEN }}
+          fetch-depth: 0
+          path: homebrew-core
+      - name: Download formula
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: homebrew-core-formula
+          path: Formula/c
+      - name: Push review branch
+        env:
+          ACTOR_ID: ${{ github.actor_id }}
+          TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version=${TAG#v}
+          branch="code-a-cv-${version}"
+          if git -C homebrew-core ls-remote --exit-code --heads origin "${branch}" >/dev/null 2>&1; then
+            echo "${branch} already exists in voxvanhieu/homebrew-core" >&2
+            exit 1
+          fi
+
+          git -C homebrew-core remote add upstream https://github.com/Homebrew/homebrew-core.git
+          git -C homebrew-core fetch upstream main
+          git -C homebrew-core switch --create "${branch}" upstream/main
+          mkdir -p "homebrew-core/$(dirname "${FORMULA_PATH}")"
+          cp "${FORMULA_PATH}" "homebrew-core/${FORMULA_PATH}"
+          git -C homebrew-core add "${FORMULA_PATH}"
+          git -C homebrew-core config user.name "${GITHUB_ACTOR}"
+          git -C homebrew-core config user.email "${ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
+          git -C homebrew-core commit -m "code-a-cv ${version} (new formula)"
+          git -C homebrew-core push origin "${branch}"
+
+          echo "Review https://github.com/voxvanhieu/homebrew-core/compare/main...${branch} before opening the Homebrew Core pull request."
+          echo "Open https://github.com/Homebrew/homebrew-core/compare/main...voxvanhieu:homebrew-core:${branch}?expand=1 after review."

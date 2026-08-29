@@ -15,6 +15,8 @@ targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-apple-da
 install-path = "CARGO_HOME"
 # Where to host releases
 hosting = "github"
+# Sign release artifacts with GitHub's build provenance attestations
+github-attestations = true
 # Whether to install an updater program
 install-updater = false
 
@@ -22,3 +24,4 @@ install-updater = false
 "actions/checkout" = "3d3c42e5aac5ba805825da76410c181273ba90b1"
 "actions/download-artifact" = "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"
 "actions/upload-artifact" = "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+"actions/attest" = "1e69f48acb82d1966a394da916b4c1698aa569d6"
