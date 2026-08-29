@@ -1,0 +1,65 @@
+[profile]
+name = "Ada Lovelace"
+email = "ada@example.com"
+phone = "+44 1632 960 000"
+location = "London, United Kingdom"
+website = "https://example.com/"
+summary = "Software engineer focused on reliable developer tools and clear technical communication."
+
+[[sections]]
+id = "experience"
+title = "Experience"
+kind = "experience"
+
+[[sections.entries]]
+type = "experience"
+role = "Senior Software Engineer"
+organization = "Analytical Engines Ltd"
+highlights = [
+    "Reduced deployment time by **35%** through parallel build stages",
+    "Led 4 engineers in delivering a new release workflow within 3 months",
+]
+
+[sections.entries.period]
+start = "2023-01"
+end = "Present"
+
+[[sections.entries]]
+type = "experience"
+role = "Software Engineer"
+organization = "Difference Engine Co"
+highlights = ["Improved test coverage from 72% to 91% across 6 services"]
+
+[sections.entries.period]
+start = "2020-07"
+end = "2022-12"
+
+[[sections]]
+id = "education"
+title = "Education"
+kind = "education"
+
+[[sections.entries]]
+type = "education"
+qualification = "BSc Computer Science"
+institution = "University of London"
+highlights = ["Graduated in the top 5% of the class"]
+
+[sections.entries.period]
+start = "2016-09"
+end = "2020-06"
+
+[[sections]]
+id = "skills"
+title = "Skills"
+kind = "skills"
+
+[[sections.entries]]
+type = "skill-group"
+name = "Languages and tools"
+skills = ["Rust, TypeScript, PostgreSQL, and GitHub Actions"]
+
+[[sections.entries]]
+type = "skill-group"
+name = "Engineering practices"
+skills = ["Automated testing, performance profiling, and technical writing"]

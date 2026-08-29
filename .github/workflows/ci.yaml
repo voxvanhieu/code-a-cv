@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    paths:
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'dist-workspace.toml'
+      - '.github/workflows/ci.yaml'
+      - '.github/workflows/release.yml'
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Format, test, and lint
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      # 1.92.0
+      - uses: dtolnay/rust-toolchain@87eb139fed4b08a67bd1fa429a21d1f5d523e03e
+        with:
+          components: clippy, rustfmt
+      - run: cargo fmt --all --check
+      - run: cargo test --workspace --all-features --locked
+      - run: cargo clippy --workspace --all-features --all-targets --locked -- -D warnings
+
+  build:
+    name: Build cac (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-22.04
+            binary: cac
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-24.04-arm
+            binary: cac
+          - target: x86_64-apple-darwin
+            runner: macos-15-intel
+            binary: cac
+          - target: aarch64-apple-darwin
+            runner: macos-14
+            binary: cac
+          - target: x86_64-pc-windows-msvc
+            runner: windows-2022
+            binary: cac.exe
+    steps:
+      # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      # 1.92.0
+      - uses: dtolnay/rust-toolchain@87eb139fed4b08a67bd1fa429a21d1f5d523e03e
+        with:
+          targets: ${{ matrix.target }}
+      - run: cargo build --release --locked --package cac-cli --target ${{ matrix.target }}
+      - name: Smoke test
+        shell: bash
+        run: target/${{ matrix.target }}/release/${{ matrix.binary }} --version

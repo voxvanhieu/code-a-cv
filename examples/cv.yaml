@@ -1,0 +1,53 @@
+profile:
+  name: Ada Lovelace
+  email: ada@example.com
+  phone: +44 1632 960 000
+  location: London, United Kingdom
+  website: https://example.com/
+  summary: Software engineer focused on reliable developer tools and clear technical communication.
+sections:
+- id: experience
+  title: Experience
+  kind: experience
+  entries:
+  - type: experience
+    role: Senior Software Engineer
+    organization: Analytical Engines Ltd
+    period:
+      start: 2023-01
+      end: Present
+    highlights:
+    - Reduced deployment time by **35%** through parallel build stages
+    - Led 4 engineers in delivering a new release workflow within 3 months
+  - type: experience
+    role: Software Engineer
+    organization: Difference Engine Co
+    period:
+      start: 2020-07
+      end: 2022-12
+    highlights:
+    - Improved test coverage from 72% to 91% across 6 services
+- id: education
+  title: Education
+  kind: education
+  entries:
+  - type: education
+    qualification: BSc Computer Science
+    institution: University of London
+    period:
+      start: 2016-09
+      end: 2020-06
+    highlights:
+    - Graduated in the top 5% of the class
+- id: skills
+  title: Skills
+  kind: skills
+  entries:
+  - type: skill-group
+    name: Languages and tools
+    skills:
+    - Rust, TypeScript, PostgreSQL, and GitHub Actions
+  - type: skill-group
+    name: Engineering practices
+    skills:
+    - Automated testing, performance profiling, and technical writing
