@@ -6,7 +6,6 @@ use cac_core::{
     TagSet, TextEntry,
 };
 use chrono::NaiveDate;
-use schemars::schema_for;
 use serde::Deserialize;
 use thiserror::Error;
 use url::Url;
@@ -109,10 +108,6 @@ pub fn validate(cv: &CvDocument) -> Result<(), ParseError> {
         }
     }
     Ok(())
-}
-
-pub fn schema_json() -> Result<String, serde_json::Error> {
-    serde_json::to_string_pretty(&schema_for!(CvDocument))
 }
 
 pub fn parse_markdown(source: &str) -> Result<CvDocument, ParseError> {

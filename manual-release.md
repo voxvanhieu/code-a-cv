@@ -65,8 +65,6 @@ The release workflow creates the GitHub release and uploads its source archives,
 
 Before the formula is accepted into Homebrew Core, open the GitHub Actions page and run `Publish Homebrew tap formula` with the new stable tag. Review the pull request opened in `voxvanhieu/homebrew-tap`, wait for its checks, and use the tap's `brew pr-pull` workflow to publish bottles.
 
-See `HOMEBREW_TAP.md` for the one-time setup and the migration procedure.
-
 Run the following command only after the formula has been accepted into Homebrew Core:
 
 ```console
