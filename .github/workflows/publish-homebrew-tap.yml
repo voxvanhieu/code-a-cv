@@ -1,0 +1,142 @@
+name: Publish Homebrew tap formula
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Stable release tag to publish
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  FORMULA_PATH: Formula/code-a-cv.rb
+
+jobs:
+  formula:
+    name: Generate formula
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out release sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+      - name: Generate formula
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test "$(gh api "repos/${GITHUB_REPOSITORY}" --jq .visibility)" = public
+          [[ "${TAG}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+
+          release=$(gh release view "${TAG}" --json isDraft,isPrerelease,tagName)
+          test "$(jq -r .tagName <<<"${release}")" = "${TAG}"
+          test "$(jq -r .isDraft <<<"${release}")" = false
+          test "$(jq -r .isPrerelease <<<"${release}")" = false
+
+          version=${TAG#v}
+          test "$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "cac") | .version')" = "${version}"
+
+          gh release download "${TAG}" --pattern source.tar.gz --dir release
+          sha256=$(sha256sum release/source.tar.gz | cut -d ' ' -f 1)
+          mkdir -p "$(dirname "${FORMULA_PATH}")"
+          ruby scripts/render-homebrew-formula.rb "${TAG}" "${sha256}" "${FORMULA_PATH}"
+      - name: Upload formula
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: homebrew-tap-formula
+          path: ${{ env.FORMULA_PATH }}
+
+  validate:
+    name: Validate formula on ${{ matrix.runner }}
+    needs: formula
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - ubuntu-22.04
+          - macos-14
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@a657b8b0cd35d0f65cce41fce9b24cf054b49869
+        with:
+          core: true
+      - name: Download formula
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: homebrew-tap-formula
+          path: Formula
+      - name: Build, test, and audit formula
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          core_dir=$(brew --repository homebrew/core)
+          cp "${FORMULA_PATH}" "${core_dir}/Formula/c/code-a-cv.rb"
+          HOMEBREW_NO_INSTALL_FROM_API=1 brew install --build-from-source code-a-cv
+          brew test code-a-cv
+          brew audit --new --strict code-a-cv
+          brew style "${core_dir}/Formula/c/code-a-cv.rb"
+
+  publish:
+    name: Open tap pull request
+    needs:
+      - formula
+      - validate
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out Homebrew tap
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: voxvanhieu/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          fetch-depth: 0
+          path: homebrew-tap
+      - name: Download formula
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: homebrew-tap-formula
+          path: generated
+      - name: Open pull request
+        env:
+          ACTOR_ID: ${{ github.actor_id }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if jq -e '."code-a-cv" == "homebrew/core"' homebrew-tap/tap_migrations.json >/dev/null 2>&1; then
+            echo "code-a-cv has migrated to homebrew/core" >&2
+            exit 1
+          fi
+
+          version=${TAG#v}
+          branch="code-a-cv-${version}"
+          if git -C homebrew-tap ls-remote --exit-code --heads origin "${branch}" >/dev/null 2>&1; then
+            echo "${branch} already exists in voxvanhieu/homebrew-tap" >&2
+            exit 1
+          fi
+
+          git -C homebrew-tap switch --create "${branch}"
+          mkdir -p homebrew-tap/Formula
+          cp generated/code-a-cv.rb homebrew-tap/Formula/code-a-cv.rb
+          git -C homebrew-tap add Formula/code-a-cv.rb
+          git -C homebrew-tap config user.name "${GITHUB_ACTOR}"
+          git -C homebrew-tap config user.email "${ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
+          git -C homebrew-tap commit -m "code-a-cv ${version}"
+          git -C homebrew-tap push origin "${branch}"
+
+          gh pr create \
+            --repo voxvanhieu/homebrew-tap \
+            --base main \
+            --head "${branch}" \
+            --title "code-a-cv ${version}" \
+            --body "Build code-a-cv ${version} from the checksummed release source archive."

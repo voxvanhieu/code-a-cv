@@ -144,7 +144,7 @@ cac-core     IR, RichText, Period, schemars derives. No I/O. wasm-clean.
 cac-io       parse (markdown/yaml/json/toml) + JSON Resume adapter + diagnostics
 cac-render   Typst World → PDF/PNG/SVG; HTML template
 cac-check    rule engine + catalogue + ATS verification
-cac-cli      clap, watch, config. The only crate touching fs/network.
+cac          clap, watch, config. The only crate touching fs/network.
 ```
 
 The `cac-core` boundary is what keeps WASM cheap — everything below it must compile to `wasm32-unknown-unknown`. Enforce it in CI from week one, not week twenty.
@@ -595,9 +595,9 @@ The playground web app is post-1.0.
 
 **Targets:** `aarch64`/`x86_64-apple-darwin` (universal via `lipo`, codesigned + notarised), `x86_64`/`aarch64-unknown-linux-gnu` + `-musl`, `x86_64`/`aarch64-pc-windows-msvc`, `wasm32-unknown-unknown`, `wasm32-wasip1`.
 
-**Toolchain:** `cargo-dist` (the `dist` CLI, actively maintained — v0.32 as of May 2026) generates the release workflow, builds the matrix, and produces source and binary archives plus shell and PowerShell installers. A separate workflow prepares the source-building Homebrew Core formula. `release-plz` handles changelog and version automation.
+**Toolchain:** `cargo-dist` (the `dist` CLI, actively maintained — v0.32 as of May 2026) generates the release workflow, builds the matrix, and produces source and binary archives plus shell and PowerShell installers. Separate workflows publish the source-building project tap formula and prepare its later migration to Homebrew Core. `release-plz` handles changelog and version automation.
 
-**Channels:** GitHub Releases + `curl | sh` (free from `dist`), Homebrew Core, winget via `wingetcreate`, Scoop bucket, crates.io, AUR, `cargo-deb`/`cargo-generate-rpm` artefacts, distroless Docker, and an **npm wrapper** — surprisingly effective distribution for a dev tool.
+**Channels:** GitHub Releases + `curl | sh` (free from `dist`), the project Homebrew tap followed by Homebrew Core, winget via `wingetcreate`, Scoop bucket, crates.io, AUR, `cargo-deb`/`cargo-generate-rpm` artefacts, distroless Docker, and an **npm wrapper** — surprisingly effective distribution for a dev tool.
 
 **Supply chain:** GitHub Artifact Attestations, SBOM via `cargo-cyclonedx`, `cargo-deny` + `cargo-audit` in CI, pinned toolchain in `rust-toolchain.toml`.
 

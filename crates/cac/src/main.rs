@@ -13,7 +13,7 @@ use thiserror::Error;
     version,
     about = "Compile a CV from Markdown or structured data"
 )]
-struct Cli {
+struct Args {
     #[arg(long, global = true, help = "Write machine-readable command output")]
     json: bool,
     #[command(subcommand)]
@@ -83,7 +83,7 @@ enum ConversionFormat {
 }
 
 #[derive(Debug, Error)]
-enum CliError {
+enum Error {
     #[error("{0}")]
     Io(#[from] std::io::Error),
     #[error("{0}")]
@@ -105,8 +105,8 @@ enum CliError {
 }
 
 fn main() -> ExitCode {
-    let cli = Cli::parse();
-    match run(cli) {
+    let args = Args::parse();
+    match run(args) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             eprintln!("error: {error}");
@@ -115,15 +115,15 @@ fn main() -> ExitCode {
     }
 }
 
-fn run(cli: Cli) -> Result<(), CliError> {
-    match cli.command {
+fn run(args: Args) -> Result<(), Error> {
+    match args.command {
         Command::Init {
             from,
             output,
             force,
         } => {
             if output.exists() && !force {
-                return Err(CliError::Exists(output));
+                return Err(Error::Exists(output));
             }
             let content = if let Some(path) = from {
                 let source = fs::read_to_string(&path)?;
@@ -132,7 +132,7 @@ fn run(cli: Cli) -> Result<(), CliError> {
                 cac_io::STARTER_MARKDOWN.into()
             };
             fs::write(&output, content)?;
-            print_result(cli.json, "created", &output);
+            print_result(args.json, "created", &output);
         }
         Command::Build {
             input,
@@ -164,13 +164,13 @@ fn run(cli: Cli) -> Result<(), CliError> {
                         path
                     }
                 };
-                print_result(cli.json, "built", &path);
+                print_result(args.json, "built", &path);
             }
         }
         Command::Check { input, strict } => {
             let cv = read_cv(&input)?;
             let diagnostics = check_content(&cv);
-            if cli.json {
+            if args.json {
                 println!("{}", serde_json::to_string_pretty(&diagnostics)?);
             } else if diagnostics.is_empty() {
                 println!("PASS");
@@ -186,7 +186,7 @@ fn run(cli: Cli) -> Result<(), CliError> {
                 .iter()
                 .any(|diagnostic| diagnostic.severity == Severity::Error);
             if errors || (strict && !diagnostics.is_empty()) {
-                return Err(CliError::CheckFailed);
+                return Err(Error::CheckFailed);
             }
         }
         Command::Convert { input, to, output } => {
@@ -202,14 +202,14 @@ fn run(cli: Cli) -> Result<(), CliError> {
             };
             if let Some(path) = output {
                 fs::write(&path, content)?;
-                print_result(cli.json, "created", &path);
+                print_result(args.json, "created", &path);
             } else {
                 println!("{content}");
             }
         }
         Command::Schema => println!("{}", schema_json()?),
         Command::Themes => {
-            if cli.json {
+            if args.json {
                 println!("[\"classic\"]");
             } else {
                 println!("classic (embedded)");
@@ -219,14 +219,14 @@ fn run(cli: Cli) -> Result<(), CliError> {
     Ok(())
 }
 
-fn read_cv(path: &Path) -> Result<cac_core::CvDocument, CliError> {
+fn read_cv(path: &Path) -> Result<cac_core::CvDocument, Error> {
     let source = fs::read_to_string(path)?;
     let extension = path
         .extension()
         .and_then(|value| value.to_str())
-        .ok_or_else(|| CliError::Unsupported(path.into()))?;
+        .ok_or_else(|| Error::Unsupported(path.into()))?;
     let format =
-        InputFormat::from_extension(extension).ok_or_else(|| CliError::Unsupported(path.into()))?;
+        InputFormat::from_extension(extension).ok_or_else(|| Error::Unsupported(path.into()))?;
     Ok(parse(&source, format)?)
 }
 
