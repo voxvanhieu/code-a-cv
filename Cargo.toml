@@ -19,7 +19,6 @@ chrono = { version = "0.4", default-features = false, features = ["serde"] }
 clap = { version = "4", features = ["derive"] }
 html-escape = "0.2"
 pulldown-cmark = "0.13"
-schemars = { version = "1", features = ["chrono04", "url2"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_path_to_error = "0.1"

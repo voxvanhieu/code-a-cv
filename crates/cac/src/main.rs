@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use cac_check::{Severity, check_content};
-use cac_io::{InputFormat, ParseError, export_json_resume, parse, schema_json, to_markdown};
+use cac_io::{InputFormat, ParseError, export_json_resume, parse, to_markdown};
 use clap::{Parser, Subcommand, ValueEnum};
 use thiserror::Error;
 
@@ -60,8 +60,6 @@ enum Command {
         #[arg(short, long)]
         output: Option<PathBuf>,
     },
-    #[command(about = "Print the structured CV JSON Schema")]
-    Schema,
     #[command(about = "List embedded themes")]
     Themes,
 }
@@ -207,7 +205,6 @@ fn run(args: Args) -> Result<(), Error> {
                 println!("{content}");
             }
         }
-        Command::Schema => println!("{}", schema_json()?),
         Command::Themes => {
             if args.json {
                 println!("[\"classic\"]");

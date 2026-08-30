@@ -1,6 +1,9 @@
 name: CI
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
@@ -13,8 +16,47 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Detect code changes
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - id: filter
+        name: Check changed paths
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          if [[ "${EVENT_NAME}" != "pull_request" ]]; then
+            code=true
+          elif git diff --quiet "${BASE_SHA}" "${HEAD_SHA}" -- \
+            Cargo.lock \
+            Cargo.toml \
+            dist-workspace.toml \
+            'crates/**' \
+            'examples/**' \
+            'scripts/**' \
+            '.cargo/**' \
+            'rust-toolchain*'; then
+            code=false
+          else
+            code=true
+          fi
+
+          echo "code=${code}" >> "${GITHUB_OUTPUT}"
+
   quality:
     name: Format, test, and lint
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 20
     steps:
@@ -30,6 +72,8 @@ jobs:
 
   build:
     name: Build cac (${{ matrix.target }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
@@ -62,3 +106,30 @@ jobs:
       - name: Smoke test
         shell: bash
         run: target/${{ matrix.target }}/release/${{ matrix.binary }} --version
+
+  complete:
+    name: CI complete
+    needs:
+      - changes
+      - quality
+      - build
+    if: always()
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - name: Check required jobs
+        env:
+          BUILD_RESULT: ${{ needs.build.result }}
+          CODE_CHANGED: ${{ needs.changes.outputs.code }}
+          DETECTION_RESULT: ${{ needs.changes.result }}
+          QUALITY_RESULT: ${{ needs.quality.result }}
+        shell: bash
+        run: |
+          test "${DETECTION_RESULT}" = "success"
+
+          if [[ "${CODE_CHANGED}" = "true" ]]; then
+            test "${QUALITY_RESULT}" = "success"
+            test "${BUILD_RESULT}" = "success"
+          else
+            test "${CODE_CHANGED}" = "false"
+          fi

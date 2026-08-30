@@ -1,5 +1,5 @@
 use cac_core::{EntryKind, Inline};
-use cac_io::{InputFormat, STARTER_MARKDOWN, parse, schema_json, to_markdown};
+use cac_io::{InputFormat, STARTER_MARKDOWN, parse, to_markdown};
 
 #[test]
 fn starter_markdown_parses_into_typed_entries() {
@@ -66,14 +66,6 @@ fn structured_formats_round_trip() {
     assert_eq!(parse(&json, InputFormat::Json).unwrap(), cv);
     assert_eq!(parse(&yaml, InputFormat::Yaml).unwrap(), cv);
     assert_eq!(parse(&toml, InputFormat::Toml).unwrap(), cv);
-}
-
-#[test]
-fn schema_describes_the_document_root() {
-    let schema: serde_json::Value = serde_json::from_str(&schema_json().unwrap()).unwrap();
-
-    assert_eq!(schema["title"], "CvDocument");
-    assert!(schema["properties"]["profile"].is_object());
 }
 
 #[test]

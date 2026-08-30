@@ -4,7 +4,6 @@ use std::fmt::{self, Display, Formatter};
 
 use chrono::{Datelike, NaiveDate};
 use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
-use schemars::JsonSchema;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use url::Url;
@@ -12,7 +11,7 @@ use url::Url;
 pub type TagSet = BTreeSet<String>;
 pub type ResolvedCv = CvDocument;
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CvDocument {
     pub profile: Profile,
@@ -20,7 +19,7 @@ pub struct CvDocument {
     pub sections: Vec<Section>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Profile {
     pub name: String,
@@ -36,7 +35,7 @@ pub struct Profile {
     pub summary: Option<RichText>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Section {
     pub id: String,
@@ -49,7 +48,7 @@ pub struct Section {
     pub tags: TagSet,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SectionKind {
     Education,
@@ -61,14 +60,13 @@ pub enum SectionKind {
     Custom,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Entry {
     #[serde(flatten)]
     pub kind: EntryKind,
     #[serde(default, skip_serializing_if = "TagSet::is_empty")]
     pub tags: TagSet,
     #[serde(skip, default)]
-    #[schemars(skip)]
     pub origin: Origin,
 }
 
@@ -80,7 +78,7 @@ impl PartialEq for Entry {
 
 impl Eq for Entry {}
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "kebab-case")]
 pub enum EntryKind {
     Experience(ExperienceEntry),
@@ -91,7 +89,7 @@ pub enum EntryKind {
     Text(TextEntry),
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExperienceEntry {
     pub role: RichText,
@@ -104,7 +102,7 @@ pub struct ExperienceEntry {
     pub highlights: Vec<RichText>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EducationEntry {
     pub qualification: RichText,
@@ -115,7 +113,7 @@ pub struct EducationEntry {
     pub highlights: Vec<RichText>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectEntry {
     pub name: RichText,
@@ -127,7 +125,7 @@ pub struct ProjectEntry {
     pub highlights: Vec<RichText>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PublicationEntry {
     pub title: RichText,
@@ -141,7 +139,7 @@ pub struct PublicationEntry {
     pub highlights: Vec<RichText>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SkillGroupEntry {
     pub name: RichText,
@@ -149,7 +147,7 @@ pub struct SkillGroupEntry {
     pub skills: Vec<RichText>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TextEntry {
     pub body: RichText,
@@ -200,7 +198,7 @@ pub struct Origin {
     pub path: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Period {
     pub start: DatePoint,
@@ -227,8 +225,7 @@ pub struct PeriodError {
     pub end: DatePoint,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[schemars(with = "String")]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DatePoint {
     Year(i32),
     YearMonth(i32, u8),
@@ -337,8 +334,7 @@ impl PartialOrd for DatePoint {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, JsonSchema)]
-#[schemars(with = "String")]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct RichText(pub Vec<Inline>);
 
 #[derive(Clone, Debug, PartialEq, Eq)]

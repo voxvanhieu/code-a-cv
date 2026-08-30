@@ -10,7 +10,6 @@ publish.workspace = true
 [dependencies]
 chrono.workspace = true
 pulldown-cmark.workspace = true
-schemars.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 url.workspace = true

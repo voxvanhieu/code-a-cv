@@ -6,7 +6,6 @@
 
 * PDF/A-2b and self-contained HTML output from one CV source file
 * Markdown source that mirrors the visible CV sections
-* Editor completion and validation for structured formats through a JSON Schema
 * Rich text for links, emphasis, and code without renderer-specific escaping
 * JSON Resume import and export
 * Deterministic PDF output
@@ -14,112 +13,45 @@
 
 ## Quick start
 
-### Install `cac`
+Install `cac` on macOS or Linux:
 
-Install from the project Homebrew tap on macOS or Linux:
-
-```console
-$ brew install voxvanhieu/tap/code-a-cv
+```sh
+brew install voxvanhieu/tap/code-a-cv
 ```
 
-The formula builds from the checksummed release source. See [`HOMEBREW_TAP.md`](HOMEBREW_TAP.md) for the tap setup and release process. After the formula moves to Homebrew Core, the tap migration will move existing installations to the official formula and the command will become `brew install code-a-cv`.
+Create a CV:
 
-To install from source, first install the Rust toolchain, then run:
-
-```console
-$ cargo install --locked --git https://github.com/voxvanhieu/code-a-cv cac
-```
-
-### Create your first CV
-
-Create a directory for the CV and initialize it:
-
-```console
-$ mkdir my-cv
-$ cd my-cv
-$ cac init
-```
-
-`cac init` creates `cv.md`. Its headings match the visible CV:
-
-```markdown
-# Ada Lovelace
-
-ada@example.com · London, United Kingdom
-
-## Experience
-
-### Software Engineer, Analytical Engines Ltd
-Jan 2023–Present
-
-- Reduced build time by **35%**
+```sh
+mkdir my-cv
+cd my-cv
+cac init
 ```
 
 Edit `cv.md`, then build it:
 
-```console
-$ cac build
-BUILT dist/cv.pdf
+```sh
+cac build
 ```
 
-The PDF is at `dist/cv.pdf`, relative to the directory where you ran `cac build`.
-The output name follows the input file name, so `cac build resume.md` creates
-`dist/resume.pdf`.
+The finished PDF is `dist/cv.pdf`.
 
-Build more formats or choose another output directory with:
-
-```console
-$ cac build --format pdf,html,json --output dist
-```
-
-## Checks and conversion
-
-Check the source. `--strict` makes warnings fail the command in CI:
-
-```console
-$ cac check
-PASS
-```
-
-Convert between native formats or export JSON Resume:
-
-```console
-$ cac convert cv.md --to yaml --output cv.yaml
-$ cac convert cv.md --to jsonresume --output resume.json
-```
-
-Print the generated JSON Schema with `cac schema`.
-
-## Examples
-
-The same CV is available in every native input format, plus JSON Resume for import:
-
-| Format | Example | Command |
-|---|---|---|
-| Markdown | [`examples/cv.md`](examples/cv.md) | `cac build examples/cv.md` |
-| YAML | [`examples/cv.yaml`](examples/cv.yaml) | `cac build examples/cv.yaml` |
-| JSON | [`examples/cv.json`](examples/cv.json) | `cac build examples/cv.json` |
-| TOML | [`examples/cv.toml`](examples/cv.toml) | `cac build examples/cv.toml` |
-| JSON Resume | [`examples/resume.json`](examples/resume.json) | `cac init --from examples/resume.json --output imported.md` |
-
-## Commands
+## Common commands
 
 | Command | Description |
 |---|---|
 | `cac init [--from resume.json]` | Create a starter CV or import JSON Resume data |
 | `cac build [INPUT]` | Validate and render a CV |
-| `cac check [INPUT]` | Check source content |
+| `cac check [INPUT] [--strict]` | Check source content |
 | `cac convert <IN> --to <FORMAT>` | Convert supported input formats |
-| `cac schema` | Print the generated JSON Schema |
 | `cac themes` | List embedded themes |
 
-Commands support `--json` for automation.
+Use `--json` for machine-readable output.
 
-Tagged selections, page fitting, file watching, rendered PDF checks, additional themes, and WebAssembly builds remain roadmap work.
+## Examples
+
+See [`examples/`](examples/) for Markdown, YAML, JSON, TOML, and JSON Resume files.
 
 ## Development
-
-Run:
 
 ```console
 $ cargo fmt --all --check
@@ -127,7 +59,7 @@ $ cargo test --workspace
 $ cargo clippy --all-features --all-targets -- -D warnings
 ```
 
-See [the development guide](docs/development/README.md) for architecture details.
+See the [development guide](docs/development/README.md) for details.
 
 ## License
 
