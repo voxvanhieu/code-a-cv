@@ -31,7 +31,7 @@ $ cargo run -p cac -- build
 
 `cargo-dist` builds the `cac` binary on native Linux, macOS, and Windows runners. It publishes source and binary archives, SHA-256 checksums, and shell and PowerShell installers.
 
-Before Homebrew Core acceptance, run the `Publish Homebrew tap formula` workflow after each stable release. It validates the source-building formula on Linux and macOS, then opens a pull request in `voxvanhieu/homebrew-tap`. The workflow requires a `HOMEBREW_TAP_TOKEN` Actions secret scoped to that repository.
+Before Homebrew Core acceptance, run the `Publish Homebrew tap formula` workflow after each stable release. It validates the source-building formula on Linux and macOS, then opens a pull request in `voxvanhieu/homebrew-tap`. The workflow requires a `HOMEBREW_TAP_TOKEN` Actions secret scoped to that repository. See `HOMEBREW_TAP.md` for setup and migration instructions.
 
 After the project meets Homebrew's acceptance requirements, run the `Prepare initial Homebrew Core formula` workflow. It requires a `HOMEBREW_CORE_TOKEN` Actions secret that can push to `voxvanhieu/homebrew-core`. Review the generated branch and open the pull request to `Homebrew/homebrew-core` manually. Coordinate its merge with the migration in the project tap. After acceptance, use Homebrew's standard `brew bump-formula-pr` process for version updates.
 
