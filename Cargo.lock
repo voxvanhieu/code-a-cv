@@ -227,16 +227,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f1fe948ff07f4bd06c30984e69f5b4899c516a3ef74f34df92a2df2ab535495"
 
 [[package]]
-name = "cac-check"
-version = "0.1.0"
-dependencies = [
- "cac-core",
- "cac-io",
- "serde",
-]
-
-[[package]]
-name = "cac-cli"
+name = "cac"
 version = "0.1.0"
 dependencies = [
  "assert_cmd",
@@ -250,6 +241,15 @@ dependencies = [
  "tempfile",
  "thiserror",
  "toml 1.1.4+spec-1.1.0",
+]
+
+[[package]]
+name = "cac-check"
+version = "0.1.0"
+dependencies = [
+ "cac-core",
+ "cac-io",
+ "serde",
 ]
 
 [[package]]

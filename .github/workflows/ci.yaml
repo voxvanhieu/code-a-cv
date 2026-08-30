@@ -58,7 +58,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@87eb139fed4b08a67bd1fa429a21d1f5d523e03e
         with:
           targets: ${{ matrix.target }}
-      - run: cargo build --release --locked --package cac-cli --target ${{ matrix.target }}
+      - run: cargo build --release --locked --package cac --target ${{ matrix.target }}
       - name: Smoke test
         shell: bash
         run: target/${{ matrix.target }}/release/${{ matrix.binary }} --version

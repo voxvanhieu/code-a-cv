@@ -15,8 +15,34 @@ env:
   FORMULA_PATH: Formula/c/code-a-cv.rb
 
 jobs:
+  eligibility:
+    name: Check Homebrew Core eligibility
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check self-submission notability
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          repository=$(gh api "repos/${GITHUB_REPOSITORY}")
+          stars=$(jq -r .stargazers_count <<<"${repository}")
+          forks=$(jq -r .forks_count <<<"${repository}")
+          watchers=$(jq -r .subscribers_count <<<"${repository}")
+
+          if (( stars >= 225 || forks >= 90 || watchers >= 90 )); then
+            exit 0
+          fi
+
+          echo "Homebrew Core requires a self-submitted repository to have at least 225 stars, 90 forks, or 90 watchers." >&2
+          echo "Current counts: ${stars} stars, ${forks} forks, and ${watchers} watchers." >&2
+          echo "See https://docs.brew.sh/Package-Acceptance-Policy#notability" >&2
+          exit 1
+
   formula:
     name: Generate formula
+    needs: eligibility
     runs-on: ubuntu-22.04
     steps:
       - name: Check out release sources
@@ -45,12 +71,12 @@ jobs:
           test "$(jq -r .isPrerelease <<<"${release}")" = false
 
           version=${TAG#v}
-          test "$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "cac-cli") | .version')" = "${version}"
+          test "$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "cac") | .version')" = "${version}"
 
           gh release download "${TAG}" --pattern source.tar.gz --dir release
           sha256=$(sha256sum release/source.tar.gz | cut -d ' ' -f 1)
           mkdir -p "$(dirname "${FORMULA_PATH}")"
-          ruby scripts/render-homebrew-core-formula.rb "${TAG}" "${sha256}" "${FORMULA_PATH}"
+          ruby scripts/render-homebrew-formula.rb "${TAG}" "${sha256}" "${FORMULA_PATH}"
 
           core_dir=$(brew --repository homebrew/core)
           cp "${FORMULA_PATH}" "${core_dir}/${FORMULA_PATH}"

@@ -16,18 +16,18 @@
 
 ### Install `cac`
 
-After the formula is accepted into Homebrew Core, install it on macOS or Linux:
+Install from the project Homebrew tap on macOS or Linux:
 
 ```console
-$ brew install code-a-cv
+$ brew install voxvanhieu/tap/code-a-cv
 ```
 
-Homebrew builds bottles for its supported platforms after the formula is accepted.
+The formula builds from the checksummed release source. See [`HOMEBREW_TAP.md`](HOMEBREW_TAP.md) for the tap setup and release process. After the formula moves to Homebrew Core, the tap migration will move existing installations to the official formula and the command will become `brew install code-a-cv`.
 
 To install from source, first install the Rust toolchain, then run:
 
 ```console
-$ cargo install --locked --git https://github.com/voxvanhieu/code-a-cv cac-cli
+$ cargo install --locked --git https://github.com/voxvanhieu/code-a-cv cac
 ```
 
 ### Create your first CV

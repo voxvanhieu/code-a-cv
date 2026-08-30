@@ -4,6 +4,20 @@ use assert_cmd::Command;
 use tempfile::tempdir;
 
 #[test]
+fn help_uses_cac_as_the_only_program_name() {
+    let output = Command::cargo_bin("cac")
+        .unwrap()
+        .arg("--help")
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    let help = String::from_utf8(output.stdout).unwrap();
+    assert!(help.contains("Usage: cac"));
+    assert!(!help.to_ascii_lowercase().contains("cli"));
+}
+
+#[test]
 fn init_and_build_html_work_without_configuration() {
     let directory = tempdir().unwrap();
     let input = directory.path().join("cv.md");

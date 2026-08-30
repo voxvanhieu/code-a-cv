@@ -19,7 +19,7 @@ formula = <<~RUBY
     depends_on "rust" => :build
 
     def install
-      system "cargo", "install", "--profile=dist", *std_cargo_args(path: "crates/cac-cli")
+      system "cargo", "install", "--profile=dist", *std_cargo_args(path: "crates/cac")
     end
 
     test do

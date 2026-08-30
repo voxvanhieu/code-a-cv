@@ -1,5 +1,5 @@
 [package]
-name = "cac-cli"
+name = "cac"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
