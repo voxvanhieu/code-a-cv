@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Removed
+
+* Removed the `cac schema` command and JSON Schema generation
+
 ## [0.1.1] - 2026-08-31
 
 ### Changed
