@@ -34,6 +34,28 @@ fn help_screens_match_snapshots() {
 }
 
 #[test]
+fn version_uses_lowercase_short_option() {
+    let expected = format!("cac {}\n", env!("CARGO_PKG_VERSION"));
+
+    for option in ["-v", "--version"] {
+        Command::cargo_bin("cac")
+            .unwrap()
+            .arg(option)
+            .assert()
+            .success()
+            .stdout(expected.clone())
+            .stderr("");
+    }
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .arg("-V")
+        .assert()
+        .code(2)
+        .stderr(predicates::str::contains("unexpected argument '-V'"));
+}
+
+#[test]
 fn build_rejects_json_as_an_output_format_with_syntax_status() {
     Command::cargo_bin("cac")
         .unwrap()

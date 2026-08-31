@@ -1,5 +1,5 @@
 use cac_io::InputFormat;
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{ArgAction, Parser, Subcommand, ValueEnum};
 
 use crate::commands::{build, check, convert, init, themes};
 use crate::error::Result;
@@ -8,10 +8,13 @@ use crate::error::Result;
 #[command(
     name = "cac",
     version,
+    disable_version_flag = true,
     about = "Code a CV helps you manage your CV(s) as Code: version-controlled, tailored per job requirement, and consistently formatted.",
     after_help = "Homepage: https://github.com/voxvanhieu/code-a-cv\nReport bugs: https://github.com/voxvanhieu/code-a-cv/issues"
 )]
 pub struct Cli {
+    #[arg(short = 'v', long = "version", action = ArgAction::Version, help = "Print version")]
+    version: Option<bool>,
     #[command(subcommand)]
     command: Command,
 }

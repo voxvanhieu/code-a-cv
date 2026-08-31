@@ -7,7 +7,7 @@
 [![Homebrew](https://img.shields.io/badge/Homebrew-voxvanhieu%2Ftap-yellow?logo=homebrew)](https://github.com/voxvanhieu/homebrew-tap)
 [![License](https://img.shields.io/github/license/voxvanhieu/code-a-cv)](LICENSE)
 
-Still naming it like `CV_ElonMusk_Facebook_final_v2.pdf`? Just focus on your work experience, mark it down, and let `cac` do the rest. That’s the idea behind CV as Code.
+Still naming it like `CV_ElonMusk_Facebook_final_v2.pdf`? Just focus on your work experiences, mark it down, and let `cac` do the rest. That’s the idea behind CV as Code.
 
 Code a CV turns structured files like Markdown into polished CVs, making it easy to manage versions, customize content for different roles, and export consistently without manual reformatting.
 
@@ -29,6 +29,29 @@ Install `cac` on macOS or Linux:
 ```sh
 brew install voxvanhieu/tap/code-a-cv
 ```
+
+<details>
+<summary>Other installations</summary>
+
+### Windows
+
+Winget support is planned but not published yet. For now, download `cac-x86_64-pc-windows-msvc.zip` from the [latest release](https://github.com/voxvanhieu/code-a-cv/releases/latest), extract `cac.exe`, and add its directory to `PATH`.
+
+### Linux
+
+The Homebrew command above also works on Linux. You can also build `cac` from source.
+
+### Install from source
+
+Install [Rust 1.92 or newer](https://rustup.rs/), then run:
+
+```sh
+git clone https://github.com/voxvanhieu/code-a-cv.git
+cd code-a-cv
+cargo install --path crates/cac --locked
+```
+
+</details>
 
 Create a CV:
 
