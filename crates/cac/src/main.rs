@@ -14,8 +14,6 @@ use thiserror::Error;
     about = "Compile a CV from Markdown or structured data"
 )]
 struct Args {
-    #[arg(long, global = true, help = "Write machine-readable command output")]
-    json: bool,
     #[command(subcommand)]
     command: Command,
 }
@@ -68,7 +66,6 @@ enum Command {
 enum OutputFormat {
     Pdf,
     Html,
-    Json,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -130,7 +127,7 @@ fn run(args: Args) -> Result<(), Error> {
                 cac_io::STARTER_MARKDOWN.into()
             };
             fs::write(&output, content)?;
-            print_result(args.json, "created", &output);
+            print_result("created", &output);
         }
         Command::Build {
             input,
@@ -156,21 +153,14 @@ fn run(args: Args) -> Result<(), Error> {
                         fs::write(&path, cac_render::render_html(&cv))?;
                         path
                     }
-                    OutputFormat::Json => {
-                        let path = output.join(format!("{stem}.json"));
-                        fs::write(&path, serde_json::to_vec_pretty(&cv)?)?;
-                        path
-                    }
                 };
-                print_result(args.json, "built", &path);
+                print_result("built", &path);
             }
         }
         Command::Check { input, strict } => {
             let cv = read_cv(&input)?;
             let diagnostics = check_content(&cv);
-            if args.json {
-                println!("{}", serde_json::to_string_pretty(&diagnostics)?);
-            } else if diagnostics.is_empty() {
+            if diagnostics.is_empty() {
                 println!("PASS");
             } else {
                 for diagnostic in &diagnostics {
@@ -200,17 +190,13 @@ fn run(args: Args) -> Result<(), Error> {
             };
             if let Some(path) = output {
                 fs::write(&path, content)?;
-                print_result(args.json, "created", &path);
+                print_result("created", &path);
             } else {
                 println!("{content}");
             }
         }
         Command::Themes => {
-            if args.json {
-                println!("[\"classic\"]");
-            } else {
-                println!("classic (embedded)");
-            }
+            println!("classic (embedded)");
         }
     }
     Ok(())
@@ -227,14 +213,6 @@ fn read_cv(path: &Path) -> Result<cac_core::CvDocument, Error> {
     Ok(parse(&source, format)?)
 }
 
-fn print_result(json: bool, action: &str, path: &Path) {
-    if json {
-        println!(
-            "{{\"action\":\"{action}\",\"path\":{}}}",
-            serde_json::to_string(&path.display().to_string())
-                .expect("a path string is valid JSON")
-        );
-    } else {
-        println!("{} {}", action.to_ascii_uppercase(), path.display());
-    }
+fn print_result(action: &str, path: &Path) {
+    println!("{} {}", action.to_ascii_uppercase(), path.display());
 }

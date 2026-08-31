@@ -40,12 +40,10 @@ The finished PDF is `dist/cv.pdf`.
 | Command | Description |
 |---|---|
 | `cac init [--from resume.json]` | Create a starter CV or import JSON Resume data |
-| `cac build [INPUT]` | Validate and render a CV |
+| `cac build [INPUT]` | Validate and render a CV as PDF or HTML |
 | `cac check [INPUT] [--strict]` | Check source content |
 | `cac convert <IN> --to <FORMAT>` | Convert supported input formats |
 | `cac themes` | List embedded themes |
-
-Use `--json` for machine-readable output.
 
 ## Examples
 
