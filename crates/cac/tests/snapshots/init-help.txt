@@ -1,0 +1,14 @@
+Create a starter CV or import JSON Resume data
+
+Usage: cac init [OPTIONS]
+
+Options:
+      --from <FILE>    Import a JSON Resume file; use - for stdin
+  -o, --output <FILE>  Write the Markdown CV to FILE; use - for stdout [default: cv.md]
+      --force          Replace an existing output file
+  -h, --help           Print help
+
+Examples:
+  cac init
+  cac init --from resume.json -o cv.md
+  cac init -o -

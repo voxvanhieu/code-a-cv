@@ -1,0 +1,16 @@
+Check CV content
+
+Usage: cac check [OPTIONS] [FILE]
+
+Arguments:
+  [FILE]  Read a CV source file; use - for stdin [default: cv.md]
+
+Options:
+      --input-format <FORMAT>  Set the input format; stdin defaults to markdown [possible values: markdown, yaml, json, toml, jsonresume]
+      --strict                 Fail when any diagnostic is reported
+  -h, --help                   Print help
+
+Examples:
+  cac check
+  cac check cv.json --strict
+  cat cv.md | cac check -

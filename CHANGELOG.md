@@ -6,6 +6,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+
+* Added standard input support to `build`, `check`, and `convert`
+* Added standard output support to `init` and explicit `convert -o -`
+* Added complete command help, examples, and input format selection
+
+### Changed
+
+* Made `check` print a final `PASS` or `FAIL`
+* Documented output replacement rules and exit statuses
+
 ### Removed
 
 * Removed the `cac schema` command and JSON Schema generation
