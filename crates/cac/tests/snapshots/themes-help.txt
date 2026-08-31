@@ -1,0 +1,9 @@
+List embedded themes
+
+Usage: cac themes
+
+Options:
+  -h, --help  Print help
+
+Example:
+  cac themes

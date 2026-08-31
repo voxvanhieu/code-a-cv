@@ -1,0 +1,17 @@
+Convert a CV to another source format
+
+Usage: cac convert [OPTIONS] --to <FORMAT> <FILE>
+
+Arguments:
+  <FILE>  Read a CV source file; use - for stdin
+
+Options:
+      --input-format <FORMAT>  Set the input format; stdin defaults to markdown [possible values: markdown, yaml, json, toml, jsonresume]
+      --to <FORMAT>            Set the output format [possible values: markdown, yaml, json, toml, jsonresume]
+  -o, --output <FILE>          Write to FILE, replacing it if present; defaults to stdout
+  -h, --help                   Print help
+
+Examples:
+  cac convert cv.md --to json
+  cac convert cv.yaml --to markdown -o cv.md
+  cat cv.json | cac convert - --input-format json --to toml
