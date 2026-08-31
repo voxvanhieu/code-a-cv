@@ -1,15 +1,17 @@
 # Code a CV
 
-Code a CV helps you manage your CV(s) as Code. Leverage source control to track every change and never lose a version again, tailor your CV to match different job requirements without duplicating work, and let automated formatting keep every version polished and consistent — no manual reformatting, ever.
+Still naming it like `CV_ElonMusk_Facebook_final_v2.pdf`? Just focus on your work experience, mark it down, and let `cac` do the rest. That’s the idea behind CV as Code.
 
-## What it provides today
+Code a CV turns structured files like Markdown into polished CVs, making it easy to manage versions, customize content for different roles, and export consistently without manual reformatting.
 
-* PDF/A-2b and self-contained HTML output from one CV source file
-* Markdown source that mirrors the visible CV sections
-* Rich text for links, emphasis, and code without renderer-specific escaping
-* JSON Resume import and export
-* Deterministic PDF output
-* Seven source checks for contact details, empty sections, highlights, first-person pronouns, and date consistency
+## What it supports
+
+* Write your CV in Markdown, YAML, JSON, TOML, or [JSON Resume](https://jsonresume.org/)
+* Export your CV as PDF or HTML
+* CV variants based on the job requirements
+* Auto format with theme
+* Check for missing contact details, empty sections, weak highlights, first-person wording, and inconsistent dates *(no LLM)*
+* Rebuild the same PDF consistently
 
 ## Quick start
 
@@ -45,31 +47,27 @@ The finished PDF is `dist/cv.pdf`.
 | `cac convert <FILE> --to <FORMAT>` | Convert supported input formats |
 | `cac themes` | List embedded themes |
 
-## Command-line behavior
-
-`cac` writes operational messages for people. JSON is a CV document format, not a command-output protocol. Use `cac convert cv.md --to json` to write the native JSON representation or `--to jsonresume` to export JSON Resume data.
-
-`build`, `check`, and `convert` accept `-` as standard input. Standard input is treated as Markdown unless `--input-format markdown|yaml|json|toml|jsonresume` is supplied. `convert` writes to standard output when `--output` is omitted or set to `-`. `init -o -` writes the starter or imported Markdown to standard output.
-
-`init` refuses to replace a file unless `--force` is supplied. `build` replaces artifacts with the same names in its output directory, and `convert -o FILE` replaces `FILE`.
-
-Exit status `0` means success, `1` means a runtime, parsing, rendering, or check failure, and `2` means invalid command syntax. `check` prints a final `PASS` or `FAIL`; `--strict` makes any diagnostic fail the command.
-
-The current interface does not include verbosity or color controls. They should only be added when commands produce enough variable detail to require them.
-
 ## Examples
 
 See [`examples/`](examples/) for Markdown, YAML, JSON, TOML, and JSON Resume files.
 
 ## Development
 
-```console
-$ cargo fmt --all --check
-$ cargo test --workspace
-$ cargo clippy --all-features --all-targets -- -D warnings
-```
+See the [development guide](docs/development/README.md) for setup, architecture, testing, pull requests, and releases.
 
-See the [development guide](docs/development/README.md) for details.
+## Roadmap
+
+* [x] Markdown and structured data input
+* [x] PDF and HTML output
+* [x] JSON Resume import and export
+* [x] CV content checks
+* [x] Cross-platform releases
+* [ ] More themes
+* [ ] Rebuild automatically when files change
+* [ ] Create job-specific CV versions with tags
+* [ ] Fit a CV to a page limit
+* [ ] Check the rendered PDF for missing content
+* [ ] WebAssembly support
 
 ## License
 
