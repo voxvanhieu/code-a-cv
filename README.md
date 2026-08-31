@@ -1,8 +1,17 @@
 # Code a CV
 
+[![CI](https://github.com/voxvanhieu/code-a-cv/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/voxvanhieu/code-a-cv/actions/workflows/ci.yaml)
+[![Latest release](https://img.shields.io/github/v/release/voxvanhieu/code-a-cv?label=release)](https://github.com/voxvanhieu/code-a-cv/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/voxvanhieu/code-a-cv/total)](https://github.com/voxvanhieu/code-a-cv/releases)
+[![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Linux%20%7C%20Windows-blue)](https://github.com/voxvanhieu/code-a-cv/releases/latest)
+[![Homebrew](https://img.shields.io/badge/Homebrew-voxvanhieu%2Ftap-yellow?logo=homebrew)](https://github.com/voxvanhieu/homebrew-tap)
+[![License](https://img.shields.io/github/license/voxvanhieu/code-a-cv)](LICENSE)
+
 Still naming it like `CV_ElonMusk_Facebook_final_v2.pdf`? Just focus on your work experience, mark it down, and let `cac` do the rest. That’s the idea behind CV as Code.
 
 Code a CV turns structured files like Markdown into polished CVs, making it easy to manage versions, customize content for different roles, and export consistently without manual reformatting.
+
+> ⭐ Your [star](https://github.com/voxvanhieu/code-a-cv) can help make Code a CV better
 
 ## What it supports
 
@@ -53,9 +62,11 @@ See [`examples/`](examples/) for Markdown, YAML, JSON, TOML, and JSON Resume fil
 
 ## Development
 
+[![Rust 1.92+](https://img.shields.io/badge/Rust-1.92%2B-orange?logo=rust)](Cargo.toml)
+
 See the [development guide](docs/development/README.md) for setup, architecture, testing, pull requests, and releases.
 
-## Roadmap
+## Todo list
 
 * [x] Markdown and structured data input
 * [x] PDF and HTML output
@@ -68,6 +79,8 @@ See the [development guide](docs/development/README.md) for setup, architecture,
 * [ ] Fit a CV to a page limit
 * [ ] Check the rendered PDF for missing content
 * [ ] WebAssembly support
+* [ ] Stunning local Web UI with Tauri
+* [ ] VS Code extension
 
 ## License
 
