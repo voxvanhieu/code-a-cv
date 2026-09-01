@@ -82,7 +82,7 @@ jobs:
           cp "${FORMULA_PATH}" "${core_dir}/Formula/c/code-a-cv.rb"
           HOMEBREW_NO_INSTALL_FROM_API=1 brew install --build-from-source code-a-cv
           brew test code-a-cv
-          brew audit --new --strict code-a-cv
+          brew audit --strict code-a-cv
           brew style "${core_dir}/Formula/c/code-a-cv.rb"
 
   publish:
