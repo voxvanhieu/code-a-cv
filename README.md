@@ -61,7 +61,7 @@ cd my-cv
 cac init
 ```
 
-This creates `cv.md` and `settings.json`. The settings select the embedded `classic` theme. Edit `cv.md`, then build it:
+This creates `cv.md` and `settings.json`. The settings identify `cv.md` as the root CV and select the embedded `classic` theme. Edit `cv.md`, then build it:
 
 ```sh
 cac build
@@ -81,7 +81,7 @@ The finished PDF is `dist/cv.pdf`.
 | `cac themes install <THEME> [--local]` | Install an embedded theme |
 | `cac themes remove <THEME> [--local]` | Remove an installed theme |
 
-Put common PDF formatting overrides in `settings.json` beside the CV. Use a project-local theme under `.cac/themes/<name>/theme.typ` for structural customization. See the [theme architecture](docs/development/theme-architecture.md) for the supported settings and theme API.
+The `root` property in `settings.json` selects the CV source used by `cac build` when no file is provided. This avoids ambiguity when a directory contains several supported CV files. Put common PDF formatting overrides in the same file. Use a project-local theme under `.cac/themes/<name>/theme.typ` for structural customization. See the [theme architecture](docs/development/theme-architecture.md) for the supported settings and theme API.
 
 ## Examples
 

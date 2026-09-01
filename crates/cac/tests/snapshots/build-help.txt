@@ -3,7 +3,7 @@ Validate and render a CV as PDF or HTML
 Usage: cac build [OPTIONS] [FILE]
 
 Arguments:
-  [FILE]  Read a CV source file; use - for stdin [default: cv.md]
+  [FILE]  Read a CV source file; defaults to settings.json root, then cv.md; use - for stdin
 
 Options:
       --input-format <FORMAT>  Set the input format; stdin defaults to markdown [possible values: markdown, yaml, json, toml, jsonresume]

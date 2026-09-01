@@ -10,6 +10,8 @@ pub const DEFAULT_THEME: &str = "classic";
 #[serde(default, deny_unknown_fields)]
 pub struct Settings {
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub root: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub theme: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub paper: Option<String>,
@@ -51,6 +53,8 @@ pub enum SettingsError {
     Paper(String),
     #[error("invalid `font` value; expected a non-empty font family")]
     Font,
+    #[error("invalid `root` value `{0}`; expected a CV file name without directory components")]
+    Root(String),
 }
 
 impl Settings {
@@ -67,6 +71,11 @@ impl Settings {
     }
 
     pub fn validate(settings: Self) -> Result<Self, SettingsError> {
+        if let Some(root) = &settings.root
+            && !valid_root(root)
+        {
+            return Err(SettingsError::Root(root.clone()));
+        }
         if let Some(theme) = &settings.theme {
             validate_theme_name(theme)?;
         }
@@ -105,6 +114,10 @@ impl Settings {
     pub fn theme_name(&self) -> &str {
         self.theme.as_deref().unwrap_or(DEFAULT_THEME)
     }
+}
+
+fn valid_root(root: &str) -> bool {
+    !root.is_empty() && !matches!(root, "." | "..") && !root.contains(['/', '\\'])
 }
 
 pub fn validate_theme_name(name: &str) -> Result<(), SettingsError> {

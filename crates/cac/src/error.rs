@@ -25,6 +25,10 @@ pub enum Error {
     Exists(PathBuf),
     #[error("{0} is reserved for theme settings; choose another CV output path")]
     SettingsOutput(PathBuf),
+    #[error("cac init requires a file output; standard output is not supported")]
+    InitStdout,
+    #[error("CV output `{0}` must have a UTF-8 file name for settings.json")]
+    CvFileName(PathBuf),
     #[error("input path `{0}` has no supported extension")]
     Unsupported(PathBuf),
     #[error("CV checks failed")]

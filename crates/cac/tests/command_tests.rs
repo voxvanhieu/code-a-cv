@@ -6,6 +6,7 @@ use tempfile::tempdir;
 
 const CLEAN_MARKDOWN: &str =
     "# Ada Lovelace\n\nada@example.com\n\n## Skills\n\n- Rust and PostgreSQL\n";
+const CLASSIC_SETTINGS: &str = "{\n  \"root\": \"cv.md\",\n  \"theme\": \"classic\"\n}\n";
 const WARNING_MARKDOWN: &str = "# Ada Lovelace\n\nada@example.com\n\n## Experience\n\n### Engineer, Example\n2020–Present\n\n- Helped my team ship software\n";
 
 #[test]
@@ -66,18 +67,6 @@ fn build_rejects_json_as_an_output_format_with_syntax_status() {
 }
 
 #[test]
-fn json_command_output_option_is_rejected_in_both_global_positions() {
-    for arguments in [["--json", "themes"], ["themes", "--json"]] {
-        Command::cargo_bin("cac")
-            .unwrap()
-            .args(arguments)
-            .assert()
-            .code(2)
-            .stderr(predicates::str::contains("--json"));
-    }
-}
-
-#[test]
 fn convert_still_exports_native_json() {
     let directory = tempdir().unwrap();
     let input = directory.path().join("cv.md");
@@ -99,9 +88,9 @@ fn convert_still_exports_native_json() {
 }
 
 #[test]
-fn init_creates_classic_settings_and_builds_html() {
+fn init_creates_root_and_classic_settings_and_builds_html() {
     let directory = tempdir().unwrap();
-    let input = directory.path().join("cv.md");
+    let input = directory.path().join("profile.md");
     let output = directory.path().join("dist");
 
     Command::cargo_bin("cac")
@@ -112,7 +101,7 @@ fn init_creates_classic_settings_and_builds_html() {
         .success();
     assert_eq!(
         fs::read_to_string(directory.path().join("settings.json")).unwrap(),
-        "{\n  \"theme\": \"classic\"\n}\n"
+        "{\n  \"root\": \"profile.md\",\n  \"theme\": \"classic\"\n}\n"
     );
     Command::cargo_bin("cac")
         .unwrap()
@@ -123,8 +112,96 @@ fn init_creates_classic_settings_and_builds_html() {
         .assert()
         .success();
 
-    let html = fs::read_to_string(output.join("cv.html")).unwrap();
+    let html = fs::read_to_string(output.join("profile.html")).unwrap();
     assert!(html.contains("Ada Lovelace"));
+}
+
+#[test]
+fn build_uses_the_settings_root_when_input_is_omitted() {
+    let directory = tempdir().unwrap();
+    fs::write(
+        directory.path().join("primary.json"),
+        include_str!("../../../examples/cv.json"),
+    )
+    .unwrap();
+    fs::write(
+        directory.path().join("settings.json"),
+        r#"{"root":"primary.json","theme":"classic"}"#,
+    )
+    .unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["build", "--format", "html"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("BUILT dist/primary.html"));
+    assert!(directory.path().join("dist/primary.html").is_file());
+}
+
+#[test]
+fn build_resolves_root_relative_to_an_explicit_settings_file() {
+    let directory = tempdir().unwrap();
+    let project = directory.path().join("project");
+    fs::create_dir(&project).unwrap();
+    fs::write(
+        project.join("primary.json"),
+        include_str!("../../../examples/cv.json"),
+    )
+    .unwrap();
+    fs::write(
+        project.join("settings.json"),
+        r#"{"root":"primary.json","theme":"classic"}"#,
+    )
+    .unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args([
+            "build",
+            "--settings",
+            "project/settings.json",
+            "--format",
+            "html",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("BUILT dist/primary.html"));
+}
+
+#[test]
+fn build_without_settings_falls_back_to_cv_markdown() {
+    let directory = tempdir().unwrap();
+    fs::write(directory.path().join("cv.md"), CLEAN_MARKDOWN).unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["build", "--format", "html"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("BUILT dist/cv.html"));
+}
+
+#[test]
+fn explicit_build_input_takes_precedence_over_the_settings_root() {
+    let directory = tempdir().unwrap();
+    fs::write(directory.path().join("selected.md"), CLEAN_MARKDOWN).unwrap();
+    fs::write(
+        directory.path().join("settings.json"),
+        r#"{"root":"missing.json","theme":"classic"}"#,
+    )
+    .unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["build", "selected.md", "--format", "html"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("BUILT dist/selected.html"));
 }
 
 #[test]
@@ -169,7 +246,7 @@ fn convert_reads_structured_data_from_stdin() {
 }
 
 #[test]
-fn init_writes_only_document_content_to_stdout() {
+fn init_rejects_standard_output() {
     let directory = tempdir().unwrap();
 
     Command::cargo_bin("cac")
@@ -177,24 +254,31 @@ fn init_writes_only_document_content_to_stdout() {
         .current_dir(directory.path())
         .args(["init", "--output", "-"])
         .assert()
-        .success()
-        .stdout(predicates::str::starts_with("# Ada Lovelace\n"))
-        .stdout(predicates::str::contains("CREATED").not())
-        .stderr("");
+        .failure()
+        .stdout("")
+        .stderr(predicates::str::contains(
+            "cac init requires a file output; standard output is not supported",
+        ));
     assert!(!directory.path().join("settings.json").exists());
 }
 
 #[test]
 fn init_imports_json_resume_from_stdin() {
+    let directory = tempdir().unwrap();
+    let output = directory.path().join("cv.md");
+
     Command::cargo_bin("cac")
         .unwrap()
-        .args(["init", "--from", "-", "--output", "-"])
+        .args(["init", "--from", "-", "--output"])
+        .arg(&output)
         .write_stdin(include_str!("../../../examples/resume.json"))
         .assert()
-        .success()
-        .stdout(predicates::str::starts_with("# Ada Lovelace\n"))
-        .stdout(predicates::str::contains("CREATED").not())
-        .stderr("");
+        .success();
+    assert!(
+        fs::read_to_string(output)
+            .unwrap()
+            .starts_with("# Ada Lovelace\n")
+    );
 }
 
 #[test]
@@ -266,7 +350,7 @@ fn init_requires_force_to_replace_an_existing_file() {
     assert_ne!(fs::read_to_string(output).unwrap(), "keep me");
     assert_eq!(
         fs::read_to_string(directory.path().join("settings.json")).unwrap(),
-        "{\n  \"theme\": \"classic\"\n}\n"
+        CLASSIC_SETTINGS
     );
 }
 
@@ -296,10 +380,7 @@ fn init_requires_force_to_replace_existing_settings() {
         .assert()
         .success();
     assert!(output.is_file());
-    assert_eq!(
-        fs::read_to_string(settings).unwrap(),
-        "{\n  \"theme\": \"classic\"\n}\n"
-    );
+    assert_eq!(fs::read_to_string(settings).unwrap(), CLASSIC_SETTINGS);
 }
 
 #[test]

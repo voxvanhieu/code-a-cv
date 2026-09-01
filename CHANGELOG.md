@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Removed
+
+* Removed standard output support from `cac init`
+
 ## [0.2.0]
 
 ### Added
@@ -19,7 +23,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Changed
 
 * Made `check` print a final `PASS` or `FAIL`
-* Made `cac init` create `settings.json` with the embedded `classic` theme selected
+* Made `cac init` create `settings.json` with the root CV and embedded `classic` theme selected
+* Made `cac build` resolve an omitted input from the `root` settings property
 * Split theme definitions into design tokens, semantic styles, and page configuration
 * Documented output replacement rules and exit statuses
 
@@ -27,7 +32,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 * Removed the `cac schema` command and JSON Schema generation
 * Removed JSON from `cac build --format`; use `cac convert --to json` instead
-* Removed the global `--json` command-output option
 
 ## [0.1.1] - 2026-08-31
 

@@ -3,7 +3,7 @@ Code a CV helps you manage your CV(s) as Code: version-controlled, tailored per 
 Usage: cac <COMMAND>
 
 Commands:
-  init     Create a starter CV or import JSON Resume data
+  init     Create a starter CV and settings or import JSON Resume data
   build    Validate and render a CV as PDF or HTML
   check    Check CV content
   convert  Convert a CV to another source format

@@ -92,6 +92,20 @@ fn settings_reject_unknown_properties_and_invalid_values() {
             .contains("invalid theme name")
     );
 
+    for root in ["", ".", "..", "../cv.md", "nested/cv.md", r"nested\cv.md"] {
+        fs::write(
+            &path,
+            serde_json::to_vec(&serde_json::json!({ "root": root })).unwrap(),
+        )
+        .unwrap();
+        assert!(
+            Settings::from_path(&path)
+                .unwrap_err()
+                .to_string()
+                .contains("invalid `root`")
+        );
+    }
+
     fs::write(&path, r#"{"font_size":"large"}"#).unwrap();
     assert!(
         Settings::from_path(&path)
@@ -320,6 +334,7 @@ fn classic_typography_accepts_equivalent_settings_overrides() {
         &cv,
         &RenderOptions {
             settings: Settings {
+                root: Some("cv.md".into()),
                 paper: Some("us-letter".into()),
                 page_margin: Some("12.7mm".into()),
                 font: Some("New Computer Modern".into()),

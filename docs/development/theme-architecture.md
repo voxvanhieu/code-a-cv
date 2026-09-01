@@ -4,7 +4,7 @@
 
 The rendering architecture should provide a complete default CV while allowing users to customize it at two levels:
 
-* Use `settings.json` for a small set of common formatting values
+* Use `settings.json` to identify the root CV and set common formatting values
 * Use a Typst theme for structural and advanced visual customization
 * Build without configuration by using the embedded `classic` theme
 * Produce the same result without depending on fonts installed on the operating system
@@ -43,7 +43,7 @@ my-cv/
             └── fonts/
 ```
 
-Only the CV source file is required. When `settings.json` is absent, `cac` uses the embedded `classic` theme and its defaults.
+Only the CV source file is required. When `settings.json` is absent, `cac build` reads `cv.md` by default and uses the embedded `classic` theme and its defaults.
 
 ## Settings
 
@@ -51,6 +51,7 @@ The selected theme is stored in `settings.json`:
 
 ```json
 {
+  "root": "cv.md",
   "theme": "oxford",
   "paper": "a4",
   "page_margin": "18mm",
@@ -67,6 +68,7 @@ The supported settings should remain small and stable:
 
 | Setting | Purpose |
 |---|---|
+| `root` | Select the CV file used when `cac build` has no explicit input |
 | `theme` | Select a theme by name |
 | `paper` | Set the page format, such as `a4` or `us-letter` |
 | `page_margin` | Set a uniform page margin |
@@ -77,7 +79,9 @@ The supported settings should remain small and stable:
 | `section_spacing` | Set spacing between sections |
 | `entry_spacing` | Set spacing between CV entries |
 
-Missing properties inherit from the selected theme. Unknown properties and invalid values must produce clear errors instead of being ignored. Per-heading sizes and spacing remain theme properties because the flat settings intentionally describe only the common document defaults.
+`root` must be a file name in the same directory as `settings.json`. An explicit input such as `cac build cv.json` takes precedence. When `root` is absent, `cac build` reads `cv.md` for compatibility.
+
+Missing formatting properties inherit from the selected theme. Unknown properties and invalid values must produce clear errors instead of being ignored. Per-heading sizes and spacing remain theme properties because the flat settings intentionally describe only the common document defaults.
 
 Advanced customization belongs in `theme.typ`. This includes asymmetric margins, header layouts, date-column widths, custom markers, section rules, and component-specific typography.
 
