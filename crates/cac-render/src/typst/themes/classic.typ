@@ -49,7 +49,7 @@
     fonts: (body: "New Computer Modern", heading: "New Computer Modern"),
   ),
   styles: (
-    body: (font_size: 10pt, justify: false),
+    body: (font_size: 10pt),
     heading_1: (font_size: 24pt),
     heading_2: (font_size: 12pt, weight: "regular"),
     heading_3: (font_size: 10pt),
