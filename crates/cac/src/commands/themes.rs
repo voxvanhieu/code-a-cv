@@ -10,6 +10,7 @@ use crate::error::{Error, Result};
 
 const DEFAULT_REGISTRY: &str = "https://raw.githubusercontent.com/voxvanhieu/code-a-cv/main/themes";
 const REGISTRY_ENV: &str = "CAC_THEME_REGISTRY";
+const SYSTEM_THEME_NAMES: &[&str] = &["classic", "classic-left", "base", "main"];
 
 pub const ABOUT: &str = "Find, install, and manage themes";
 pub const AFTER_HELP: &str = "Examples:\n  cac themes list\n  cac themes search blue\n  cac themes info classic-blue\n  cac themes install classic-blue --local\n  cac themes remove classic-blue --local";
@@ -28,7 +29,7 @@ enum Command {
     Search(SearchArgs),
     /// Show a downloadable theme's metadata
     Info(ThemeArgs),
-    /// Install an embedded or downloadable theme
+    /// Install a downloadable theme
     Install(InstallArgs),
     /// Remove an installed theme
     Remove(LocationArgs),
@@ -167,19 +168,16 @@ fn info(args: ThemeArgs) -> Result<()> {
 fn install(args: InstallArgs) -> Result<()> {
     let name = &args.location.theme;
     cac_render::validate_theme_name(name)?;
+    if SYSTEM_THEME_NAMES.contains(&name.as_str()) {
+        return Err(Error::SystemThemeName(name.clone()));
+    }
     let root = selected_root(args.location.local)?;
     let directory = root.join(name);
     if directory.exists() && !args.force {
         return Err(Error::Exists(directory));
     }
 
-    if let Some(source) = cac_render::embedded_theme_source(name) {
-        replace_directory(&directory, args.force)?;
-        fs::create_dir_all(&directory)?;
-        fs::write(directory.join("theme.typ"), source)?;
-    } else {
-        install_downloadable(name, &directory, args.force)?;
-    }
+    install_downloadable(name, &directory, args.force)?;
     println!(
         "INSTALLED {} ({})",
         name,

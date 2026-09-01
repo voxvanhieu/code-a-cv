@@ -12,6 +12,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 * Added a checksummed downloadable theme registry with `search`, `info`, and remote `install` commands
 * Added the downloadable `classic-blue` theme
 
+### Changed
+
+* Reserved the system theme names `classic`, `classic-left`, `base`, and `main` from installation
+
 ### Removed
 
 * Removed standard output support from `cac init`

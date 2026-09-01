@@ -39,6 +39,8 @@ pub enum Error {
     HomeDirectory,
     #[error("theme `{0}` is not available in the downloadable theme registry")]
     DownloadableTheme(String),
+    #[error("theme name `{0}` is reserved by cac and cannot be installed")]
+    SystemThemeName(String),
     #[error("theme registry error: {0}")]
     ThemeRegistry(String),
     #[error("downloaded theme `{theme}` file `{path}` failed checksum verification")]

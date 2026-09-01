@@ -518,47 +518,56 @@ fn build_reads_settings_beside_the_cv_and_reports_the_theme() {
 }
 
 #[test]
-fn themes_install_list_and_remove_locally() {
+fn themes_install_rejects_system_theme_names() {
     let directory = tempdir().unwrap();
 
-    Command::cargo_bin("cac")
-        .unwrap()
-        .current_dir(directory.path())
-        .args(["themes", "install", "classic", "--local"])
-        .assert()
-        .success()
-        .stdout("INSTALLED classic (project)\n");
+    for theme in ["classic", "classic-left", "base", "main"] {
+        Command::cargo_bin("cac")
+            .unwrap()
+            .current_dir(directory.path())
+            .args(["themes", "install", theme, "--local"])
+            .assert()
+            .code(1)
+            .stdout("")
+            .stderr(format!(
+                "error: theme name `{theme}` is reserved by cac and cannot be installed\n"
+            ));
+        assert!(!directory.path().join(".cac/themes").join(theme).exists());
+    }
+
     Command::cargo_bin("cac")
         .unwrap()
         .current_dir(directory.path())
         .args(["themes", "list"])
         .assert()
         .success()
-        .stdout(predicates::str::contains("classic (embedded, project)"))
+        .stdout(predicates::str::contains("classic (embedded)"))
         .stdout(predicates::str::contains("classic-left (embedded)"));
+}
+
+#[test]
+fn themes_list_and_remove_a_local_theme() {
+    let directory = tempdir().unwrap();
+    let theme = directory.path().join(".cac/themes/custom");
+    fs::create_dir_all(&theme).unwrap();
+    fs::write(theme.join("theme.typ"), "#let theme = (:)").unwrap();
+
     Command::cargo_bin("cac")
         .unwrap()
         .current_dir(directory.path())
-        .args(["themes", "remove", "classic", "--local"])
+        .args(["themes", "list"])
         .assert()
         .success()
-        .stdout("REMOVED classic (project)\n");
-
-    assert!(!directory.path().join(".cac/themes/classic").exists());
-
+        .stdout(predicates::str::contains("custom (project)"));
     Command::cargo_bin("cac")
         .unwrap()
         .current_dir(directory.path())
-        .args(["themes", "install", "classic-left", "--local"])
+        .args(["themes", "remove", "custom", "--local"])
         .assert()
         .success()
-        .stdout("INSTALLED classic-left (project)\n");
-    assert!(
-        directory
-            .path()
-            .join(".cac/themes/classic-left/theme.typ")
-            .is_file()
-    );
+        .stdout("REMOVED custom (project)\n");
+
+    assert!(!theme.exists());
 }
 
 #[test]
