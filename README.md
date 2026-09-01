@@ -85,7 +85,11 @@ The finished PDF is `dist/cv.pdf`.
 
 The `root` property in `settings.json` selects the CV source used by `cac build` when no file is provided. This avoids ambiguity when a directory contains several supported CV files. Put common PDF formatting overrides in the same file. Use a project-local theme under `.cac/themes/<name>/theme.typ` for structural customization. See the [theme architecture](docs/development/theme-architecture.md) for the supported settings and theme API, and [`themes/`](themes/) for the contribution process.
 
-The theme names `classic`, `classic-left`, `base`, and `main` are reserved by `cac` and cannot be installed. The `classic` and `classic-left` themes are embedded and available without installation.
+The theme names `classic`, `base`, and `main` are reserved by `cac` and cannot be installed. The default `classic` theme is embedded and available without installation. Install `classic-left` from the downloadable theme registry when needed.
+
+## Contribute your theme
+
+Add a theme directory with `theme.typ` and `theme.json`, register it in `themes/index.json`, and include SHA-256 checksums for every downloadable file. See the [theme contribution guide](themes/README.md) for the Theme API contract, manifest format, validation rules, and local testing commands.
 
 ## Examples
 

@@ -1,4 +1,4 @@
-#import "base.typ" as base
+#import "/.cac/base.typ" as base
 
 #let header(ctx) = {
   (ctx.components.heading)(ctx, 1, [#ctx.cv.profile.name])

@@ -521,7 +521,7 @@ fn build_reads_settings_beside_the_cv_and_reports_the_theme() {
 fn themes_install_rejects_system_theme_names() {
     let directory = tempdir().unwrap();
 
-    for theme in ["classic", "classic-left", "base", "main"] {
+    for theme in ["classic", "base", "main"] {
         Command::cargo_bin("cac")
             .unwrap()
             .current_dir(directory.path())
@@ -542,7 +542,7 @@ fn themes_install_rejects_system_theme_names() {
         .assert()
         .success()
         .stdout(predicates::str::contains("classic (embedded)"))
-        .stdout(predicates::str::contains("classic-left (embedded)"));
+        .stdout(predicates::str::contains("classic-left").not());
 }
 
 #[test]
@@ -626,6 +626,27 @@ fn themes_search_info_install_and_build_from_a_registry() {
         .success()
         .stdout(predicates::str::contains("THEME classic-blue (project)"));
     assert!(directory.path().join("dist/cv.pdf").is_file());
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .env("CAC_THEME_REGISTRY", &registry)
+        .args(["themes", "install", "classic-left", "--local"])
+        .assert()
+        .success()
+        .stdout("INSTALLED classic-left (project)\n");
+    fs::write(
+        directory.path().join("settings.json"),
+        r#"{"root":"cv.md","theme":"classic-left"}"#,
+    )
+    .unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["build"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("THEME classic-left (project)"));
 }
 
 #[test]

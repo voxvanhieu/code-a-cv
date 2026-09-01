@@ -10,7 +10,7 @@ use crate::error::{Error, Result};
 
 const DEFAULT_REGISTRY: &str = "https://raw.githubusercontent.com/voxvanhieu/code-a-cv/main/themes";
 const REGISTRY_ENV: &str = "CAC_THEME_REGISTRY";
-const SYSTEM_THEME_NAMES: &[&str] = &["classic", "classic-left", "base", "main"];
+const SYSTEM_THEME_NAMES: &[&str] = &["classic", "base", "main"];
 
 pub const ABOUT: &str = "Find, install, and manage themes";
 pub const AFTER_HELP: &str = "Examples:\n  cac themes list\n  cac themes search blue\n  cac themes info classic-blue\n  cac themes install classic-blue --local\n  cac themes remove classic-blue --local";

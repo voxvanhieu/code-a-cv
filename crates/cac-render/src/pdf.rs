@@ -20,14 +20,12 @@ use crate::{Settings, SettingsError, format_date, validate_theme_name};
 const MAIN_TYP: &str = include_str!("typst/main.typ");
 const BASE_TYP: &str = include_str!("typst/base.typ");
 const CLASSIC_TYP: &str = include_str!("typst/themes/classic.typ");
-const CLASSIC_LEFT_TYP: &str = include_str!("typst/themes/classic-left.typ");
 
-pub const EMBEDDED_THEME_NAMES: &[&str] = &["classic", "classic-left"];
+pub const EMBEDDED_THEME_NAMES: &[&str] = &["classic"];
 
 pub fn embedded_theme_source(name: &str) -> Option<&'static str> {
     match name {
         "classic" => Some(CLASSIC_TYP),
-        "classic-left" => Some(CLASSIC_LEFT_TYP),
         _ => None,
     }
 }

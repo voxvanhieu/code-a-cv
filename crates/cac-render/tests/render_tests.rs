@@ -353,11 +353,18 @@ fn classic_typography_accepts_equivalent_settings_overrides() {
 }
 
 #[test]
-fn classic_left_is_an_embedded_theme() {
+fn classic_left_can_be_rendered_as_an_installed_theme() {
+    let directory = tempdir().unwrap();
+    write_theme(
+        directory.path(),
+        "classic-left",
+        include_str!("../../../themes/classic-left/theme.typ"),
+    );
     let cv = parse(STARTER_MARKDOWN, InputFormat::Markdown).unwrap();
     let rendered = render_pdf_with_options(
         &cv,
         &RenderOptions {
+            project_dir: Some(directory.path().into()),
             settings: Settings {
                 theme: Some("classic-left".into()),
                 ..Settings::default()
@@ -368,7 +375,7 @@ fn classic_left_is_an_embedded_theme() {
     .unwrap();
 
     assert_eq!(rendered.theme, "classic-left");
-    assert_eq!(rendered.theme_source, ThemeSource::Embedded);
+    assert_eq!(rendered.theme_source, ThemeSource::Project);
     assert_eq!(rendered.pages, 1);
     assert!(rendered.bytes.starts_with(b"%PDF-"));
 }

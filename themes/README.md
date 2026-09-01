@@ -1,6 +1,6 @@
 # Contributing themes
 
-The `themes/` directory is the official downloadable theme registry. The `classic` and `classic-left` themes remain embedded in every `cac` installation and are maintained under `crates/cac-render/src/typst/themes/`.
+The `themes/` directory is the official downloadable theme registry. The default `classic` theme remains embedded in every `cac` installation and is maintained under `crates/cac-render/src/typst/themes/`.
 
 ## Add a theme
 

@@ -1,0 +1,13 @@
+{
+  "name": "classic-left",
+  "description": "The classic CV with left-aligned headings",
+  "author": "Code a CV contributors",
+  "license": "MIT",
+  "theme_api": 1,
+  "files": [
+    {
+      "path": "theme.typ",
+      "sha256": "86111811b8836fc44d89bce28e4092ba0ea0f32da2f3711b3fe9a5b479652836"
+    }
+  ]
+}
