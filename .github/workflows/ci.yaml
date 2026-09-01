@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   changes:
-    name: Detect code changes
+    name: Check changed paths
     runs-on: ubuntu-22.04
     timeout-minutes: 5
     outputs:
@@ -37,18 +37,38 @@ jobs:
         run: |
           if [[ "${EVENT_NAME}" != "pull_request" ]]; then
             code=true
-          elif git diff --quiet "${BASE_SHA}" "${HEAD_SHA}" -- \
-            Cargo.lock \
-            Cargo.toml \
-            dist-workspace.toml \
-            'crates/**' \
-            'examples/**' \
-            'scripts/**' \
-            '.cargo/**' \
-            'rust-toolchain*'; then
-            code=false
           else
-            code=true
+            mapfile -d '' changed_paths < <(
+              git diff --name-only --no-renames -z "${BASE_SHA}" "${HEAD_SHA}"
+            )
+
+            examples_only=true
+            themes_changed=false
+            themes_only=true
+
+            for path in "${changed_paths[@]}"; do
+              if [[ "${path}" != examples/* ]]; then
+                examples_only=false
+              fi
+
+              if [[ "${path}" = themes/* ]]; then
+                themes_changed=true
+              else
+                themes_only=false
+              fi
+            done
+
+            if [[ "${themes_changed}" = "true" && "${themes_only}" != "true" ]]; then
+              echo "Theme changes must not include files outside themes/." >&2
+              exit 1
+            fi
+
+            if (( ${#changed_paths[@]} > 0 )) && \
+              [[ "${examples_only}" = "true" || "${themes_only}" = "true" ]]; then
+              code=false
+            else
+              code=true
+            fi
           fi
 
           echo "code=${code}" >> "${GITHUB_OUTPUT}"
