@@ -1,0 +1,19 @@
+# Normalize text files across Windows, macOS, and Linux.
+* text=auto eol=lf
+
+# Exclude documentation and its runnable examples from language statistics.
+docs/** linguist-vendored
+
+# Mark cargo-dist output as generated.
+.github/workflows/release.yml linguist-generated=true
+
+# Keep binary assets out of text diffs.
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary

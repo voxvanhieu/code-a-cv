@@ -61,13 +61,14 @@ cd my-cv
 cac init
 ```
 
-This creates `cv.md` and `settings.json`. The settings identify `cv.md` as the root CV and select the embedded `classic` theme. Edit `cv.md`, then build it:
+This creates `cv.md` and `settings.json`. The settings identify `cv.md` as the
+root CV and select the embedded `classic` theme. Edit `cv.md`, then build it:
 
 ```sh
 cac build
 ```
 
-The finished PDF is `dist/cv.pdf`.
+The finished PDF is `offering/cv.pdf`—your carefully prepared offering to the hiring gods.
 
 ## Common commands
 
@@ -83,7 +84,7 @@ The finished PDF is `dist/cv.pdf`.
 | `cac themes install <THEME> [--local]` | Install a downloadable theme |
 | `cac themes remove <THEME> [--local]` | Remove an installed theme |
 
-The `root` property in `settings.json` selects the CV source used by `cac build` when no file is provided. This avoids ambiguity when a directory contains several supported CV files. Put common PDF formatting overrides in the same file. Use a project-local theme under `.cac/themes/<name>/theme.typ` for structural customization. See the [theme architecture](docs/development/theme-architecture.md) for the supported settings and theme API, and [`themes/`](themes/) for the contribution process.
+The `root` property in `settings.json` selects the CV source used by `cac build` when no file is provided. This avoids ambiguity when a directory contains several supported CV files. Put common PDF formatting overrides in the same file. Internally, `cac init` and `cac build` keep the project-local settings schema current for editor completion and validation. Use a project-local theme under `.cac/themes/<name>/theme.typ` for structural customization. See the [theme architecture](docs/development/theme-architecture.md) for the supported settings and theme API, and [`themes/`](themes/) for the contribution process.
 
 The theme names `classic`, `base`, and `main` are reserved by `cac` and cannot be installed. The default `classic` theme is embedded and available without installation. Install `classic-left` from the downloadable theme registry when needed.
 
@@ -93,7 +94,8 @@ Add a theme directory with `theme.typ` and `theme.json`, register it in `themes/
 
 ## Examples
 
-See [`examples/`](examples/) for Markdown, YAML, JSON, TOML, and JSON Resume files.
+See the runnable [`docs/examples/`](docs/examples/) projects for Markdown, structured formats,
+and JSON Resume import workflows.
 
 ## Development
 

@@ -25,7 +25,7 @@ The Typst theme model separates three kinds of formatting:
 
 `base.typ` contains the complete definitions for all three layers and every component. The selected theme recursively overrides only the values it needs. `settings.json` then applies a limited set of final user overrides.
 
-`settings.json` is the final authority for every value it supports. The renderer maps its flat properties into tokens, styles, and page configuration before invoking components.
+`settings.json` is the final authority for every value it supports. The renderer maps its grouped rendering properties into tokens, styles, and page configuration before invoking components.
 
 ## Project layout
 
@@ -36,6 +36,7 @@ my-cv/
 ├── cv.md
 ├── settings.json
 └── .cac/
+    ├── settings.schema.json
     └── themes/
         └── oxford/
             ├── theme.typ
@@ -51,27 +52,43 @@ The selected theme is stored in `settings.json`:
 
 ```json
 {
+  "$schema": ".cac/settings.schema.json",
   "root": "cv.md",
   "theme": "oxford",
-  "paper": "a4",
-  "page_margin": "18mm",
-  "page_margins": { "top": "16mm", "bottom": "16mm" },
-  "font": "Libertinus Serif",
-  "heading_font": "Libertinus Serif",
-  "font_size": "10pt",
-  "line_spacing": "0.65em",
-  "list_item_spacing": "0.65em",
-  "section_spacing": "1.2em",
-  "entry_spacing": "1.2em",
-  "accent_color": "#1f4e79",
-  "body_alignment": "justified",
-  "link_underline": true,
-  "header_alignment": "center",
-  "section_heading_spacing": "0.65em",
-  "highlight_bullet": "•",
-  "allow_entry_page_break": false
+  "page": {
+    "paper": "a4",
+    "margin": "18mm",
+    "margins": { "top": "16mm", "bottom": "16mm" }
+  },
+  "typography": {
+    "font": "Libertinus Serif",
+    "heading_font": "Libertinus Serif",
+    "font_size": "10pt",
+    "line_spacing": "0.65em"
+  },
+  "style": {
+    "accent_color": "#1f4e79",
+    "body_alignment": "justified",
+    "link_underline": true,
+    "header_alignment": "center",
+    "highlight_bullet": "•"
+  },
+  "spacing": {
+    "list_item": "0.65em",
+    "section": "1.2em",
+    "section_heading": "0.65em",
+    "entry": "1.2em"
+  },
+  "pagination": {
+    "allow_entry_page_break": false
+  }
 }
 ```
+
+`cac init` and `cac build` synchronize `.cac/settings.schema.json` from the
+schema embedded in the running binary. Run `cac schema` to refresh it explicitly
+and validate the current `settings.json`. The `$schema` property enables editor
+completion and validation; `cac` remains the runtime authority for settings.
 
 The supported settings should remain small and stable:
 
@@ -79,29 +96,29 @@ The supported settings should remain small and stable:
 |---|---|
 | `root` | Select the CV file used when `cac build` has no explicit input |
 | `theme` | Select a theme by name |
-| `paper` | Set the page format, such as `a4` or `us-letter` |
-| `page_margin` | Set a uniform page margin |
-| `page_margins` | Override individual `top`, `bottom`, `left`, or `right` page margins |
-| `font` | Set the body and heading font families |
-| `heading_font` | Override the heading font family |
-| `font_size` | Set the body text size |
-| `line_spacing` | Set the clear leading added between line boxes; Typst's default is `0.65em` |
-| `list_item_spacing` | Set spacing between bullet or numbered-list items |
-| `section_spacing` | Set spacing between sections |
-| `entry_spacing` | Set spacing between CV entries |
-| `accent_color` | Set the theme accent to a six-digit hex color |
-| `body_alignment` | Set body text alignment to `left` or `justified` |
-| `link_underline` | Show or hide link underlines |
-| `header_alignment` | Align the header to `left`, `center`, or `right` |
-| `section_heading_spacing` | Set the gap after a section heading |
-| `highlight_bullet` | Set the marker used by the shared highlight-list component |
-| `allow_entry_page_break` | Allow an entry to continue on the next page |
+| `page.paper` | Set the page format, such as `a4` or `us-letter` |
+| `page.margin` | Set a uniform page margin |
+| `page.margins` | Override individual `top`, `bottom`, `left`, or `right` page margins |
+| `typography.font` | Set the body and heading font families |
+| `typography.heading_font` | Override the heading font family |
+| `typography.font_size` | Set the body text size |
+| `typography.line_spacing` | Set the clear leading added between line boxes; Typst's default is `0.65em` |
+| `style.accent_color` | Set the theme accent to a six-digit hex color |
+| `style.body_alignment` | Set body text alignment to `left` or `justified` |
+| `style.link_underline` | Show or hide link underlines |
+| `style.header_alignment` | Align the header to `left`, `center`, or `right` |
+| `style.highlight_bullet` | Set the marker used by the shared highlight-list component |
+| `spacing.list_item` | Set spacing between bullet or numbered-list items |
+| `spacing.section` | Set spacing between sections |
+| `spacing.section_heading` | Set the gap after a section heading |
+| `spacing.entry` | Set spacing between CV entries |
+| `pagination.allow_entry_page_break` | Allow an entry to continue on the next page |
 
 `root` must be a file name in the same directory as `settings.json`. An explicit input such as `cac build cv.json` takes precedence. When `root` is absent, `cac build` reads `cv.md` for compatibility.
 
-Missing formatting properties inherit from the selected theme. Unknown properties and invalid values must produce clear errors instead of being ignored. Per-heading sizes and spacing remain theme properties because the flat settings intentionally describe only the common document defaults.
+Missing formatting properties inherit from the selected theme. Unknown properties and invalid values must produce clear errors instead of being ignored. Per-heading sizes and spacing remain theme properties because settings intentionally describe only the common document defaults.
 
-`page_margins` is applied after `page_margin`. Unspecified sides keep the uniform margin or the selected theme's corresponding margin. Component-related settings affect themes that use the shared styles and components. A custom component can intentionally implement different behavior.
+`page.margins` is applied after `page.margin`. Unspecified sides keep the uniform margin or the selected theme's corresponding margin. Component-related settings affect themes that use the shared styles and components. A custom component can intentionally implement different behavior.
 
 Advanced customization belongs in `theme.typ`. This includes header layouts, date-column widths, section rules, and component-specific typography.
 
@@ -363,7 +380,7 @@ The build should report the selected theme and its source:
 
 ```text
 THEME oxford (project)
-BUILT dist/cv.pdf
+BUILT offering/cv.pdf
 ```
 
 Possible theme-management commands are:
