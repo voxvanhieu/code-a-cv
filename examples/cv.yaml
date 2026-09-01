@@ -39,6 +39,27 @@ sections:
       end: 2020-06
     highlights:
     - Graduated in the top 5% of the class
+- id: projects
+  title: Projects
+  kind: projects
+  entries:
+  - type: project
+    name: Reproducible Release Toolkit
+    period:
+      start: 2022-01
+      end: Present
+    highlights:
+    - Built a cross-platform release pipeline used by 18 open-source projects
+    - Reduced release preparation from 2 hours to 15 minutes
+- id: publications
+  title: Publications
+  kind: publications
+  entries:
+  - type: publication
+    title: Reproducible Builds for Small Engineering Teams
+    date: 2022-10
+    highlights:
+    - Published a practical guide to build isolation, artifact verification, and release automation
 - id: skills
   title: Skills
   kind: skills
@@ -51,3 +72,22 @@ sections:
     name: Engineering practices
     skills:
     - Automated testing, performance profiling, and technical writing
+- id: board-and-advisory-work
+  title: Board and Advisory Work
+  kind: custom
+  entries:
+  - type: custom
+    heading: Technical Advisor, Open Computing Foundation
+    period:
+      start: 2024-01
+      end: Present
+    highlights:
+    - Advise maintainers on release security, contributor workflows, and project governance
+- id: professional-interests
+  title: Professional Interests
+  kind: custom
+  entries:
+  - type: text
+    body: Dependable developer infrastructure and reproducible software delivery
+  - type: text
+    body: Computing history, technical education, and volunteer mentoring

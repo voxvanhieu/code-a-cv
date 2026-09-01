@@ -30,7 +30,7 @@ enum Command {
     #[command(about = convert::ABOUT, after_help = convert::AFTER_HELP)]
     Convert(convert::Args),
     #[command(about = themes::ABOUT, after_help = themes::AFTER_HELP)]
-    Themes,
+    Themes(themes::Args),
 }
 
 impl Cli {
@@ -40,7 +40,7 @@ impl Cli {
             Command::Build(args) => build::run(args),
             Command::Check(args) => check::run(args),
             Command::Convert(args) => convert::run(args),
-            Command::Themes => themes::run(),
+            Command::Themes(args) => themes::run(args),
         }
     }
 }

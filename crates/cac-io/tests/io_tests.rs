@@ -1,4 +1,4 @@
-use cac_core::{EntryKind, Inline};
+use cac_core::{EntryKind, Inline, SectionKind};
 use cac_io::{InputFormat, STARTER_MARKDOWN, parse, to_markdown};
 
 #[test]
@@ -19,6 +19,28 @@ fn starter_markdown_parses_into_typed_entries() {
         cv.sections[1].entries[0].kind,
         EntryKind::Experience(_)
     ));
+    for kind in [
+        SectionKind::Experience,
+        SectionKind::Education,
+        SectionKind::Projects,
+        SectionKind::Publications,
+        SectionKind::Skills,
+        SectionKind::Custom,
+    ] {
+        assert!(cv.sections.iter().any(|section| section.kind == kind));
+    }
+    assert!(cv.sections.iter().any(|section| {
+        section
+            .entries
+            .iter()
+            .any(|entry| matches!(entry.kind, EntryKind::Custom(_)))
+    }));
+    assert!(cv.sections.iter().any(|section| {
+        section
+            .entries
+            .iter()
+            .any(|entry| matches!(entry.kind, EntryKind::Text(_)))
+    }));
 }
 
 #[test]
@@ -76,4 +98,31 @@ fn markdown_round_trip_preserves_tags_on_bullet_entries() {
 
     assert_eq!(reparsed.sections, cv.sections);
     assert!(reparsed.sections[0].entries[0].tags.contains("dotnet"));
+}
+
+#[test]
+fn custom_heading_keeps_its_highlights_in_one_entry() {
+    let source = "# Ada\n\nada@example.com\n\n## Board and Advisory Work\n\n### Independent Technical Advisor, Civic Data Cooperative\n2022–Present\n\n- Advise the engineering leadership team\n- Review distributed systems designs\n";
+    let cv = parse(source, InputFormat::Markdown).unwrap();
+
+    assert_eq!(cv.sections[0].entries.len(), 1);
+    let EntryKind::Custom(entry) = &cv.sections[0].entries[0].kind else {
+        panic!("expected a grouped custom entry");
+    };
+    assert_eq!(
+        entry.heading.plain(),
+        "Independent Technical Advisor, Civic Data Cooperative"
+    );
+    assert_eq!(entry.highlights.len(), 2);
+    assert!(entry.period.is_some());
+
+    let reparsed = parse(&to_markdown(&cv), InputFormat::Markdown).unwrap();
+    assert_eq!(reparsed.sections, cv.sections);
+
+    let json = serde_json::to_string(&cv).unwrap();
+    let yaml = serde_yaml_ng::to_string(&cv).unwrap();
+    let toml = toml::to_string(&cv).unwrap();
+    assert_eq!(parse(&json, InputFormat::Json).unwrap(), cv);
+    assert_eq!(parse(&yaml, InputFormat::Yaml).unwrap(), cv);
+    assert_eq!(parse(&toml, InputFormat::Toml).unwrap(), cv);
 }

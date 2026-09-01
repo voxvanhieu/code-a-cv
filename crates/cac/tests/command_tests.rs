@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::PathBuf;
 
 use assert_cmd::Command;
 use predicates::prelude::PredicateBooleanExt;
@@ -6,6 +7,7 @@ use tempfile::tempdir;
 
 const CLEAN_MARKDOWN: &str =
     "# Ada Lovelace\n\nada@example.com\n\n## Skills\n\n- Rust and PostgreSQL\n";
+const CLASSIC_SETTINGS: &str = "{\n  \"root\": \"cv.md\",\n  \"theme\": \"classic\"\n}\n";
 const WARNING_MARKDOWN: &str = "# Ada Lovelace\n\nada@example.com\n\n## Experience\n\n### Engineer, Example\n2020–Present\n\n- Helped my team ship software\n";
 
 #[test]
@@ -66,18 +68,6 @@ fn build_rejects_json_as_an_output_format_with_syntax_status() {
 }
 
 #[test]
-fn json_command_output_option_is_rejected_in_both_global_positions() {
-    for arguments in [["--json", "themes"], ["themes", "--json"]] {
-        Command::cargo_bin("cac")
-            .unwrap()
-            .args(arguments)
-            .assert()
-            .code(2)
-            .stderr(predicates::str::contains("--json"));
-    }
-}
-
-#[test]
 fn convert_still_exports_native_json() {
     let directory = tempdir().unwrap();
     let input = directory.path().join("cv.md");
@@ -99,9 +89,9 @@ fn convert_still_exports_native_json() {
 }
 
 #[test]
-fn init_and_build_html_work_without_configuration() {
+fn init_creates_root_and_classic_settings_and_builds_html() {
     let directory = tempdir().unwrap();
-    let input = directory.path().join("cv.md");
+    let input = directory.path().join("profile.md");
     let output = directory.path().join("dist");
 
     Command::cargo_bin("cac")
@@ -110,6 +100,10 @@ fn init_and_build_html_work_without_configuration() {
         .arg(&input)
         .assert()
         .success();
+    assert_eq!(
+        fs::read_to_string(directory.path().join("settings.json")).unwrap(),
+        "{\n  \"root\": \"profile.md\",\n  \"theme\": \"classic\"\n}\n"
+    );
     Command::cargo_bin("cac")
         .unwrap()
         .arg("build")
@@ -119,8 +113,157 @@ fn init_and_build_html_work_without_configuration() {
         .assert()
         .success();
 
-    let html = fs::read_to_string(output.join("cv.html")).unwrap();
+    let html = fs::read_to_string(output.join("profile.html")).unwrap();
     assert!(html.contains("Ada Lovelace"));
+}
+
+#[test]
+fn init_uses_the_format_default_output() {
+    let directory = tempdir().unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["init", "--format", "json"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("CREATED cv.json"));
+
+    let cv: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(directory.path().join("cv.json")).unwrap())
+            .unwrap();
+    assert_eq!(cv["profile"]["name"], "Ada Lovelace");
+    assert_eq!(
+        fs::read_to_string(directory.path().join("settings.json")).unwrap(),
+        "{\n  \"root\": \"cv.json\",\n  \"theme\": \"classic\"\n}\n"
+    );
+}
+
+#[test]
+fn init_uses_the_custom_output_as_the_settings_root() {
+    let directory = tempdir().unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["init", "--format", "yaml", "--output", "new-cv.yaml"])
+        .assert()
+        .success();
+
+    let cv: serde_yaml_ng::Value =
+        serde_yaml_ng::from_str(&fs::read_to_string(directory.path().join("new-cv.yaml")).unwrap())
+            .unwrap();
+    assert_eq!(cv["profile"]["name"], "Ada Lovelace");
+    assert_eq!(
+        fs::read_to_string(directory.path().join("settings.json")).unwrap(),
+        "{\n  \"root\": \"new-cv.yaml\",\n  \"theme\": \"classic\"\n}\n"
+    );
+}
+
+#[test]
+fn init_rejects_an_output_extension_that_does_not_match_the_format() {
+    let directory = tempdir().unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["init", "--format", "json", "--output", "cv.md"])
+        .assert()
+        .code(1)
+        .stdout("")
+        .stderr(predicates::str::contains(
+            "does not have an extension compatible with the `json` format",
+        ));
+    assert!(!directory.path().join("cv.md").exists());
+    assert!(!directory.path().join("settings.json").exists());
+}
+
+#[test]
+fn build_uses_the_settings_root_when_input_is_omitted() {
+    let directory = tempdir().unwrap();
+    fs::write(
+        directory.path().join("primary.json"),
+        include_str!("../../../examples/cv.json"),
+    )
+    .unwrap();
+    fs::write(
+        directory.path().join("settings.json"),
+        r#"{"root":"primary.json","theme":"classic"}"#,
+    )
+    .unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["build", "--format", "html"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("BUILT dist/primary.html"));
+    assert!(directory.path().join("dist/primary.html").is_file());
+}
+
+#[test]
+fn build_resolves_root_relative_to_an_explicit_settings_file() {
+    let directory = tempdir().unwrap();
+    let project = directory.path().join("project");
+    fs::create_dir(&project).unwrap();
+    fs::write(
+        project.join("primary.json"),
+        include_str!("../../../examples/cv.json"),
+    )
+    .unwrap();
+    fs::write(
+        project.join("settings.json"),
+        r#"{"root":"primary.json","theme":"classic"}"#,
+    )
+    .unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args([
+            "build",
+            "--settings",
+            "project/settings.json",
+            "--format",
+            "html",
+        ])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("BUILT dist/primary.html"));
+}
+
+#[test]
+fn build_without_settings_falls_back_to_cv_markdown() {
+    let directory = tempdir().unwrap();
+    fs::write(directory.path().join("cv.md"), CLEAN_MARKDOWN).unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["build", "--format", "html"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("BUILT dist/cv.html"));
+}
+
+#[test]
+fn explicit_build_input_takes_precedence_over_the_settings_root() {
+    let directory = tempdir().unwrap();
+    fs::write(directory.path().join("selected.md"), CLEAN_MARKDOWN).unwrap();
+    fs::write(
+        directory.path().join("settings.json"),
+        r#"{"root":"missing.json","theme":"classic"}"#,
+    )
+    .unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["build", "selected.md", "--format", "html"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("BUILT dist/selected.html"));
 }
 
 #[test]
@@ -165,28 +308,39 @@ fn convert_reads_structured_data_from_stdin() {
 }
 
 #[test]
-fn init_writes_only_document_content_to_stdout() {
+fn init_rejects_standard_output() {
+    let directory = tempdir().unwrap();
+
     Command::cargo_bin("cac")
         .unwrap()
+        .current_dir(directory.path())
         .args(["init", "--output", "-"])
         .assert()
-        .success()
-        .stdout(predicates::str::starts_with("# Ada Lovelace\n"))
-        .stdout(predicates::str::contains("CREATED").not())
-        .stderr("");
+        .failure()
+        .stdout("")
+        .stderr(predicates::str::contains(
+            "cac init requires a file output; standard output is not supported",
+        ));
+    assert!(!directory.path().join("settings.json").exists());
 }
 
 #[test]
 fn init_imports_json_resume_from_stdin() {
+    let directory = tempdir().unwrap();
+    let output = directory.path().join("cv.md");
+
     Command::cargo_bin("cac")
         .unwrap()
-        .args(["init", "--from", "-", "--output", "-"])
+        .args(["init", "--from", "-", "--output"])
+        .arg(&output)
         .write_stdin(include_str!("../../../examples/resume.json"))
         .assert()
-        .success()
-        .stdout(predicates::str::starts_with("# Ada Lovelace\n"))
-        .stdout(predicates::str::contains("CREATED").not())
-        .stderr("");
+        .success();
+    assert!(
+        fs::read_to_string(output)
+            .unwrap()
+            .starts_with("# Ada Lovelace\n")
+    );
 }
 
 #[test]
@@ -256,6 +410,54 @@ fn init_requires_force_to_replace_an_existing_file() {
         .assert()
         .success();
     assert_ne!(fs::read_to_string(output).unwrap(), "keep me");
+    assert_eq!(
+        fs::read_to_string(directory.path().join("settings.json")).unwrap(),
+        CLASSIC_SETTINGS
+    );
+}
+
+#[test]
+fn init_requires_force_to_replace_existing_settings() {
+    let directory = tempdir().unwrap();
+    let output = directory.path().join("cv.md");
+    let settings = directory.path().join("settings.json");
+    fs::write(&settings, "keep me").unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .args(["init", "--output"])
+        .arg(&output)
+        .assert()
+        .code(1)
+        .stdout("")
+        .stderr(predicates::str::contains("settings.json already exists"));
+    assert!(!output.exists());
+    assert_eq!(fs::read_to_string(&settings).unwrap(), "keep me");
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .args(["init", "--output"])
+        .arg(&output)
+        .arg("--force")
+        .assert()
+        .success();
+    assert!(output.is_file());
+    assert_eq!(fs::read_to_string(settings).unwrap(), CLASSIC_SETTINGS);
+}
+
+#[test]
+fn init_rejects_settings_as_the_cv_output() {
+    let directory = tempdir().unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["init", "--output", "./settings.json"])
+        .assert()
+        .code(1)
+        .stdout("")
+        .stderr(predicates::str::contains("reserved for theme settings"));
+    assert!(!directory.path().join("settings.json").exists());
 }
 
 #[test]
@@ -277,6 +479,211 @@ fn build_replaces_an_existing_artifact() {
         .success();
 
     assert_ne!(fs::read_to_string(output.join("cv.html")).unwrap(), "old");
+}
+
+#[test]
+fn build_reads_settings_beside_the_cv_and_reports_the_theme() {
+    let directory = tempdir().unwrap();
+    let input = directory.path().join("cv.md");
+    let output = directory.path().join("dist");
+    let theme = directory.path().join(".cac/themes/compact");
+    fs::create_dir_all(&theme).unwrap();
+    fs::write(&input, CLEAN_MARKDOWN).unwrap();
+    fs::write(
+        directory.path().join("settings.json"),
+        r#"{"theme":"compact","page_margin":"12mm"}"#,
+    )
+    .unwrap();
+    fs::write(
+        theme.join("theme.typ"),
+        r#"
+#import "/.cac/base.typ" as base
+#let theme = base.extend(page: (margin: 20mm))
+"#,
+    )
+    .unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .arg("build")
+        .arg(&input)
+        .args(["--output"])
+        .arg(&output)
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("THEME compact (project)"))
+        .stdout(predicates::str::contains("BUILT"));
+
+    assert!(output.join("cv.pdf").is_file());
+}
+
+#[test]
+fn themes_install_rejects_system_theme_names() {
+    let directory = tempdir().unwrap();
+
+    for theme in ["classic", "base", "main"] {
+        Command::cargo_bin("cac")
+            .unwrap()
+            .current_dir(directory.path())
+            .args(["themes", "install", theme, "--local"])
+            .assert()
+            .code(1)
+            .stdout("")
+            .stderr(format!(
+                "error: theme name `{theme}` is reserved by cac and cannot be installed\n"
+            ));
+        assert!(!directory.path().join(".cac/themes").join(theme).exists());
+    }
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["themes", "list"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("classic (embedded)"))
+        .stdout(predicates::str::contains("classic-left").not());
+}
+
+#[test]
+fn themes_list_and_remove_a_local_theme() {
+    let directory = tempdir().unwrap();
+    let theme = directory.path().join(".cac/themes/custom");
+    fs::create_dir_all(&theme).unwrap();
+    fs::write(theme.join("theme.typ"), "#let theme = (:)").unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["themes", "list"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("custom (project)"));
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["themes", "remove", "custom", "--local"])
+        .assert()
+        .success()
+        .stdout("REMOVED custom (project)\n");
+
+    assert!(!theme.exists());
+}
+
+#[test]
+fn themes_search_info_install_and_build_from_a_registry() {
+    let directory = tempdir().unwrap();
+    let registry = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join("themes")
+        .canonicalize()
+        .unwrap();
+    let registry = format!("file://{}", registry.display());
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .env("CAC_THEME_REGISTRY", &registry)
+        .args(["themes", "search", "blue"])
+        .assert()
+        .success()
+        .stdout("classic-blue: The classic centered CV with blue headings\n");
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .env("CAC_THEME_REGISTRY", &registry)
+        .args(["themes", "info", "classic-blue"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("NAME classic-blue\n"))
+        .stdout(predicates::str::contains("THEME API 1\n"));
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .env("CAC_THEME_REGISTRY", &registry)
+        .args(["themes", "install", "classic-blue", "--local"])
+        .assert()
+        .success()
+        .stdout("INSTALLED classic-blue (project)\n");
+    assert!(
+        directory
+            .path()
+            .join(".cac/themes/classic-blue/theme.typ")
+            .is_file()
+    );
+
+    fs::write(directory.path().join("cv.md"), CLEAN_MARKDOWN).unwrap();
+    fs::write(
+        directory.path().join("settings.json"),
+        r#"{"root":"cv.md","theme":"classic-blue"}"#,
+    )
+    .unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["build"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("THEME classic-blue (project)"));
+    assert!(directory.path().join("dist/cv.pdf").is_file());
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .env("CAC_THEME_REGISTRY", &registry)
+        .args(["themes", "install", "classic-left", "--local"])
+        .assert()
+        .success()
+        .stdout("INSTALLED classic-left (project)\n");
+    fs::write(
+        directory.path().join("settings.json"),
+        r#"{"root":"cv.md","theme":"classic-left"}"#,
+    )
+    .unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["build"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("THEME classic-left (project)"));
+}
+
+#[test]
+fn themes_install_rejects_a_download_with_the_wrong_checksum() {
+    let directory = tempdir().unwrap();
+    let registry = tempdir().unwrap();
+    let theme = registry.path().join("classic-blue");
+    fs::create_dir(&theme).unwrap();
+    fs::write(
+        registry.path().join("index.json"),
+        include_str!("../../../themes/index.json"),
+    )
+    .unwrap();
+    let manifest = include_str!("../../../themes/classic-blue/theme.json").replace(
+        "32a12bccc99e93c7756995325358fd5e3cf09c552380fa13b915a416777681b9",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+    );
+    fs::write(theme.join("theme.json"), manifest).unwrap();
+    fs::write(
+        theme.join("theme.typ"),
+        include_str!("../../../themes/classic-blue/theme.typ"),
+    )
+    .unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .env(
+            "CAC_THEME_REGISTRY",
+            format!("file://{}", registry.path().display()),
+        )
+        .args(["themes", "install", "classic-blue", "--local"])
+        .assert()
+        .code(1)
+        .stdout("")
+        .stderr(predicates::str::contains("failed checksum verification"));
+    assert!(!directory.path().join(".cac/themes/classic-blue").exists());
 }
 
 #[test]
