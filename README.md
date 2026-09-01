@@ -61,8 +61,7 @@ cd my-cv
 cac init
 ```
 
-This creates `cv.md` and `settings.json`. The settings identify `cv.md` as the
-root CV and select the embedded `classic` theme. Edit `cv.md`, then build it:
+This creates `cv.md` and `settings.json`. Edit `cv.md`, then build it:
 
 ```sh
 cac build
@@ -74,23 +73,44 @@ The finished PDF is `offering/cv.pdf`—your carefully prepared offering to the 
 
 | Command | Description |
 |---|---|
-| `cac init [--format FORMAT] [--from resume.json]` | Create a starter CV and classic theme settings or import JSON Resume data |
+| `cac init [--format FORMAT] [--from resume.json]` | Create a starter CV or import JSON Resume data |
 | `cac build [FILE]` | Validate and render a CV as PDF or HTML |
 | `cac check [FILE] [--strict]` | Check source content |
 | `cac convert <FILE> --to <FORMAT>` | Convert supported input formats |
-| `cac themes list` | List embedded and installed themes |
-| `cac themes search [QUERY]` | Search downloadable themes |
-| `cac themes info <THEME>` | Show downloadable theme metadata |
-| `cac themes install <THEME> [--local]` | Install a downloadable theme |
-| `cac themes remove <THEME> [--local]` | Remove an installed theme |
 
-The `root` property in `settings.json` selects the CV source used by `cac build` when no file is provided. This avoids ambiguity when a directory contains several supported CV files. Put common PDF formatting overrides in the same file. Internally, `cac init` and `cac build` keep the project-local settings schema current for editor completion and validation. Use a project-local theme under `.cac/themes/<name>/theme.typ` for structural customization. See the [theme architecture](docs/development/theme-architecture.md) for the supported settings and theme API, and [`themes/`](themes/) for the contribution process.
+The `root` property in `settings.json` selects the CV source used by `cac build` when no file is provided. This avoids ambiguity when a directory contains several supported CV files. Put common PDF formatting overrides in the same file. Internally, `cac init` and `cac build` keep the project-local settings schema current for editor completion and validation.
 
-The theme names `classic`, `base`, and `main` are reserved by `cac` and cannot be installed. The default `classic` theme is embedded and available without installation. Install `classic-left` from the downloadable theme registry when needed.
+## Use a theme
 
-## Contribute your theme
+Every installation includes the `classic` theme. Set the theme name in `settings.json`, then build normally:
 
-Add a theme directory with `theme.typ` and `theme.json`, register it in `themes/index.json`, and include SHA-256 checksums for every downloadable file. See the [theme contribution guide](themes/README.md) for the Theme API contract, manifest format, validation rules, and local testing commands.
+```json
+{
+  "root": "cv.md",
+  "theme": "classic"
+}
+```
+
+Find and inspect downloadable themes before installing one:
+
+```sh
+cac themes list
+cac themes search blue
+cac themes info classic-blue
+```
+
+Install a theme globally to use it across projects, or add `--local` to keep it in the current project's `.cac/themes/` directory:
+
+```sh
+cac themes install classic-blue
+cac themes install classic-blue --local
+```
+
+Set `"theme": "classic-blue"` in `settings.json` and run `cac build`. A project-local theme takes precedence over a global theme with the same name. Remove an installed theme with `cac themes remove <THEME>`, adding `--local` for a local installation. The names `classic`, `base`, and `main` are reserved by `cac`.
+
+For structural customization and the supported Theme API, see the [theme architecture](docs/development/theme-architecture.md).
+
+> Made something worth wearing to an interview? Share it with the community—see the [theme contribution guide](themes/README.md) to create and contribute a theme to this repository.
 
 ## Examples
 
