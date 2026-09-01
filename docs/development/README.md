@@ -186,7 +186,7 @@ Choose the next version according to [Semantic Versioning](https://semver.org/).
 $ cargo check --workspace
 ```
 
-Move the entries from `Unreleased` in `CHANGELOG.md` into a versioned section with the release date. Leave a new empty `Unreleased` section for later changes.
+Move the entries from `Unreleased` in `CHANGELOG.md` into a versioned section without a release date. Leave a new empty `Unreleased` section for later changes. `cargo-dist` uses the heading as the GitHub release title, so a heading such as `## [0.2.0]` produces the title `0.2.0`.
 
 ### 2. Verify the release candidate
 
@@ -233,6 +233,7 @@ The tag starts `.github/workflows/release.yml`. `cargo-dist` builds archives and
 Wait for the Release workflow to finish, then confirm:
 
 * The GitHub release is published under the expected tag
+* The GitHub release title is the version without a release date
 * Linux, macOS, and Windows archives are present
 * Shell and PowerShell installers are present
 * Checksums and provenance attestations are present
