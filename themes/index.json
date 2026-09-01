@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "themes": [
+    {
+      "name": "classic-left",
+      "description": "The classic CV with left-aligned headings"
+    },
+    {
+      "name": "classic-blue",
+      "description": "The classic centered CV with blue headings"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "classic-blue",
+  "description": "The classic centered CV with blue headings",
+  "author": "Code a CV contributors",
+  "license": "MIT",
+  "theme_api": 1,
+  "files": [
+    {
+      "path": "theme.typ",
+      "sha256": "32a12bccc99e93c7756995325358fd5e3cf09c552380fa13b915a416777681b9"
+    }
+  ]
+}

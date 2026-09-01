@@ -4,8 +4,8 @@ mod rich_text;
 
 pub use date::{DatePoint, Period, PeriodError};
 pub use document::{
-    CvDocument, EducationEntry, Entry, EntryKind, ExperienceEntry, Origin, Profile, ProjectEntry,
-    PublicationEntry, Section, SectionKind, SkillGroupEntry, TagSet, TextEntry,
+    CustomEntry, CvDocument, EducationEntry, Entry, EntryKind, ExperienceEntry, Origin, Profile,
+    ProjectEntry, PublicationEntry, Section, SectionKind, SkillGroupEntry, TagSet, TextEntry,
 };
 pub use rich_text::{Inline, RichText};
 
