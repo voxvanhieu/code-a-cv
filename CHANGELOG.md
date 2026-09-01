@@ -9,6 +9,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Added
 
 * Added `cac init --format` with Markdown, YAML, JSON, and TOML output
+* Added a checksummed downloadable theme registry with `search`, `info`, and remote `install` commands
+* Added the downloadable `classic-blue` theme
 
 ### Removed
 

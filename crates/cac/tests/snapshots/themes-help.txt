@@ -1,10 +1,12 @@
-List and manage themes
+Find, install, and manage themes
 
 Usage: cac themes <COMMAND>
 
 Commands:
   list     List embedded and installed themes
-  install  Install an embedded theme
+  search   Search downloadable themes
+  info     Show a downloadable theme's metadata
+  install  Install an embedded or downloadable theme
   remove   Remove an installed theme
   help     Print this message or the help of the given subcommand(s)
 
@@ -13,5 +15,7 @@ Options:
 
 Examples:
   cac themes list
-  cac themes install classic --local
-  cac themes remove classic --local
+  cac themes search blue
+  cac themes info classic-blue
+  cac themes install classic-blue --local
+  cac themes remove classic-blue --local

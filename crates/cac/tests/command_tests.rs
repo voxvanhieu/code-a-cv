@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::PathBuf;
 
 use assert_cmd::Command;
 use predicates::prelude::PredicateBooleanExt;
@@ -558,6 +559,101 @@ fn themes_install_list_and_remove_locally() {
             .join(".cac/themes/classic-left/theme.typ")
             .is_file()
     );
+}
+
+#[test]
+fn themes_search_info_install_and_build_from_a_registry() {
+    let directory = tempdir().unwrap();
+    let registry = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join("themes")
+        .canonicalize()
+        .unwrap();
+    let registry = format!("file://{}", registry.display());
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .env("CAC_THEME_REGISTRY", &registry)
+        .args(["themes", "search", "blue"])
+        .assert()
+        .success()
+        .stdout("classic-blue: The classic centered CV with blue headings\n");
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .env("CAC_THEME_REGISTRY", &registry)
+        .args(["themes", "info", "classic-blue"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("NAME classic-blue\n"))
+        .stdout(predicates::str::contains("THEME API 1\n"));
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .env("CAC_THEME_REGISTRY", &registry)
+        .args(["themes", "install", "classic-blue", "--local"])
+        .assert()
+        .success()
+        .stdout("INSTALLED classic-blue (project)\n");
+    assert!(
+        directory
+            .path()
+            .join(".cac/themes/classic-blue/theme.typ")
+            .is_file()
+    );
+
+    fs::write(directory.path().join("cv.md"), CLEAN_MARKDOWN).unwrap();
+    fs::write(
+        directory.path().join("settings.json"),
+        r#"{"root":"cv.md","theme":"classic-blue"}"#,
+    )
+    .unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["build"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("THEME classic-blue (project)"));
+    assert!(directory.path().join("dist/cv.pdf").is_file());
+}
+
+#[test]
+fn themes_install_rejects_a_download_with_the_wrong_checksum() {
+    let directory = tempdir().unwrap();
+    let registry = tempdir().unwrap();
+    let theme = registry.path().join("classic-blue");
+    fs::create_dir(&theme).unwrap();
+    fs::write(
+        registry.path().join("index.json"),
+        include_str!("../../../themes/index.json"),
+    )
+    .unwrap();
+    let manifest = include_str!("../../../themes/classic-blue/theme.json").replace(
+        "85f469a68766e184425624aeea22849dd25ad6de63ce4f999850f751282da9a6",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+    );
+    fs::write(theme.join("theme.json"), manifest).unwrap();
+    fs::write(
+        theme.join("theme.typ"),
+        include_str!("../../../themes/classic-blue/theme.typ"),
+    )
+    .unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .env(
+            "CAC_THEME_REGISTRY",
+            format!("file://{}", registry.path().display()),
+        )
+        .args(["themes", "install", "classic-blue", "--local"])
+        .assert()
+        .code(1)
+        .stdout("")
+        .stderr(predicates::str::contains("failed checksum verification"));
+    assert!(!directory.path().join(".cac/themes/classic-blue").exists());
 }
 
 #[test]

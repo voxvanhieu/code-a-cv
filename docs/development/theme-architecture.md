@@ -350,13 +350,18 @@ Possible theme-management commands are:
 
 ```console
 cac themes list
+cac themes search
+cac themes search blue
+cac themes info classic-blue
 cac themes install oxford
 cac themes install oxford --local
 cac themes remove oxford
 cac themes remove oxford --local
 ```
 
-The default install location is `~/.cac/themes`. The `--local` option installs into `<project>/.cac/themes`.
+`classic` and `classic-left` are embedded and install without network access. Other names are resolved through `themes/index.json`; `cac` then downloads the theme's `theme.json` manifest and files from the repository, verifies their SHA-256 checksums, and installs them. The default install location is `~/.cac/themes`. The `--local` option installs into `<project>/.cac/themes`, and `--force` replaces an existing installation.
+
+The contribution workflow and manifest contract are documented in [`themes/README.md`](../../themes/README.md). Contributors add a directory under `themes/`, list its searchable metadata in `themes/index.json`, verify every file checksum, and open a pull request. Registry themes inherit the bundled `/.cac/base.typ`; parent themes do not need to be downloaded or inspected.
 
 ## Implementation boundaries
 

@@ -37,8 +37,12 @@ pub enum Error {
     CheckFailed,
     #[error("could not determine the user home directory")]
     HomeDirectory,
-    #[error("theme `{0}` is not available as an embedded theme")]
-    EmbeddedTheme(String),
+    #[error("theme `{0}` is not available in the downloadable theme registry")]
+    DownloadableTheme(String),
+    #[error("theme registry error: {0}")]
+    ThemeRegistry(String),
+    #[error("downloaded theme `{theme}` file `{path}` failed checksum verification")]
+    ThemeChecksum { theme: String, path: String },
     #[error("theme `{0}` is not installed in the selected location")]
     ThemeNotInstalled(String),
 }

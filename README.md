@@ -78,10 +78,12 @@ The finished PDF is `dist/cv.pdf`.
 | `cac check [FILE] [--strict]` | Check source content |
 | `cac convert <FILE> --to <FORMAT>` | Convert supported input formats |
 | `cac themes list` | List embedded and installed themes |
-| `cac themes install <THEME> [--local]` | Install an embedded theme |
+| `cac themes search [QUERY]` | Search downloadable themes |
+| `cac themes info <THEME>` | Show downloadable theme metadata |
+| `cac themes install <THEME> [--local]` | Install an embedded or downloadable theme |
 | `cac themes remove <THEME> [--local]` | Remove an installed theme |
 
-The `root` property in `settings.json` selects the CV source used by `cac build` when no file is provided. This avoids ambiguity when a directory contains several supported CV files. Put common PDF formatting overrides in the same file. Use a project-local theme under `.cac/themes/<name>/theme.typ` for structural customization. See the [theme architecture](docs/development/theme-architecture.md) for the supported settings and theme API.
+The `root` property in `settings.json` selects the CV source used by `cac build` when no file is provided. This avoids ambiguity when a directory contains several supported CV files. Put common PDF formatting overrides in the same file. Use a project-local theme under `.cac/themes/<name>/theme.typ` for structural customization. See the [theme architecture](docs/development/theme-architecture.md) for the supported settings and theme API, and [`themes/`](themes/) for the contribution process.
 
 ## Examples
 
