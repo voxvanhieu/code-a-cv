@@ -1,0 +1,20 @@
+{
+  "$schema": ".cac/settings.schema.json",
+  "root": "cv.md",
+  "theme": "classic",
+  "page": {
+    "paper": "a4",
+    "margin": "16mm"
+  },
+  "typography": {
+    "font_size": "9.5pt",
+    "line_spacing": "0.6em"
+  },
+  "spacing": {
+    "section": "1.1em",
+    "entry": "0.9em"
+  },
+  "pagination": {
+    "allow_entry_page_break": false
+  }
+}

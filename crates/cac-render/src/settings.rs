@@ -21,17 +21,18 @@ pub struct PageMargins {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct Settings {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub root: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub theme: Option<String>,
+pub struct PageSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub paper: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub page_margin: Option<String>,
+    pub margin: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub page_margins: Option<PageMargins>,
+    pub margins: Option<PageMargins>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct TypographySettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub font: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -40,12 +41,11 @@ pub struct Settings {
     pub font_size: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub line_spacing: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub list_item_spacing: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub section_spacing: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub entry_spacing: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct StyleSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub accent_color: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -55,11 +55,48 @@ pub struct Settings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub header_alignment: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub section_heading_spacing: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub highlight_bullet: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct SpacingSettings {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub list_item: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub section: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub section_heading: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entry: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct PaginationSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub allow_entry_page_break: Option<bool>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Settings {
+    #[serde(rename = "$schema", skip_serializing_if = "Option::is_none")]
+    pub schema: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub root: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub theme: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub page: Option<PageSettings>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub typography: Option<TypographySettings>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub style: Option<StyleSettings>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub spacing: Option<SpacingSettings>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pagination: Option<PaginationSettings>,
 }
 
 #[derive(Debug, Error)]
@@ -80,13 +117,15 @@ pub enum SettingsError {
     ThemeName(String),
     #[error("invalid `{field}` value `{value}`; expected a positive Typst length")]
     Length { field: &'static str, value: String },
-    #[error("invalid `paper` value `{0}`; expected `a4` or `us-letter`")]
+    #[error("invalid `page.paper` value `{0}`; expected `a4` or `us-letter`")]
     Paper(String),
-    #[error("invalid `font` value; expected a non-empty font family")]
+    #[error("invalid `typography.font` value; expected a non-empty font family")]
     Font,
-    #[error("invalid `heading_font` value; expected a non-empty font family")]
+    #[error("invalid `typography.heading_font` value; expected a non-empty font family")]
     HeadingFont,
-    #[error("invalid `accent_color` value `{0}`; expected a six-digit hex color such as `#1f4e79`")]
+    #[error(
+        "invalid `style.accent_color` value `{0}`; expected a six-digit hex color such as `#1f4e79`"
+    )]
     AccentColor(String),
     #[error("invalid `{field}` value `{value}`; expected one of: {expected}")]
     Choice {
@@ -94,7 +133,7 @@ pub enum SettingsError {
         value: String,
         expected: &'static str,
     },
-    #[error("invalid `highlight_bullet` value; expected a non-empty single-line string")]
+    #[error("invalid `style.highlight_bullet` value; expected a non-empty single-line string")]
     HighlightBullet,
     #[error("invalid `root` value `{0}`; expected a CV file name without directory components")]
     Root(String),
@@ -122,33 +161,53 @@ impl Settings {
         if let Some(theme) = &settings.theme {
             validate_theme_name(theme)?;
         }
-        if let Some(paper) = &settings.paper
+        let page = settings.page.as_ref();
+        let typography = settings.typography.as_ref();
+        let style = settings.style.as_ref();
+        let spacing = settings.spacing.as_ref();
+        if let Some(paper) = page.and_then(|page| page.paper.as_ref())
             && !matches!(paper.as_str(), "a4" | "us-letter")
         {
             return Err(SettingsError::Paper(paper.clone()));
         }
-        if settings
-            .font
-            .as_ref()
+        if typography
+            .and_then(|typography| typography.font.as_ref())
             .is_some_and(|font| font.trim().is_empty())
         {
             return Err(SettingsError::Font);
         }
-        if settings
-            .heading_font
-            .as_ref()
+        if typography
+            .and_then(|typography| typography.heading_font.as_ref())
             .is_some_and(|font| font.trim().is_empty())
         {
             return Err(SettingsError::HeadingFont);
         }
         for (field, value) in [
-            ("page_margin", &settings.page_margin),
-            ("font_size", &settings.font_size),
-            ("line_spacing", &settings.line_spacing),
-            ("list_item_spacing", &settings.list_item_spacing),
-            ("section_spacing", &settings.section_spacing),
-            ("entry_spacing", &settings.entry_spacing),
-            ("section_heading_spacing", &settings.section_heading_spacing),
+            ("page.margin", page.and_then(|page| page.margin.as_ref())),
+            (
+                "typography.font_size",
+                typography.and_then(|typography| typography.font_size.as_ref()),
+            ),
+            (
+                "typography.line_spacing",
+                typography.and_then(|typography| typography.line_spacing.as_ref()),
+            ),
+            (
+                "spacing.list_item",
+                spacing.and_then(|spacing| spacing.list_item.as_ref()),
+            ),
+            (
+                "spacing.section",
+                spacing.and_then(|spacing| spacing.section.as_ref()),
+            ),
+            (
+                "spacing.entry",
+                spacing.and_then(|spacing| spacing.entry.as_ref()),
+            ),
+            (
+                "spacing.section_heading",
+                spacing.and_then(|spacing| spacing.section_heading.as_ref()),
+            ),
         ] {
             if let Some(value) = value
                 && !valid_length(value)
@@ -159,12 +218,12 @@ impl Settings {
                 });
             }
         }
-        if let Some(margins) = &settings.page_margins {
+        if let Some(margins) = page.and_then(|page| page.margins.as_ref()) {
             for (field, value) in [
-                ("page_margins.top", &margins.top),
-                ("page_margins.bottom", &margins.bottom),
-                ("page_margins.left", &margins.left),
-                ("page_margins.right", &margins.right),
+                ("page.margins.top", &margins.top),
+                ("page.margins.bottom", &margins.bottom),
+                ("page.margins.left", &margins.left),
+                ("page.margins.right", &margins.right),
             ] {
                 if let Some(value) = value
                     && !valid_length(value)
@@ -176,26 +235,25 @@ impl Settings {
                 }
             }
         }
-        if let Some(color) = &settings.accent_color
+        if let Some(color) = style.and_then(|style| style.accent_color.as_ref())
             && !valid_hex_color(color)
         {
             return Err(SettingsError::AccentColor(color.clone()));
         }
         validate_choice(
-            "body_alignment",
-            &settings.body_alignment,
+            "style.body_alignment",
+            style.and_then(|style| style.body_alignment.as_ref()),
             &["left", "justified"],
             "left, justified",
         )?;
         validate_choice(
-            "header_alignment",
-            &settings.header_alignment,
+            "style.header_alignment",
+            style.and_then(|style| style.header_alignment.as_ref()),
             &["left", "center", "right"],
             "left, center, right",
         )?;
-        if settings
-            .highlight_bullet
-            .as_ref()
+        if style
+            .and_then(|style| style.highlight_bullet.as_ref())
             .is_some_and(|bullet| bullet.trim().is_empty() || bullet.contains(['\n', '\r']))
         {
             return Err(SettingsError::HighlightBullet);
@@ -210,7 +268,7 @@ impl Settings {
 
 fn validate_choice(
     field: &'static str,
-    value: &Option<String>,
+    value: Option<&String>,
     choices: &[&str],
     expected: &'static str,
 ) -> Result<(), SettingsError> {
@@ -246,6 +304,106 @@ pub fn validate_theme_name(name: &str) -> Result<(), SettingsError> {
     } else {
         Err(SettingsError::ThemeName(name.into()))
     }
+}
+
+pub fn settings_schema() -> serde_json::Value {
+    serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://raw.githubusercontent.com/voxvanhieu/code-a-cv/main/settings.schema.json",
+        "title": "Code a CV settings",
+        "description": "Rendering and project settings for the cac command-line application.",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "$schema": {
+                "type": "string",
+                "format": "uri-reference",
+                "description": "Location of this JSON Schema for editor validation and completion."
+            },
+            "root": {
+                "type": "string",
+                "pattern": "^(?!\\.{1,2}$)[^/\\\\]+$",
+                "description": "CV source filename in the same directory as settings.json."
+            },
+            "theme": {
+                "type": "string",
+                "pattern": "^[a-z0-9_-]+$",
+                "description": "Embedded, project-local, or user-installed theme name."
+            },
+            "page": { "$ref": "#/$defs/page" },
+            "typography": { "$ref": "#/$defs/typography" },
+            "style": { "$ref": "#/$defs/style" },
+            "spacing": { "$ref": "#/$defs/spacing" },
+            "pagination": { "$ref": "#/$defs/pagination" }
+        },
+        "$defs": {
+            "positiveLength": {
+                "type": "string",
+                "pattern": "^(?=.*[1-9])(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)(?:pt|mm|cm|in|em|rem|%)$",
+                "description": "A positive Typst length with an explicit unit."
+            },
+            "page": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "paper": { "type": "string", "enum": ["a4", "us-letter"] },
+                    "margin": { "$ref": "#/$defs/positiveLength" },
+                    "margins": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "top": { "$ref": "#/$defs/positiveLength" },
+                            "bottom": { "$ref": "#/$defs/positiveLength" },
+                            "left": { "$ref": "#/$defs/positiveLength" },
+                            "right": { "$ref": "#/$defs/positiveLength" }
+                        }
+                    }
+                }
+            },
+            "typography": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "font": { "type": "string", "minLength": 1 },
+                    "heading_font": { "type": "string", "minLength": 1 },
+                    "font_size": { "$ref": "#/$defs/positiveLength" },
+                    "line_spacing": { "$ref": "#/$defs/positiveLength" }
+                }
+            },
+            "style": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "accent_color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+                    "body_alignment": { "type": "string", "enum": ["left", "justified"] },
+                    "header_alignment": { "type": "string", "enum": ["left", "center", "right"] },
+                    "link_underline": { "type": "boolean" },
+                    "highlight_bullet": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^[^\\r\\n]+$"
+                    }
+                }
+            },
+            "spacing": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "list_item": { "$ref": "#/$defs/positiveLength" },
+                    "section": { "$ref": "#/$defs/positiveLength" },
+                    "section_heading": { "$ref": "#/$defs/positiveLength" },
+                    "entry": { "$ref": "#/$defs/positiveLength" }
+                }
+            },
+            "pagination": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "allow_entry_page_break": { "type": "boolean" }
+                }
+            }
+        }
+    })
 }
 
 fn valid_length(value: &str) -> bool {

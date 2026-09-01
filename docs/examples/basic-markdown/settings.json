@@ -1,0 +1,5 @@
+{
+  "$schema": ".cac/settings.schema.json",
+  "root": "cv.md",
+  "theme": "classic"
+}

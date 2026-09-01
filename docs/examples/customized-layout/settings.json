@@ -1,0 +1,21 @@
+{
+  "$schema": ".cac/settings.schema.json",
+  "root": "cv.yaml",
+  "theme": "table-layout",
+  "page": {
+    "paper": "a4",
+    "margin": "16mm"
+  },
+  "typography": {
+    "font_size": "9.5pt"
+  },
+  "style": {
+    "accent_color": "#1f4e79",
+    "body_alignment": "left",
+    "header_alignment": "left"
+  },
+  "spacing": {
+    "section": "1.2em",
+    "section_heading": "0.5em"
+  }
+}

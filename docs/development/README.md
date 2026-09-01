@@ -47,7 +47,10 @@ $ cargo run -p cac -- init
 $ cargo run -p cac -- build
 ```
 
-The initialization also writes `settings.json` with `cv.md` as the root CV and the embedded `classic` theme selected. The build writes `dist/cv.pdf`. Both `cv.md` and `dist/` are ignored by Git.
+The initialization also writes `settings.json` with `cv.md` as the root CV and
+the embedded `classic` theme selected. It synchronizes the bundled settings
+schema to `.cac/settings.schema.json`; builds refresh that file when needed.
+The build writes `offering/cv.pdf`. Both `cv.md` and `offering/` are ignored by Git.
 
 ## Architecture
 

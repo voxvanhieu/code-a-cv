@@ -26,8 +26,8 @@ formula = <<~RUBY
       system bin/"cac", "init"
       assert_path_exists testpath/"cv.md"
 
-      system bin/"cac", "build", "cv.md", "--format", "html", "--output", "dist"
-      assert_path_exists testpath/"dist/cv.html"
+      system bin/"cac", "build", "cv.md", "--format", "html"
+      assert_path_exists testpath/"offering/cv.html"
     end
   end
 RUBY

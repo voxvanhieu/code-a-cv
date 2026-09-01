@@ -10,7 +10,7 @@ This repository is a Rust 2024 workspace for the `cac` command-line application.
 * `crates/cac-check`: read-only content diagnostics
 * `crates/cac`: CLI parsing, command dispatch, and filesystem access
 
-Integration tests live in each crate's `tests/` directory. Example CVs are in `examples/`, downloadable themes are in `themes/`, and architecture notes are in `docs/development/`. Keep public APIs in each crate's `src/lib.rs` and implementation details private where possible.
+Integration tests live in each crate's `tests/` directory. Example CV projects are in `docs/examples/`, downloadable themes are in `themes/`, and architecture notes are in `docs/development/`. Keep public APIs in each crate's `src/lib.rs` and implementation details private where possible.
 
 ## Build, Test, and Development Commands
 

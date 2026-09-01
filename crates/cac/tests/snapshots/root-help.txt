@@ -7,6 +7,7 @@ Commands:
   build    Validate and render a CV as PDF or HTML
   check    Check CV content
   convert  Convert a CV to another source format
+  schema   Refresh the settings JSON Schema and validate settings.json
   themes   Find, install, and manage themes
   help     Print this message or the help of the given subcommand(s)
 

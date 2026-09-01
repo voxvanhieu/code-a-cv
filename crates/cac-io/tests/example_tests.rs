@@ -4,15 +4,24 @@ use cac_io::{InputFormat, parse};
 #[test]
 fn supported_input_examples_parse() {
     let markdown = parse(
-        include_str!("../../../examples/cv.md"),
+        include_str!("../../../docs/examples/basic-markdown/cv.md"),
         InputFormat::Markdown,
     )
     .unwrap();
 
     for (source, format) in [
-        (include_str!("../../../examples/cv.yaml"), InputFormat::Yaml),
-        (include_str!("../../../examples/cv.json"), InputFormat::Json),
-        (include_str!("../../../examples/cv.toml"), InputFormat::Toml),
+        (
+            include_str!("../../../docs/examples/structured-formats/cv.yaml"),
+            InputFormat::Yaml,
+        ),
+        (
+            include_str!("../../../docs/examples/structured-formats/cv.json"),
+            InputFormat::Json,
+        ),
+        (
+            include_str!("../../../docs/examples/structured-formats/cv.toml"),
+            InputFormat::Toml,
+        ),
     ] {
         assert_eq!(parse(source, format).unwrap(), markdown);
     }
@@ -30,7 +39,7 @@ fn supported_input_examples_parse() {
     assert_all_entry_kinds(&markdown);
 
     let json_resume = parse(
-        include_str!("../../../examples/resume.json"),
+        include_str!("../../../docs/examples/json-resume-import/resume.json"),
         InputFormat::JsonResume,
     )
     .unwrap();

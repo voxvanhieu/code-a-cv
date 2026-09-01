@@ -6,6 +6,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+
+* Restored `cac schema` to synchronize the project-local settings schema and validate `settings.json`
+* Made `cac init` and `cac build` keep `.cac/settings.schema.json` synchronized with the running binary
+
+### Changed
+
+* Made generated settings reference `.cac/settings.schema.json` for editor validation and completion
+* Grouped rendering settings under `page`, `typography`, `style`, `spacing`, and `pagination` while keeping `root` and `theme` at the top level
+* Generate the project-local settings schema from the internal Rust model instead of tracking a standalone schema file
+* Rename the default generated-document directory from `dist/` to `offering/`
+* Move the runnable example projects under `docs/examples/`
+
 ## [0.2.0]
 
 ### Added

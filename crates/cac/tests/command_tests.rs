@@ -7,7 +7,7 @@ use tempfile::tempdir;
 
 const CLEAN_MARKDOWN: &str =
     "# Ada Lovelace\n\nada@example.com\n\n## Skills\n\n- Rust and PostgreSQL\n";
-const CLASSIC_SETTINGS: &str = "{\n  \"root\": \"cv.md\",\n  \"theme\": \"classic\"\n}\n";
+const CLASSIC_SETTINGS: &str = "{\n  \"$schema\": \".cac/settings.schema.json\",\n  \"root\": \"cv.md\",\n  \"theme\": \"classic\"\n}\n";
 const WARNING_MARKDOWN: &str = "# Ada Lovelace\n\nada@example.com\n\n## Experience\n\n### Engineer, Example\n2020–Present\n\n- Helped my team ship software\n";
 
 #[test]
@@ -18,6 +18,7 @@ fn help_screens_match_snapshots() {
         (&["build"][..], include_str!("snapshots/build-help.txt")),
         (&["check"][..], include_str!("snapshots/check-help.txt")),
         (&["convert"][..], include_str!("snapshots/convert-help.txt")),
+        (&["schema"][..], include_str!("snapshots/schema-help.txt")),
         (&["themes"][..], include_str!("snapshots/themes-help.txt")),
     ];
 
@@ -68,6 +69,63 @@ fn build_rejects_json_as_an_output_format_with_syntax_status() {
 }
 
 #[test]
+fn schema_creates_updates_and_validates_project_settings() {
+    let directory = tempdir().unwrap();
+    let schema = directory.path().join(".cac/settings.schema.json");
+    fs::write(
+        directory.path().join("settings.json"),
+        r#"{"$schema":".cac/settings.schema.json","root":"cv.md","theme":"classic"}"#,
+    )
+    .unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .arg("schema")
+        .assert()
+        .success()
+        .stdout("CREATED .cac/settings.schema.json\nVALID settings.json\n");
+    let generated: serde_json::Value = serde_json::from_slice(&fs::read(&schema).unwrap()).unwrap();
+    assert_eq!(generated["type"], "object");
+    assert_eq!(generated["properties"]["page"]["$ref"], "#/$defs/page");
+    assert_eq!(
+        generated["properties"]["typography"]["$ref"],
+        "#/$defs/typography"
+    );
+
+    fs::write(&schema, "stale").unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .arg("schema")
+        .assert()
+        .success()
+        .stdout("UPDATED .cac/settings.schema.json\nVALID settings.json\n");
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .arg("schema")
+        .assert()
+        .success()
+        .stdout("VALID settings.json\n");
+
+    fs::write(
+        directory.path().join("settings.json"),
+        r#"{"page":{"paper":"a3"}}"#,
+    )
+    .unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .arg("schema")
+        .assert()
+        .code(1)
+        .stdout("")
+        .stderr(predicates::str::contains("expected `a4` or `us-letter`"));
+}
+
+#[test]
 fn convert_still_exports_native_json() {
     let directory = tempdir().unwrap();
     let input = directory.path().join("cv.md");
@@ -92,7 +150,7 @@ fn convert_still_exports_native_json() {
 fn init_creates_root_and_classic_settings_and_builds_html() {
     let directory = tempdir().unwrap();
     let input = directory.path().join("profile.md");
-    let output = directory.path().join("dist");
+    let output = directory.path().join("offering");
 
     Command::cargo_bin("cac")
         .unwrap()
@@ -102,8 +160,9 @@ fn init_creates_root_and_classic_settings_and_builds_html() {
         .success();
     assert_eq!(
         fs::read_to_string(directory.path().join("settings.json")).unwrap(),
-        "{\n  \"root\": \"profile.md\",\n  \"theme\": \"classic\"\n}\n"
+        "{\n  \"$schema\": \".cac/settings.schema.json\",\n  \"root\": \"profile.md\",\n  \"theme\": \"classic\"\n}\n"
     );
+    assert!(directory.path().join(".cac/settings.schema.json").is_file());
     Command::cargo_bin("cac")
         .unwrap()
         .arg("build")
@@ -135,7 +194,7 @@ fn init_uses_the_format_default_output() {
     assert_eq!(cv["profile"]["name"], "Ada Lovelace");
     assert_eq!(
         fs::read_to_string(directory.path().join("settings.json")).unwrap(),
-        "{\n  \"root\": \"cv.json\",\n  \"theme\": \"classic\"\n}\n"
+        "{\n  \"$schema\": \".cac/settings.schema.json\",\n  \"root\": \"cv.json\",\n  \"theme\": \"classic\"\n}\n"
     );
 }
 
@@ -156,7 +215,7 @@ fn init_uses_the_custom_output_as_the_settings_root() {
     assert_eq!(cv["profile"]["name"], "Ada Lovelace");
     assert_eq!(
         fs::read_to_string(directory.path().join("settings.json")).unwrap(),
-        "{\n  \"root\": \"new-cv.yaml\",\n  \"theme\": \"classic\"\n}\n"
+        "{\n  \"$schema\": \".cac/settings.schema.json\",\n  \"root\": \"new-cv.yaml\",\n  \"theme\": \"classic\"\n}\n"
     );
 }
 
@@ -183,7 +242,7 @@ fn build_uses_the_settings_root_when_input_is_omitted() {
     let directory = tempdir().unwrap();
     fs::write(
         directory.path().join("primary.json"),
-        include_str!("../../../examples/cv.json"),
+        include_str!("../../../docs/examples/structured-formats/cv.json"),
     )
     .unwrap();
     fs::write(
@@ -198,8 +257,8 @@ fn build_uses_the_settings_root_when_input_is_omitted() {
         .args(["build", "--format", "html"])
         .assert()
         .success()
-        .stdout(predicates::str::contains("BUILT dist/primary.html"));
-    assert!(directory.path().join("dist/primary.html").is_file());
+        .stdout(predicates::str::contains("BUILT offering/primary.html"));
+    assert!(directory.path().join("offering/primary.html").is_file());
 }
 
 #[test]
@@ -209,7 +268,7 @@ fn build_resolves_root_relative_to_an_explicit_settings_file() {
     fs::create_dir(&project).unwrap();
     fs::write(
         project.join("primary.json"),
-        include_str!("../../../examples/cv.json"),
+        include_str!("../../../docs/examples/structured-formats/cv.json"),
     )
     .unwrap();
     fs::write(
@@ -230,7 +289,7 @@ fn build_resolves_root_relative_to_an_explicit_settings_file() {
         ])
         .assert()
         .success()
-        .stdout(predicates::str::contains("BUILT dist/primary.html"));
+        .stdout(predicates::str::contains("BUILT offering/primary.html"));
 }
 
 #[test]
@@ -244,7 +303,13 @@ fn build_without_settings_falls_back_to_cv_markdown() {
         .args(["build", "--format", "html"])
         .assert()
         .success()
-        .stdout(predicates::str::contains("BUILT dist/cv.html"));
+        .stdout(predicates::str::contains("BUILT offering/cv.html"));
+    let generated: serde_json::Value = serde_json::from_slice(
+        &fs::read(directory.path().join(".cac/settings.schema.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(generated["type"], "object");
+    assert_eq!(generated["additionalProperties"], false);
 }
 
 #[test]
@@ -263,7 +328,7 @@ fn explicit_build_input_takes_precedence_over_the_settings_root() {
         .args(["build", "selected.md", "--format", "html"])
         .assert()
         .success()
-        .stdout(predicates::str::contains("BUILT dist/selected.html"));
+        .stdout(predicates::str::contains("BUILT offering/selected.html"));
 }
 
 #[test]
@@ -272,6 +337,7 @@ fn build_reads_markdown_from_stdin() {
 
     Command::cargo_bin("cac")
         .unwrap()
+        .current_dir(directory.path())
         .args(["build", "-", "--format", "html", "--output"])
         .arg(directory.path())
         .write_stdin(CLEAN_MARKDOWN)
@@ -300,7 +366,9 @@ fn convert_reads_structured_data_from_stdin() {
     Command::cargo_bin("cac")
         .unwrap()
         .args(["convert", "-", "--input-format", "json", "--to", "markdown"])
-        .write_stdin(include_str!("../../../examples/cv.json"))
+        .write_stdin(include_str!(
+            "../../../docs/examples/structured-formats/cv.json"
+        ))
         .assert()
         .success()
         .stdout(predicates::str::starts_with("# Ada Lovelace\n"))
@@ -333,7 +401,9 @@ fn init_imports_json_resume_from_stdin() {
         .unwrap()
         .args(["init", "--from", "-", "--output"])
         .arg(&output)
-        .write_stdin(include_str!("../../../examples/resume.json"))
+        .write_stdin(include_str!(
+            "../../../docs/examples/json-resume-import/resume.json"
+        ))
         .assert()
         .success();
     assert!(
@@ -464,7 +534,7 @@ fn init_rejects_settings_as_the_cv_output() {
 fn build_replaces_an_existing_artifact() {
     let directory = tempdir().unwrap();
     let input = directory.path().join("cv.md");
-    let output = directory.path().join("dist");
+    let output = directory.path().join("offering");
     fs::create_dir(&output).unwrap();
     fs::write(&input, CLEAN_MARKDOWN).unwrap();
     fs::write(output.join("cv.html"), "old").unwrap();
@@ -485,13 +555,13 @@ fn build_replaces_an_existing_artifact() {
 fn build_reads_settings_beside_the_cv_and_reports_the_theme() {
     let directory = tempdir().unwrap();
     let input = directory.path().join("cv.md");
-    let output = directory.path().join("dist");
+    let output = directory.path().join("offering");
     let theme = directory.path().join(".cac/themes/compact");
     fs::create_dir_all(&theme).unwrap();
     fs::write(&input, CLEAN_MARKDOWN).unwrap();
     fs::write(
         directory.path().join("settings.json"),
-        r#"{"theme":"compact","page_margin":"12mm"}"#,
+        r#"{"theme":"compact","page":{"margin":"12mm"}}"#,
     )
     .unwrap();
     fs::write(
@@ -625,7 +695,7 @@ fn themes_search_info_install_and_build_from_a_registry() {
         .assert()
         .success()
         .stdout(predicates::str::contains("THEME classic-blue (project)"));
-    assert!(directory.path().join("dist/cv.pdf").is_file());
+    assert!(directory.path().join("offering/cv.pdf").is_file());
 
     Command::cargo_bin("cac")
         .unwrap()

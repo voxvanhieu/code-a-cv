@@ -206,15 +206,21 @@
   let resolved-styles = styles
   let resolved-page = page
 
-  if "paper" in settings { resolved-page.insert("paper", settings.paper) }
-  if "page_margin" in settings { resolved-page.insert("margin", eval(settings.page_margin, mode: "code")) }
-  if "page_margins" in settings {
+  let page-settings = settings.at("page", default: (:))
+  let typography = settings.at("typography", default: (:))
+  let style = settings.at("style", default: (:))
+  let spacing = settings.at("spacing", default: (:))
+  let pagination = settings.at("pagination", default: (:))
+
+  if "paper" in page-settings { resolved-page.insert("paper", page-settings.paper) }
+  if "margin" in page-settings { resolved-page.insert("margin", eval(page-settings.margin, mode: "code")) }
+  if "margins" in page-settings {
     let current = resolved-page.margin
     let side = (name) => if type(current) == dictionary {
       let axis = if name == "top" or name == "bottom" { "y" } else { "x" }
       current.at(name, default: current.at(axis, default: 0pt))
     } else { current }
-    let margins = settings.page_margins
+    let margins = page-settings.margins
     resolved-page.insert("margin", (
       top: if "top" in margins { eval(margins.top, mode: "code") } else { side("top") },
       bottom: if "bottom" in margins { eval(margins.bottom, mode: "code") } else { side("bottom") },
@@ -222,28 +228,28 @@
       right: if "right" in margins { eval(margins.right, mode: "code") } else { side("right") },
     ))
   }
-  if "font" in settings {
-    resolved-tokens.fonts.insert("body", settings.font)
-    resolved-tokens.fonts.insert("heading", settings.font)
+  if "font" in typography {
+    resolved-tokens.fonts.insert("body", typography.font)
+    resolved-tokens.fonts.insert("heading", typography.font)
   }
-  if "heading_font" in settings { resolved-tokens.fonts.insert("heading", settings.heading_font) }
-  if "accent_color" in settings { resolved-tokens.colors.insert("accent", rgb(settings.accent_color)) }
-  if "font_size" in settings { resolved-styles.body.insert("font_size", eval(settings.font_size, mode: "code")) }
-  if "line_spacing" in settings { resolved-styles.body.insert("line_spacing", eval(settings.line_spacing, mode: "code")) }
-  if "list_item_spacing" in settings { resolved-styles.list.insert("item_spacing", eval(settings.list_item_spacing, mode: "code")) }
-  if "section_spacing" in settings { resolved-styles.section.insert("space_before", eval(settings.section_spacing, mode: "code")) }
-  if "entry_spacing" in settings { resolved-styles.entry.insert("space_after", eval(settings.entry_spacing, mode: "code")) }
-  if "body_alignment" in settings { resolved-styles.body.insert("justify", settings.body_alignment == "justified") }
-  if "link_underline" in settings { resolved-styles.link.insert("underline", settings.link_underline) }
-  if "header_alignment" in settings {
-    let alignment = if settings.header_alignment == "left" { left }
-      else if settings.header_alignment == "right" { right }
+  if "heading_font" in typography { resolved-tokens.fonts.insert("heading", typography.heading_font) }
+  if "font_size" in typography { resolved-styles.body.insert("font_size", eval(typography.font_size, mode: "code")) }
+  if "line_spacing" in typography { resolved-styles.body.insert("line_spacing", eval(typography.line_spacing, mode: "code")) }
+  if "accent_color" in style { resolved-tokens.colors.insert("accent", rgb(style.accent_color)) }
+  if "body_alignment" in style { resolved-styles.body.insert("justify", style.body_alignment == "justified") }
+  if "link_underline" in style { resolved-styles.link.insert("underline", style.link_underline) }
+  if "header_alignment" in style {
+    let alignment = if style.header_alignment == "left" { left }
+      else if style.header_alignment == "right" { right }
       else { center }
     resolved-styles.header.insert("alignment", alignment)
   }
-  if "section_heading_spacing" in settings { resolved-styles.section.insert("space_after_heading", eval(settings.section_heading_spacing, mode: "code")) }
-  if "highlight_bullet" in settings { resolved-styles.highlight.insert("bullet", settings.highlight_bullet) }
-  if "allow_entry_page_break" in settings { resolved-styles.entry.insert("allow_page_break", settings.allow_entry_page_break) }
+  if "highlight_bullet" in style { resolved-styles.highlight.insert("bullet", style.highlight_bullet) }
+  if "list_item" in spacing { resolved-styles.list.insert("item_spacing", eval(spacing.list_item, mode: "code")) }
+  if "section" in spacing { resolved-styles.section.insert("space_before", eval(spacing.section, mode: "code")) }
+  if "section_heading" in spacing { resolved-styles.section.insert("space_after_heading", eval(spacing.section_heading, mode: "code")) }
+  if "entry" in spacing { resolved-styles.entry.insert("space_after", eval(spacing.entry, mode: "code")) }
+  if "allow_entry_page_break" in pagination { resolved-styles.entry.insert("allow_page_break", pagination.allow_entry_page_break) }
 
   (tokens: resolved-tokens, styles: resolved-styles, page: resolved-page)
 }
