@@ -3,7 +3,7 @@ use std::fs;
 
 use cac_core::DatePoint;
 use cac_render::{
-    RenderOptions, Settings, ThemeSource, format_date, render_html, render_pdf,
+    PageMargins, RenderOptions, Settings, ThemeSource, format_date, render_html, render_pdf,
     render_pdf_with_options,
 };
 use tempfile::tempdir;
@@ -114,6 +114,17 @@ fn settings_reject_unknown_properties_and_invalid_values() {
             .contains("positive Typst length")
     );
 
+    for invalid in [
+        r##"{"accent_color":"blue"}"##,
+        r##"{"body_alignment":"center"}"##,
+        r##"{"header_alignment":"justified"}"##,
+        r##"{"highlight_bullet":""}"##,
+        r##"{"page_margins":{"left":"wide"}}"##,
+    ] {
+        fs::write(&path, invalid).unwrap();
+        assert!(Settings::from_path(&path).is_err());
+    }
+
     let cv = parse(STARTER_MARKDOWN, InputFormat::Markdown).unwrap();
     let error = render_pdf_with_options(
         &cv,
@@ -127,6 +138,62 @@ fn settings_reject_unknown_properties_and_invalid_values() {
     )
     .unwrap_err();
     assert!(error.to_string().contains("positive Typst length"));
+}
+
+#[test]
+fn visual_settings_override_theme_defaults() {
+    let directory = tempdir().unwrap();
+    write_theme(
+        directory.path(),
+        "settings",
+        r##"
+#import "/.cac/base.typ" as base
+#let checked-header(ctx) = {
+  if ctx.page.margin.top != 10mm { panic("top margin was not overridden") }
+  if ctx.page.margin.bottom != 12mm { panic("bottom margin was not overridden") }
+  if ctx.page.margin.left != 13mm { panic("left margin was not overridden") }
+  if ctx.page.margin.right != 12mm { panic("uniform margin was not retained") }
+  if ctx.tokens.fonts.heading != "Noto Sans" { panic("heading font was not overridden") }
+  if ctx.tokens.colors.accent != rgb("#1f4e79") { panic("accent color was not overridden") }
+  if ctx.styles.body.justify { panic("body alignment was not overridden") }
+  if ctx.styles.link.underline { panic("link underline was not overridden") }
+  if ctx.styles.header.alignment != right { panic("header alignment was not overridden") }
+  if ctx.styles.section.space_after_heading != 0.4em { panic("section heading spacing was not overridden") }
+  if ctx.styles.highlight.bullet != "◆" { panic("highlight bullet was not overridden") }
+  if not ctx.styles.entry.allow_page_break { panic("entry page breaking was not overridden") }
+}
+#let theme = base.extend(page: (margin: (top: 13mm, bottom: 13mm, left: 13mm, right: 13mm)), components: (header: checked-header))
+"##,
+    );
+    let cv = parse(STARTER_MARKDOWN, InputFormat::Markdown).unwrap();
+    let rendered = render_pdf_with_options(
+        &cv,
+        &RenderOptions {
+            project_dir: Some(directory.path().into()),
+            settings: Settings {
+                theme: Some("settings".into()),
+                page_margin: Some("12mm".into()),
+                page_margins: Some(PageMargins {
+                    top: Some("10mm".into()),
+                    left: Some("13mm".into()),
+                    ..PageMargins::default()
+                }),
+                heading_font: Some("Noto Sans".into()),
+                accent_color: Some("#1f4e79".into()),
+                body_alignment: Some("left".into()),
+                link_underline: Some(false),
+                header_alignment: Some("right".into()),
+                section_heading_spacing: Some("0.4em".into()),
+                highlight_bullet: Some("◆".into()),
+                allow_entry_page_break: Some(true),
+                ..Settings::default()
+            },
+            ..RenderOptions::default()
+        },
+    )
+    .unwrap();
+
+    assert!(rendered.bytes.starts_with(b"%PDF-"));
 }
 
 #[test]

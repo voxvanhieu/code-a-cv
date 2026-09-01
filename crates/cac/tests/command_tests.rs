@@ -661,7 +661,7 @@ fn themes_install_rejects_a_download_with_the_wrong_checksum() {
     )
     .unwrap();
     let manifest = include_str!("../../../themes/classic-blue/theme.json").replace(
-        "85f469a68766e184425624aeea22849dd25ad6de63ce4f999850f751282da9a6",
+        "32a12bccc99e93c7756995325358fd5e3cf09c552380fa13b915a416777681b9",
         "0000000000000000000000000000000000000000000000000000000000000000",
     );
     fs::write(theme.join("theme.json"), manifest).unwrap();

@@ -55,12 +55,21 @@ The selected theme is stored in `settings.json`:
   "theme": "oxford",
   "paper": "a4",
   "page_margin": "18mm",
+  "page_margins": { "top": "16mm", "bottom": "16mm" },
   "font": "Libertinus Serif",
+  "heading_font": "Libertinus Serif",
   "font_size": "10pt",
   "line_spacing": "0.65em",
   "list_item_spacing": "0.65em",
   "section_spacing": "1.2em",
-  "entry_spacing": "1.2em"
+  "entry_spacing": "1.2em",
+  "accent_color": "#1f4e79",
+  "body_alignment": "justified",
+  "link_underline": true,
+  "header_alignment": "center",
+  "section_heading_spacing": "0.65em",
+  "highlight_bullet": "•",
+  "allow_entry_page_break": false
 }
 ```
 
@@ -72,18 +81,29 @@ The supported settings should remain small and stable:
 | `theme` | Select a theme by name |
 | `paper` | Set the page format, such as `a4` or `us-letter` |
 | `page_margin` | Set a uniform page margin |
+| `page_margins` | Override individual `top`, `bottom`, `left`, or `right` page margins |
 | `font` | Set the body and heading font families |
+| `heading_font` | Override the heading font family |
 | `font_size` | Set the body text size |
 | `line_spacing` | Set the clear leading added between line boxes; Typst's default is `0.65em` |
 | `list_item_spacing` | Set spacing between bullet or numbered-list items |
 | `section_spacing` | Set spacing between sections |
 | `entry_spacing` | Set spacing between CV entries |
+| `accent_color` | Set the theme accent to a six-digit hex color |
+| `body_alignment` | Set body text alignment to `left` or `justified` |
+| `link_underline` | Show or hide link underlines |
+| `header_alignment` | Align the header to `left`, `center`, or `right` |
+| `section_heading_spacing` | Set the gap after a section heading |
+| `highlight_bullet` | Set the marker used by the shared highlight-list component |
+| `allow_entry_page_break` | Allow an entry to continue on the next page |
 
 `root` must be a file name in the same directory as `settings.json`. An explicit input such as `cac build cv.json` takes precedence. When `root` is absent, `cac build` reads `cv.md` for compatibility.
 
 Missing formatting properties inherit from the selected theme. Unknown properties and invalid values must produce clear errors instead of being ignored. Per-heading sizes and spacing remain theme properties because the flat settings intentionally describe only the common document defaults.
 
-Advanced customization belongs in `theme.typ`. This includes asymmetric margins, header layouts, date-column widths, custom markers, section rules, and component-specific typography.
+`page_margins` is applied after `page_margin`. Unspecified sides keep the uniform margin or the selected theme's corresponding margin. Component-related settings affect themes that use the shared styles and components. A custom component can intentionally implement different behavior.
+
+Advanced customization belongs in `theme.typ`. This includes header layouts, date-column widths, section rules, and component-specific typography.
 
 ## Theme storage
 
@@ -190,11 +210,14 @@ Its conceptual interface is:
   heading_4: (:),
   heading_5: (:),
   list: (item_spacing: auto),
+  header: (alignment: left),
+  link: (underline: true),
   section: (
     space_before: 1.2em,
     space_after_heading: 0.65em,
   ),
-  entry: (space_after: 1.2em),
+  entry: (space_after: 1.2em, allow_page_break: false),
+  highlight: (bullet: [•]),
 )
 
 #let default-page = (

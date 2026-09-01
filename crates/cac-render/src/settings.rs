@@ -8,6 +8,19 @@ pub const DEFAULT_THEME: &str = "classic";
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
+pub struct PageMargins {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub top: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bottom: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub left: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub right: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct Settings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub root: Option<String>,
@@ -18,7 +31,11 @@ pub struct Settings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub page_margin: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub page_margins: Option<PageMargins>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub font: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub heading_font: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub font_size: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -29,6 +46,20 @@ pub struct Settings {
     pub section_spacing: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub entry_spacing: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub accent_color: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub body_alignment: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub link_underline: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub header_alignment: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub section_heading_spacing: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub highlight_bullet: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_entry_page_break: Option<bool>,
 }
 
 #[derive(Debug, Error)]
@@ -53,6 +84,18 @@ pub enum SettingsError {
     Paper(String),
     #[error("invalid `font` value; expected a non-empty font family")]
     Font,
+    #[error("invalid `heading_font` value; expected a non-empty font family")]
+    HeadingFont,
+    #[error("invalid `accent_color` value `{0}`; expected a six-digit hex color such as `#1f4e79`")]
+    AccentColor(String),
+    #[error("invalid `{field}` value `{value}`; expected one of: {expected}")]
+    Choice {
+        field: &'static str,
+        value: String,
+        expected: &'static str,
+    },
+    #[error("invalid `highlight_bullet` value; expected a non-empty single-line string")]
+    HighlightBullet,
     #[error("invalid `root` value `{0}`; expected a CV file name without directory components")]
     Root(String),
 }
@@ -91,6 +134,13 @@ impl Settings {
         {
             return Err(SettingsError::Font);
         }
+        if settings
+            .heading_font
+            .as_ref()
+            .is_some_and(|font| font.trim().is_empty())
+        {
+            return Err(SettingsError::HeadingFont);
+        }
         for (field, value) in [
             ("page_margin", &settings.page_margin),
             ("font_size", &settings.font_size),
@@ -98,6 +148,7 @@ impl Settings {
             ("list_item_spacing", &settings.list_item_spacing),
             ("section_spacing", &settings.section_spacing),
             ("entry_spacing", &settings.entry_spacing),
+            ("section_heading_spacing", &settings.section_heading_spacing),
         ] {
             if let Some(value) = value
                 && !valid_length(value)
@@ -108,12 +159,77 @@ impl Settings {
                 });
             }
         }
+        if let Some(margins) = &settings.page_margins {
+            for (field, value) in [
+                ("page_margins.top", &margins.top),
+                ("page_margins.bottom", &margins.bottom),
+                ("page_margins.left", &margins.left),
+                ("page_margins.right", &margins.right),
+            ] {
+                if let Some(value) = value
+                    && !valid_length(value)
+                {
+                    return Err(SettingsError::Length {
+                        field,
+                        value: value.clone(),
+                    });
+                }
+            }
+        }
+        if let Some(color) = &settings.accent_color
+            && !valid_hex_color(color)
+        {
+            return Err(SettingsError::AccentColor(color.clone()));
+        }
+        validate_choice(
+            "body_alignment",
+            &settings.body_alignment,
+            &["left", "justified"],
+            "left, justified",
+        )?;
+        validate_choice(
+            "header_alignment",
+            &settings.header_alignment,
+            &["left", "center", "right"],
+            "left, center, right",
+        )?;
+        if settings
+            .highlight_bullet
+            .as_ref()
+            .is_some_and(|bullet| bullet.trim().is_empty() || bullet.contains(['\n', '\r']))
+        {
+            return Err(SettingsError::HighlightBullet);
+        }
         Ok(settings)
     }
 
     pub fn theme_name(&self) -> &str {
         self.theme.as_deref().unwrap_or(DEFAULT_THEME)
     }
+}
+
+fn validate_choice(
+    field: &'static str,
+    value: &Option<String>,
+    choices: &[&str],
+    expected: &'static str,
+) -> Result<(), SettingsError> {
+    if let Some(value) = value
+        && !choices.contains(&value.as_str())
+    {
+        return Err(SettingsError::Choice {
+            field,
+            value: value.clone(),
+            expected,
+        });
+    }
+    Ok(())
+}
+
+fn valid_hex_color(value: &str) -> bool {
+    value.len() == 7
+        && value.starts_with('#')
+        && value.bytes().skip(1).all(|byte| byte.is_ascii_hexdigit())
 }
 
 fn valid_root(root: &str) -> bool {

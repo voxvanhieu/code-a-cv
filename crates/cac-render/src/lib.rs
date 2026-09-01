@@ -9,7 +9,7 @@ pub use pdf::{
     EMBEDDED_THEME_NAMES, RenderError, RenderOptions, RenderedPdf, ThemeSource,
     embedded_theme_source, render_pdf, render_pdf_with_options,
 };
-pub use settings::{DEFAULT_THEME, Settings, SettingsError, validate_theme_name};
+pub use settings::{DEFAULT_THEME, PageMargins, Settings, SettingsError, validate_theme_name};
 
 pub fn format_date(value: &DatePoint) -> String {
     const MONTHS: [&str; 12] = [
