@@ -35,7 +35,7 @@ brew install voxvanhieu/tap/code-a-cv
 
 ### Windows
 
-Winget support is planned but not published yet. For now, download `cac-x86_64-pc-windows-msvc.zip` from the [latest release](https://github.com/voxvanhieu/code-a-cv/releases/latest), extract `cac.exe`, and add its directory to `PATH`.
+Winget installation will be available in a future release. For now, download `cac-x86_64-pc-windows-msvc.zip` from the [latest release](https://github.com/voxvanhieu/code-a-cv/releases/latest), extract `cac.exe`, and add its directory to `PATH`.
 
 ### Linux
 
@@ -77,7 +77,11 @@ The finished PDF is `dist/cv.pdf`.
 | `cac build [FILE]` | Validate and render a CV as PDF or HTML |
 | `cac check [FILE] [--strict]` | Check source content |
 | `cac convert <FILE> --to <FORMAT>` | Convert supported input formats |
-| `cac themes` | List embedded themes |
+| `cac themes list` | List embedded and installed themes |
+| `cac themes install <THEME> [--local]` | Install an embedded theme |
+| `cac themes remove <THEME> [--local]` | Remove an installed theme |
+
+Put common PDF formatting overrides in `settings.json` beside the CV. Use a project-local theme under `.cac/themes/<name>/theme.typ` for structural customization. See the [theme architecture](docs/development/theme-architecture.md) for the supported settings and theme API.
 
 ## Examples
 

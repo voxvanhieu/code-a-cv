@@ -11,10 +11,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 * Added standard input support to `build`, `check`, and `convert`
 * Added standard output support to `init` and explicit `convert -o -`
 * Added complete command help, examples, and input format selection
+* Added layered Typst themes with embedded `classic` and `classic-left` designs, validated `settings.json` overrides, and project and user theme directories
+* Added `cac themes list`, `install`, and `remove` commands
 
 ### Changed
 
 * Made `check` print a final `PASS` or `FAIL`
+* Split theme definitions into design tokens, semantic styles, and page configuration
 * Documented output replacement rules and exit statuses
 
 ### Removed

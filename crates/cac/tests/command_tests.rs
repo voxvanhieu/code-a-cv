@@ -280,6 +280,86 @@ fn build_replaces_an_existing_artifact() {
 }
 
 #[test]
+fn build_reads_settings_beside_the_cv_and_reports_the_theme() {
+    let directory = tempdir().unwrap();
+    let input = directory.path().join("cv.md");
+    let output = directory.path().join("dist");
+    let theme = directory.path().join(".cac/themes/compact");
+    fs::create_dir_all(&theme).unwrap();
+    fs::write(&input, CLEAN_MARKDOWN).unwrap();
+    fs::write(
+        directory.path().join("settings.json"),
+        r#"{"theme":"compact","page_margin":"12mm"}"#,
+    )
+    .unwrap();
+    fs::write(
+        theme.join("theme.typ"),
+        r#"
+#import "/.cac/base.typ" as base
+#let theme = base.extend(page: (margin: 20mm))
+"#,
+    )
+    .unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .arg("build")
+        .arg(&input)
+        .args(["--output"])
+        .arg(&output)
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("THEME compact (project)"))
+        .stdout(predicates::str::contains("BUILT"));
+
+    assert!(output.join("cv.pdf").is_file());
+}
+
+#[test]
+fn themes_install_list_and_remove_locally() {
+    let directory = tempdir().unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["themes", "install", "classic", "--local"])
+        .assert()
+        .success()
+        .stdout("INSTALLED classic (project)\n");
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["themes", "list"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("classic (embedded, project)"))
+        .stdout(predicates::str::contains("classic-left (embedded)"));
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["themes", "remove", "classic", "--local"])
+        .assert()
+        .success()
+        .stdout("REMOVED classic (project)\n");
+
+    assert!(!directory.path().join(".cac/themes/classic").exists());
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["themes", "install", "classic-left", "--local"])
+        .assert()
+        .success()
+        .stdout("INSTALLED classic-left (project)\n");
+    assert!(
+        directory
+            .path()
+            .join(".cac/themes/classic-left/theme.typ")
+            .is_file()
+    );
+}
+
+#[test]
 fn convert_replaces_an_existing_output_file() {
     let directory = tempdir().unwrap();
     let input = directory.path().join("cv.md");

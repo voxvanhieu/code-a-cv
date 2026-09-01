@@ -13,6 +13,8 @@ pub enum Error {
     Parse(#[from] ParseError),
     #[error("{0}")]
     Render(#[from] cac_render::RenderError),
+    #[error("{0}")]
+    Settings(#[from] cac_render::SettingsError),
     #[error("could not serialize output: {0}")]
     Json(#[from] serde_json::Error),
     #[error("could not serialize YAML: {0}")]
@@ -25,4 +27,10 @@ pub enum Error {
     Unsupported(PathBuf),
     #[error("CV checks failed")]
     CheckFailed,
+    #[error("could not determine the user home directory")]
+    HomeDirectory,
+    #[error("theme `{0}` is not available as an embedded theme")]
+    EmbeddedTheme(String),
+    #[error("theme `{0}` is not installed in the selected location")]
+    ThemeNotInstalled(String),
 }

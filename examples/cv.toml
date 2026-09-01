@@ -50,6 +50,34 @@ start = "2016-09"
 end = "2020-06"
 
 [[sections]]
+id = "projects"
+title = "Projects"
+kind = "projects"
+
+[[sections.entries]]
+type = "project"
+name = "Reproducible Release Toolkit"
+highlights = [
+    "Built a cross-platform release pipeline used by 18 open-source projects",
+    "Reduced release preparation from 2 hours to 15 minutes",
+]
+
+[sections.entries.period]
+start = "2022-01"
+end = "Present"
+
+[[sections]]
+id = "publications"
+title = "Publications"
+kind = "publications"
+
+[[sections.entries]]
+type = "publication"
+title = "Reproducible Builds for Small Engineering Teams"
+date = "2022-10"
+highlights = ["Published a practical guide to build isolation, artifact verification, and release automation"]
+
+[[sections]]
 id = "skills"
 title = "Skills"
 kind = "skills"
@@ -63,3 +91,30 @@ skills = ["Rust, TypeScript, PostgreSQL, and GitHub Actions"]
 type = "skill-group"
 name = "Engineering practices"
 skills = ["Automated testing, performance profiling, and technical writing"]
+
+[[sections]]
+id = "board-and-advisory-work"
+title = "Board and Advisory Work"
+kind = "custom"
+
+[[sections.entries]]
+type = "custom"
+heading = "Technical Advisor, Open Computing Foundation"
+highlights = ["Advise maintainers on release security, contributor workflows, and project governance"]
+
+[sections.entries.period]
+start = "2024-01"
+end = "Present"
+
+[[sections]]
+id = "professional-interests"
+title = "Professional Interests"
+kind = "custom"
+
+[[sections.entries]]
+type = "text"
+body = "Dependable developer infrastructure and reproducible software delivery"
+
+[[sections.entries]]
+type = "text"
+body = "Computing history, technical education, and volunteer mentoring"

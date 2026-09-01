@@ -1,6 +1,6 @@
 use std::fmt::Write;
 
-use cac_core::{CvDocument, Inline, RichText};
+use cac_core::{CvDocument, EntryKind, Inline, RichText};
 
 pub fn render_html(cv: &CvDocument) -> String {
     let mut output = String::from(
@@ -56,7 +56,25 @@ pub fn render_html(cv: &CvDocument) -> String {
             html_escape::encode_double_quoted_attribute(&section.id),
             html_escape::encode_text(&section.title)
         );
-        for entry in &section.entries {
+        let mut entries = section.entries.iter().peekable();
+        while let Some(entry) = entries.next() {
+            if let EntryKind::Text(value) = &entry.kind {
+                output.push_str("<ul class=\"text-entries\"><li>");
+                render_rich_html(&value.body, &mut output);
+                output.push_str("</li>");
+                while let Some(next) =
+                    entries.next_if(|next| matches!(next.kind, EntryKind::Text(_)))
+                {
+                    let EntryKind::Text(value) = &next.kind else {
+                        unreachable!("the iterator predicate accepts only text entries");
+                    };
+                    output.push_str("<li>");
+                    render_rich_html(&value.body, &mut output);
+                    output.push_str("</li>");
+                }
+                output.push_str("</ul>");
+                continue;
+            }
             let (primary, secondary) = entry.kind.heading();
             output.push_str("<article class=\"entry\"><div class=\"entry-head\"><div><strong>");
             render_rich_html(primary, &mut output);

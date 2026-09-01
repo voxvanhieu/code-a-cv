@@ -9,6 +9,7 @@ Options:
       --input-format <FORMAT>  Set the input format; stdin defaults to markdown [possible values: markdown, yaml, json, toml, jsonresume]
   -f, --format <FORMAT>        Build one or more output formats [default: pdf] [possible values: pdf, html]
   -o, --output <DIR>           Write artifacts to DIR, replacing existing artifacts [default: dist]
+      --settings <FILE>        Read rendering settings from FILE; defaults to settings.json beside the CV
   -h, --help                   Print help
 
 Examples:

@@ -289,6 +289,7 @@ dependencies = [
  "html-escape",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror",
  "typst",
  "typst-kit",
