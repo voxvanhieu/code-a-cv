@@ -47,7 +47,7 @@ $ cargo run -p cac -- init
 $ cargo run -p cac -- build
 ```
 
-The build writes `dist/cv.pdf`. Both `cv.md` and `dist/` are ignored by Git.
+The initialization also writes `settings.json` with `cv.md` as the root CV and the embedded `classic` theme selected. The build writes `dist/cv.pdf`. Both `cv.md` and `dist/` are ignored by Git.
 
 ## Architecture
 
@@ -85,7 +85,9 @@ A command follows this data flow:
 | `crates/cac-io/src/json_resume.rs` | JSON Resume import and export |
 | `crates/cac-render/src/html.rs` | Escaped HTML output |
 | `crates/cac-render/src/pdf.rs` | Typst world, normalized render view, and PDF output |
-| `crates/cac-render/src/classic.typ` | Embedded Typst template |
+| `crates/cac-render/src/settings.rs` | Rendering settings parsing and validation |
+| `crates/cac-render/src/typst/base.typ` | Stable Typst rendering and component API |
+| `crates/cac-render/src/typst/themes/classic.typ` | Embedded default theme |
 | `crates/cac-check/src/lib.rs` | Diagnostic definitions and content rules |
 
 Each library crate exposes its supported API through `src/lib.rs`. Keep implementation modules private unless downstream crates need the type or function.
@@ -112,7 +114,7 @@ Use this map to find the first place to edit:
 | Change Markdown parsing or output | `crates/cac-io/src/codec.rs` |
 | Change JSON Resume conversion | `crates/cac-io/src/json_resume.rs` |
 | Change HTML output | `crates/cac-render/src/html.rs` |
-| Change PDF layout | `crates/cac-render/src/classic.typ` and `crates/cac-render/src/pdf.rs` |
+| Change PDF layout | `crates/cac-render/src/typst/` and `crates/cac-render/src/pdf.rs` |
 | Add a content check | `crates/cac-check/src/lib.rs` |
 
 When behavior visible to users changes:
@@ -184,7 +186,7 @@ Choose the next version according to [Semantic Versioning](https://semver.org/).
 $ cargo check --workspace
 ```
 
-Move the entries from `Unreleased` in `CHANGELOG.md` into a versioned section with the release date. Leave a new empty `Unreleased` section for later changes.
+Move the entries from `Unreleased` in `CHANGELOG.md` into a versioned section without a release date. Leave a new empty `Unreleased` section for later changes. `cargo-dist` uses the heading as the GitHub release title, so a heading such as `## [0.2.0]` produces the title `0.2.0`.
 
 ### 2. Verify the release candidate
 
@@ -231,6 +233,7 @@ The tag starts `.github/workflows/release.yml`. `cargo-dist` builds archives and
 Wait for the Release workflow to finish, then confirm:
 
 * The GitHub release is published under the expected tag
+* The GitHub release title is the version without a release date
 * Linux, macOS, and Windows archives are present
 * Shell and PowerShell installers are present
 * Checksums and provenance attestations are present

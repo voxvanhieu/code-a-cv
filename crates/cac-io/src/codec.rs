@@ -1,9 +1,9 @@
 use std::collections::BTreeSet;
 
 use cac_core::{
-    CvDocument, DatePoint, EducationEntry, Entry, EntryKind, ExperienceEntry, Origin, Period,
-    Profile, ProjectEntry, PublicationEntry, RichText, Section, SectionKind, SkillGroupEntry,
-    TagSet, TextEntry,
+    CustomEntry, CvDocument, DatePoint, EducationEntry, Entry, EntryKind, ExperienceEntry, Origin,
+    Period, Profile, ProjectEntry, PublicationEntry, RichText, Section, SectionKind,
+    SkillGroupEntry, TagSet, TextEntry,
 };
 use chrono::NaiveDate;
 use thiserror::Error;
@@ -353,21 +353,11 @@ impl EntryBuilder {
                 url: None,
                 highlights: self.highlights,
             }),
-            SectionKind::Custom => {
-                let mut entries = vec![Entry {
-                    kind: EntryKind::Text(TextEntry {
-                        body: RichText::parse(&self.heading),
-                    }),
-                    tags: tags.clone(),
-                    origin: origin.clone(),
-                }];
-                entries.extend(self.highlights.into_iter().map(|body| Entry {
-                    kind: EntryKind::Text(TextEntry { body }),
-                    tags: tags.clone(),
-                    origin: origin.clone(),
-                }));
-                return entries;
-            }
+            SectionKind::Custom => EntryKind::Custom(CustomEntry {
+                heading: RichText::parse(&self.heading),
+                period: self.period,
+                highlights: self.highlights,
+            }),
         };
         vec![Entry { kind, tags, origin }]
     }

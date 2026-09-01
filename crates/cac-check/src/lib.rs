@@ -42,7 +42,7 @@ pub fn check_content(cv: &CvDocument) -> Vec<Diagnostic> {
                 EntryKind::Education(value) => value.highlights.as_slice(),
                 EntryKind::Project(value) => value.highlights.as_slice(),
                 EntryKind::Publication(value) => value.highlights.as_slice(),
-                EntryKind::SkillGroup(_) | EntryKind::Text(_) => &[],
+                EntryKind::SkillGroup(_) | EntryKind::Custom(_) | EntryKind::Text(_) => &[],
             };
             if matches!(
                 entry.kind,

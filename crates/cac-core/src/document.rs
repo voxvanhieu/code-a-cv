@@ -82,6 +82,7 @@ pub enum EntryKind {
     Project(ProjectEntry),
     Publication(PublicationEntry),
     SkillGroup(SkillGroupEntry),
+    Custom(CustomEntry),
     Text(TextEntry),
 }
 
@@ -145,6 +146,16 @@ pub struct SkillGroupEntry {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct CustomEntry {
+    pub heading: RichText,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub period: Option<Period>,
+    #[serde(default)]
+    pub highlights: Vec<RichText>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TextEntry {
     pub body: RichText,
 }
@@ -157,6 +168,7 @@ impl EntryKind {
             Self::Project(value) => (&value.name, None),
             Self::Publication(value) => (&value.title, value.publisher.as_ref()),
             Self::SkillGroup(value) => (&value.name, None),
+            Self::Custom(value) => (&value.heading, None),
             Self::Text(value) => (&value.body, None),
         }
     }
@@ -166,6 +178,7 @@ impl EntryKind {
             Self::Experience(value) => value.period.as_ref(),
             Self::Education(value) => value.period.as_ref(),
             Self::Project(value) => value.period.as_ref(),
+            Self::Custom(value) => value.period.as_ref(),
             Self::Publication(_) | Self::SkillGroup(_) | Self::Text(_) => None,
         }
     }
@@ -184,6 +197,7 @@ impl EntryKind {
             Self::Project(value) => &value.highlights,
             Self::Publication(value) => &value.highlights,
             Self::SkillGroup(value) => &value.skills,
+            Self::Custom(value) => &value.highlights,
             Self::Text(_) => &[],
         }
     }

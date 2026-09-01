@@ -24,6 +24,21 @@ Sep 2016–Jun 2020
 
 - Graduated in the top 5% of the class
 
+## Projects
+
+### Reproducible Release Toolkit
+Jan 2022–Present
+
+- Built a cross-platform release pipeline used by 18 open-source projects
+- Reduced release preparation from 2 hours to 15 minutes
+
+## Publications
+
+### Reproducible Builds for Small Engineering Teams
+Oct 2022
+
+- Published a practical guide to build isolation, artifact verification, and release automation
+
 ## Skills
 
 ### Languages and tools
@@ -33,3 +48,15 @@ Sep 2016–Jun 2020
 ### Engineering practices
 
 - Automated testing, performance profiling, and technical writing
+
+## Board and Advisory Work
+
+### Technical Advisor, Open Computing Foundation
+Jan 2024–Present
+
+- Advise maintainers on release security, contributor workflows, and project governance
+
+## Professional Interests
+
+- Dependable developer infrastructure and reproducible software delivery
+- Computing history, technical education, and volunteer mentoring

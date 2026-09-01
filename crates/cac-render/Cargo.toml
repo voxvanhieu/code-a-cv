@@ -20,3 +20,4 @@ typst-pdf = "=0.15.1"
 
 [dev-dependencies]
 cac-io.workspace = true
+tempfile = "3"
