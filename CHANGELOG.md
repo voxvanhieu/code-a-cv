@@ -6,7 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
-## [0.2.0] - 2026-09-01
+## [0.2.0]
 
 ### Added
 
@@ -32,14 +32,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 * Removed the `cac schema` command and JSON Schema generation
 * Removed JSON from `cac build --format`; use `cac convert --to json` instead
 
-## [0.1.1] - 2026-08-31
+## [0.1.1]
 
 ### Changed
 
 * Made `cac` the package, binary, and command name
 * Added source-building Homebrew tap publication before Homebrew Core eligibility
 
-## [0.1.0] - 2026-08-30
+## [0.1.0]
 
 ### Added
 
