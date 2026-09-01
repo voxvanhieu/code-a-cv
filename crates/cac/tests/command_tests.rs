@@ -99,7 +99,7 @@ fn convert_still_exports_native_json() {
 }
 
 #[test]
-fn init_and_build_html_work_without_configuration() {
+fn init_creates_classic_settings_and_builds_html() {
     let directory = tempdir().unwrap();
     let input = directory.path().join("cv.md");
     let output = directory.path().join("dist");
@@ -110,6 +110,10 @@ fn init_and_build_html_work_without_configuration() {
         .arg(&input)
         .assert()
         .success();
+    assert_eq!(
+        fs::read_to_string(directory.path().join("settings.json")).unwrap(),
+        "{\n  \"theme\": \"classic\"\n}\n"
+    );
     Command::cargo_bin("cac")
         .unwrap()
         .arg("build")
@@ -166,14 +170,18 @@ fn convert_reads_structured_data_from_stdin() {
 
 #[test]
 fn init_writes_only_document_content_to_stdout() {
+    let directory = tempdir().unwrap();
+
     Command::cargo_bin("cac")
         .unwrap()
+        .current_dir(directory.path())
         .args(["init", "--output", "-"])
         .assert()
         .success()
         .stdout(predicates::str::starts_with("# Ada Lovelace\n"))
         .stdout(predicates::str::contains("CREATED").not())
         .stderr("");
+    assert!(!directory.path().join("settings.json").exists());
 }
 
 #[test]
@@ -256,6 +264,57 @@ fn init_requires_force_to_replace_an_existing_file() {
         .assert()
         .success();
     assert_ne!(fs::read_to_string(output).unwrap(), "keep me");
+    assert_eq!(
+        fs::read_to_string(directory.path().join("settings.json")).unwrap(),
+        "{\n  \"theme\": \"classic\"\n}\n"
+    );
+}
+
+#[test]
+fn init_requires_force_to_replace_existing_settings() {
+    let directory = tempdir().unwrap();
+    let output = directory.path().join("cv.md");
+    let settings = directory.path().join("settings.json");
+    fs::write(&settings, "keep me").unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .args(["init", "--output"])
+        .arg(&output)
+        .assert()
+        .code(1)
+        .stdout("")
+        .stderr(predicates::str::contains("settings.json already exists"));
+    assert!(!output.exists());
+    assert_eq!(fs::read_to_string(&settings).unwrap(), "keep me");
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .args(["init", "--output"])
+        .arg(&output)
+        .arg("--force")
+        .assert()
+        .success();
+    assert!(output.is_file());
+    assert_eq!(
+        fs::read_to_string(settings).unwrap(),
+        "{\n  \"theme\": \"classic\"\n}\n"
+    );
+}
+
+#[test]
+fn init_rejects_settings_as_the_cv_output() {
+    let directory = tempdir().unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["init", "--output", "./settings.json"])
+        .assert()
+        .code(1)
+        .stdout("")
+        .stderr(predicates::str::contains("reserved for theme settings"));
+    assert!(!directory.path().join("settings.json").exists());
 }
 
 #[test]

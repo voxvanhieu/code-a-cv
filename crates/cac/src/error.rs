@@ -23,6 +23,8 @@ pub enum Error {
     Toml(#[from] toml::ser::Error),
     #[error("{0} already exists; use --force to replace it")]
     Exists(PathBuf),
+    #[error("{0} is reserved for theme settings; choose another CV output path")]
+    SettingsOutput(PathBuf),
     #[error("input path `{0}` has no supported extension")]
     Unsupported(PathBuf),
     #[error("CV checks failed")]

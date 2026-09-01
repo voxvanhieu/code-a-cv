@@ -5,7 +5,7 @@ Usage: cac init [OPTIONS]
 Options:
       --from <FILE>    Import a JSON Resume file; use - for stdin
   -o, --output <FILE>  Write the Markdown CV to FILE; use - for stdout [default: cv.md]
-      --force          Replace an existing output file
+      --force          Replace existing CV and settings files
   -h, --help           Print help
 
 Examples:

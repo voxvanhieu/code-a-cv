@@ -47,7 +47,7 @@ $ cargo run -p cac -- init
 $ cargo run -p cac -- build
 ```
 
-The build writes `dist/cv.pdf`. Both `cv.md` and `dist/` are ignored by Git.
+The initialization also writes `settings.json` with the embedded `classic` theme selected. The build writes `dist/cv.pdf`. Both `cv.md` and `dist/` are ignored by Git.
 
 ## Architecture
 

@@ -19,6 +19,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Changed
 
 * Made `check` print a final `PASS` or `FAIL`
+* Made `cac init` create `settings.json` with the embedded `classic` theme selected
 * Split theme definitions into design tokens, semantic styles, and page configuration
 * Documented output replacement rules and exit statuses
 

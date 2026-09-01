@@ -307,6 +307,8 @@ fn pdf_is_valid_and_reproducible() {
 
     assert!(first.bytes.starts_with(b"%PDF-"));
     assert_eq!(first.pages, 1);
+    assert_eq!(first.theme, "classic");
+    assert_eq!(first.theme_source, ThemeSource::Embedded);
     assert_eq!(first.bytes, second.bytes);
 }
 
