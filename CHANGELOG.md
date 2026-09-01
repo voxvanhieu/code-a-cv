@@ -6,30 +6,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
-### Added
-
-* Added `cac init --format` with Markdown, YAML, JSON, and TOML output
-* Added a checksummed downloadable theme registry with `search`, `info`, and remote `install` commands
-* Added the downloadable `classic-blue` theme
-* Added `classic-left` to the downloadable theme registry
-
-### Changed
-
-* Kept only `classic` embedded and reserved the system theme names `classic`, `base`, and `main` from installation
-
-### Removed
-
-* Removed standard output support from `cac init`
-
-## [0.2.0]
+## [0.2.0] - 2026-09-01
 
 ### Added
 
 * Added standard input support to `build`, `check`, and `convert`
-* Added standard output support to `init` and explicit `convert -o -`
+* Added explicit standard output support with `convert -o -`
+* Added `cac init --format` with Markdown, YAML, JSON, and TOML output
 * Added complete command help, examples, and input format selection
-* Added layered Typst themes with embedded `classic` and `classic-left` designs, validated `settings.json` overrides, and project and user theme directories
-* Added `cac themes list`, `install`, and `remove` commands
+* Added layered Typst themes with an embedded `classic` design, validated `settings.json` overrides, and project and user theme directories
+* Added a checksummed downloadable theme registry with `list`, `search`, `info`, `install`, and `remove` commands
+* Added the downloadable `classic-blue` and `classic-left` themes
 
 ### Changed
 
@@ -37,6 +24,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 * Made `cac init` create `settings.json` with the root CV and embedded `classic` theme selected
 * Made `cac build` resolve an omitted input from the `root` settings property
 * Split theme definitions into design tokens, semantic styles, and page configuration
+* Reserved the system theme names `classic`, `base`, and `main` from installation
 * Documented output replacement rules and exit statuses
 
 ### Removed
