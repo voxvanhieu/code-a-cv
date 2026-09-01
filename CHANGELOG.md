@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+
+* Added `cac init --format` with Markdown, YAML, JSON, and TOML output
+
 ### Removed
 
 * Removed standard output support from `cac init`

@@ -117,6 +117,67 @@ fn init_creates_root_and_classic_settings_and_builds_html() {
 }
 
 #[test]
+fn init_uses_the_format_default_output() {
+    let directory = tempdir().unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["init", "--format", "json"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("CREATED cv.json"));
+
+    let cv: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(directory.path().join("cv.json")).unwrap())
+            .unwrap();
+    assert_eq!(cv["profile"]["name"], "Ada Lovelace");
+    assert_eq!(
+        fs::read_to_string(directory.path().join("settings.json")).unwrap(),
+        "{\n  \"root\": \"cv.json\",\n  \"theme\": \"classic\"\n}\n"
+    );
+}
+
+#[test]
+fn init_uses_the_custom_output_as_the_settings_root() {
+    let directory = tempdir().unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["init", "--format", "yaml", "--output", "new-cv.yaml"])
+        .assert()
+        .success();
+
+    let cv: serde_yaml_ng::Value =
+        serde_yaml_ng::from_str(&fs::read_to_string(directory.path().join("new-cv.yaml")).unwrap())
+            .unwrap();
+    assert_eq!(cv["profile"]["name"], "Ada Lovelace");
+    assert_eq!(
+        fs::read_to_string(directory.path().join("settings.json")).unwrap(),
+        "{\n  \"root\": \"new-cv.yaml\",\n  \"theme\": \"classic\"\n}\n"
+    );
+}
+
+#[test]
+fn init_rejects_an_output_extension_that_does_not_match_the_format() {
+    let directory = tempdir().unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["init", "--format", "json", "--output", "cv.md"])
+        .assert()
+        .code(1)
+        .stdout("")
+        .stderr(predicates::str::contains(
+            "does not have an extension compatible with the `json` format",
+        ));
+    assert!(!directory.path().join("cv.md").exists());
+    assert!(!directory.path().join("settings.json").exists());
+}
+
+#[test]
 fn build_uses_the_settings_root_when_input_is_omitted() {
     let directory = tempdir().unwrap();
     fs::write(

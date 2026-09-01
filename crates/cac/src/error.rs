@@ -27,6 +27,8 @@ pub enum Error {
     SettingsOutput(PathBuf),
     #[error("cac init requires a file output; standard output is not supported")]
     InitStdout,
+    #[error("CV output `{path}` does not have an extension compatible with the `{format}` format")]
+    InitOutputFormat { path: PathBuf, format: &'static str },
     #[error("CV output `{0}` must have a UTF-8 file name for settings.json")]
     CvFileName(PathBuf),
     #[error("input path `{0}` has no supported extension")]

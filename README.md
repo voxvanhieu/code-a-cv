@@ -73,7 +73,7 @@ The finished PDF is `dist/cv.pdf`.
 
 | Command | Description |
 |---|---|
-| `cac init [--from resume.json]` | Create a starter CV and classic theme settings or import JSON Resume data |
+| `cac init [--format FORMAT] [--from resume.json]` | Create a starter CV and classic theme settings or import JSON Resume data |
 | `cac build [FILE]` | Validate and render a CV as PDF or HTML |
 | `cac check [FILE] [--strict]` | Check source content |
 | `cac convert <FILE> --to <FORMAT>` | Convert supported input formats |
