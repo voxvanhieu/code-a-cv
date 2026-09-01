@@ -1,0 +1,8 @@
+Refresh the settings JSON Schema and validate settings.json
+
+Usage: cac schema
+
+Options:
+  -h, --help  Print help
+
+The schema is written to .cac/settings.schema.json, then the current settings.json is validated.

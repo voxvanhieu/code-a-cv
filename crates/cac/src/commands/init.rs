@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use cac_io::{InputFormat, parse, to_markdown};
 use clap::{Args as ClapArgs, ValueEnum};
 
+use crate::commands::schema;
 use crate::error::{Error, Result};
 use crate::source::{is_stdio, print_result, read_source};
 
@@ -120,6 +121,7 @@ pub fn run(args: Args) -> Result<()> {
         .and_then(|name| name.to_str())
         .ok_or_else(|| Error::CvFileName(output.clone()))?;
     let mut settings = serde_json::to_string_pretty(&cac_render::Settings {
+        schema: Some(schema::SETTINGS_SCHEMA_REFERENCE.into()),
         root: Some(root.into()),
         theme: Some(cac_render::DEFAULT_THEME.into()),
         ..cac_render::Settings::default()
@@ -129,5 +131,6 @@ pub fn run(args: Args) -> Result<()> {
     fs::write(&settings_path, settings)?;
     print_result("created", &output);
     print_result("created", &settings_path);
+    schema::sync_and_report(output.parent().unwrap_or_else(|| Path::new(".")))?;
     Ok(())
 }

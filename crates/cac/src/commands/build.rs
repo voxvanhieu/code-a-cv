@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use clap::{Args as ClapArgs, ValueEnum};
 
 use crate::cli::CvFormat;
+use crate::commands::schema;
 use crate::error::Result;
 use crate::source::{input_stem, is_stdio, print_result, read_cv};
 
@@ -38,7 +39,7 @@ pub struct Args {
         short,
         long,
         value_name = "DIR",
-        default_value = "dist",
+        default_value = "offering",
         help = "Write artifacts to DIR, replacing existing artifacts"
     )]
     output: PathBuf,
@@ -68,6 +69,14 @@ pub fn run(args: Args) -> Result<()> {
         let path = directory.join("settings.json");
         path.is_file().then_some(path)
     });
+    let schema_project = if let Some(project) = settings_path.as_deref().and_then(Path::parent) {
+        project.to_path_buf()
+    } else if let Some(input) = args.input.as_deref() {
+        project_directory(input)?
+    } else {
+        current_directory.clone()
+    };
+    schema::sync_and_report(&schema_project)?;
     let settings = settings_path
         .as_deref()
         .map(cac_render::Settings::from_path)

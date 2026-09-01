@@ -3,7 +3,8 @@ use std::fs;
 
 use cac_core::DatePoint;
 use cac_render::{
-    PageMargins, RenderOptions, Settings, ThemeSource, format_date, render_html, render_pdf,
+    PageMargins, PageSettings, PaginationSettings, RenderOptions, Settings, SpacingSettings,
+    StyleSettings, ThemeSource, TypographySettings, format_date, render_html, render_pdf,
     render_pdf_with_options,
 };
 use tempfile::tempdir;
@@ -76,7 +77,27 @@ fn settings_reject_unknown_properties_and_invalid_values() {
     let directory = tempdir().unwrap();
     let path = directory.path().join("settings.json");
 
+    fs::write(
+        &path,
+        r#"{"$schema":".cac/settings.schema.json","root":"cv.md"}"#,
+    )
+    .unwrap();
+    let settings = Settings::from_path(&path).unwrap();
+    assert_eq!(settings.root.as_deref(), Some("cv.md"));
+    assert_eq!(
+        serde_json::to_value(settings).unwrap()["$schema"],
+        ".cac/settings.schema.json"
+    );
+
     fs::write(&path, r#"{"colour":"red"}"#).unwrap();
+    assert!(
+        Settings::from_path(&path)
+            .unwrap_err()
+            .to_string()
+            .contains("unknown field")
+    );
+
+    fs::write(&path, r#"{"font_size":"10pt"}"#).unwrap();
     assert!(
         Settings::from_path(&path)
             .unwrap_err()
@@ -106,7 +127,7 @@ fn settings_reject_unknown_properties_and_invalid_values() {
         );
     }
 
-    fs::write(&path, r#"{"font_size":"large"}"#).unwrap();
+    fs::write(&path, r#"{"typography":{"font_size":"large"}}"#).unwrap();
     assert!(
         Settings::from_path(&path)
             .unwrap_err()
@@ -115,11 +136,11 @@ fn settings_reject_unknown_properties_and_invalid_values() {
     );
 
     for invalid in [
-        r##"{"accent_color":"blue"}"##,
-        r##"{"body_alignment":"center"}"##,
-        r##"{"header_alignment":"justified"}"##,
-        r##"{"highlight_bullet":""}"##,
-        r##"{"page_margins":{"left":"wide"}}"##,
+        r##"{"style":{"accent_color":"blue"}}"##,
+        r##"{"style":{"body_alignment":"center"}}"##,
+        r##"{"style":{"header_alignment":"justified"}}"##,
+        r##"{"style":{"highlight_bullet":""}}"##,
+        r##"{"page":{"margins":{"left":"wide"}}}"##,
     ] {
         fs::write(&path, invalid).unwrap();
         assert!(Settings::from_path(&path).is_err());
@@ -130,7 +151,10 @@ fn settings_reject_unknown_properties_and_invalid_values() {
         &cv,
         &RenderOptions {
             settings: Settings {
-                font_size: Some("10pt); panic(\"injected\")".into()),
+                typography: Some(TypographySettings {
+                    font_size: Some("10pt); panic(\"injected\")".into()),
+                    ..TypographySettings::default()
+                }),
                 ..Settings::default()
             },
             ..RenderOptions::default()
@@ -172,20 +196,33 @@ fn visual_settings_override_theme_defaults() {
             project_dir: Some(directory.path().into()),
             settings: Settings {
                 theme: Some("settings".into()),
-                page_margin: Some("12mm".into()),
-                page_margins: Some(PageMargins {
-                    top: Some("10mm".into()),
-                    left: Some("13mm".into()),
-                    ..PageMargins::default()
+                page: Some(PageSettings {
+                    margin: Some("12mm".into()),
+                    margins: Some(PageMargins {
+                        top: Some("10mm".into()),
+                        left: Some("13mm".into()),
+                        ..PageMargins::default()
+                    }),
+                    ..PageSettings::default()
                 }),
-                heading_font: Some("Noto Sans".into()),
-                accent_color: Some("#1f4e79".into()),
-                body_alignment: Some("left".into()),
-                link_underline: Some(false),
-                header_alignment: Some("right".into()),
-                section_heading_spacing: Some("0.4em".into()),
-                highlight_bullet: Some("◆".into()),
-                allow_entry_page_break: Some(true),
+                typography: Some(TypographySettings {
+                    heading_font: Some("Noto Sans".into()),
+                    ..TypographySettings::default()
+                }),
+                style: Some(StyleSettings {
+                    accent_color: Some("#1f4e79".into()),
+                    body_alignment: Some("left".into()),
+                    link_underline: Some(false),
+                    header_alignment: Some("right".into()),
+                    highlight_bullet: Some("◆".into()),
+                }),
+                spacing: Some(SpacingSettings {
+                    section_heading: Some("0.4em".into()),
+                    ..SpacingSettings::default()
+                }),
+                pagination: Some(PaginationSettings {
+                    allow_entry_page_break: Some(true),
+                }),
                 ..Settings::default()
             },
             ..RenderOptions::default()
@@ -231,7 +268,10 @@ fn project_theme_wins_and_settings_override_theme_defaults() {
             user_dir: Some(user),
             settings: Settings {
                 theme: Some("oxford".into()),
-                entry_spacing: Some("2em".into()),
+                spacing: Some(SpacingSettings {
+                    entry: Some("2em".into()),
+                    ..SpacingSettings::default()
+                }),
                 ..Settings::default()
             },
         },
@@ -402,13 +442,22 @@ fn classic_typography_accepts_equivalent_settings_overrides() {
         &RenderOptions {
             settings: Settings {
                 root: Some("cv.md".into()),
-                paper: Some("us-letter".into()),
-                page_margin: Some("12.7mm".into()),
-                font: Some("New Computer Modern".into()),
-                font_size: Some("10pt".into()),
-                line_spacing: Some("0.65em".into()),
-                section_spacing: Some("1.2em".into()),
-                entry_spacing: Some("1.2em".into()),
+                page: Some(PageSettings {
+                    paper: Some("us-letter".into()),
+                    margin: Some("12.7mm".into()),
+                    ..PageSettings::default()
+                }),
+                typography: Some(TypographySettings {
+                    font: Some("New Computer Modern".into()),
+                    font_size: Some("10pt".into()),
+                    line_spacing: Some("0.65em".into()),
+                    ..TypographySettings::default()
+                }),
+                spacing: Some(SpacingSettings {
+                    section: Some("1.2em".into()),
+                    entry: Some("1.2em".into()),
+                    ..SpacingSettings::default()
+                }),
                 ..Settings::default()
             },
             ..RenderOptions::default()
@@ -534,7 +583,10 @@ fn base_spacing_properties_resolve_independently() {
             project_dir: Some(directory.path().into()),
             settings: Settings {
                 theme: Some("bare".into()),
-                line_spacing: Some("0.9em".into()),
+                typography: Some(TypographySettings {
+                    line_spacing: Some("0.9em".into()),
+                    ..TypographySettings::default()
+                }),
                 ..Settings::default()
             },
             ..RenderOptions::default()
