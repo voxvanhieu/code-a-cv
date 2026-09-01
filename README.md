@@ -82,35 +82,24 @@ The `root` property in `settings.json` selects the CV source used by `cac build`
 
 ## Use a theme
 
-Every installation includes the `classic` theme. Set the theme name in `settings.json`, then build normally:
-
-```json
-{
-  "root": "cv.md",
-  "theme": "classic"
-}
-```
-
-Find and inspect downloadable themes before installing one:
+`classic` is included by default. Find and install another theme with:
 
 ```sh
 cac themes list
 cac themes search blue
-cac themes info classic-blue
-```
-
-Install a theme globally to use it across projects, or add `--local` to keep it in the current project's `.cac/themes/` directory:
-
-```sh
 cac themes install classic-blue
 cac themes install classic-blue --local
 ```
 
-Set `"theme": "classic-blue"` in `settings.json` and run `cac build`. A project-local theme takes precedence over a global theme with the same name. Remove an installed theme with `cac themes remove <THEME>`, adding `--local` for a local installation. The names `classic`, `base`, and `main` are reserved by `cac`.
+The first install is available to all projects. `--local` installs it only for the current project. Select it in `settings.json`, then run `cac build`:
 
-For structural customization and the supported Theme API, see the [theme architecture](docs/development/theme-architecture.md).
+```json
+{
+  "theme": "classic-blue"
+}
+```
 
-> Made something worth wearing to an interview? Share it with the community—see the [theme contribution guide](themes/README.md) to create and contribute a theme to this repository.
+> Created a great theme? Read the [theme contribution guide](themes/README.md) and share it with the community.
 
 ## Examples
 
