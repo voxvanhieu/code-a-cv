@@ -8,6 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+* Added configurable build artifact naming through the `naming` setting
 * Restored `cac schema` to synchronize the project-local settings schema and validate `settings.json`
 * Made `cac init` and `cac build` keep `.cac/settings.schema.json` synchronized with the running binary
 

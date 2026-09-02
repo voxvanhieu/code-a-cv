@@ -1,6 +1,7 @@
 {
   "$schema": ".cac/settings.schema.json",
   "root": "cv.yaml",
+  "naming": "Ada_Lovelace_CustomizedLayout",
   "theme": "table-layout",
   "page": {
     "paper": "a4",

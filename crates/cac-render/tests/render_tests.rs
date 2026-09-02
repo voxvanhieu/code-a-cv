@@ -165,6 +165,31 @@ fn settings_reject_unknown_properties_and_invalid_values() {
 }
 
 #[test]
+fn settings_accept_an_artifact_name_and_reject_paths() {
+    let directory = tempdir().unwrap();
+    let path = directory.path().join("settings.json");
+    fs::write(&path, r#"{"naming":"Ada_Lovelace_CompleteCV"}"#).unwrap();
+    assert_eq!(
+        Settings::from_path(&path).unwrap().naming.as_deref(),
+        Some("Ada_Lovelace_CompleteCV")
+    );
+
+    for naming in ["", ".", "..", "../cv", "nested/cv", r"nested\cv"] {
+        fs::write(
+            &path,
+            serde_json::to_vec(&serde_json::json!({ "naming": naming })).unwrap(),
+        )
+        .unwrap();
+        assert!(
+            Settings::from_path(&path)
+                .unwrap_err()
+                .to_string()
+                .contains("invalid `naming`")
+        );
+    }
+}
+
+#[test]
 fn visual_settings_override_theme_defaults() {
     let directory = tempdir().unwrap();
     write_theme(
