@@ -13,7 +13,7 @@ const REGISTRY_ENV: &str = "CAC_THEME_REGISTRY";
 const SYSTEM_THEME_NAMES: &[&str] = &["classic", "base", "main"];
 
 pub const ABOUT: &str = "Find, install, and manage themes";
-pub const AFTER_HELP: &str = "Examples:\n  cac themes list\n  cac themes search blue\n  cac themes info classic-blue\n  cac themes install classic-blue --local\n  cac themes remove classic-blue --local";
+pub const AFTER_HELP: &str = "Examples:\n  cac theme list\n  cac theme search blue\n  cac theme info classic-blue\n  cac theme install classic-blue --local\n  cac theme remove classic-blue --local";
 
 #[derive(ClapArgs)]
 pub struct Args {
@@ -85,6 +85,8 @@ struct ThemeMetadata {
     author: String,
     license: String,
     theme_api: u32,
+    #[serde(default)]
+    preview: Option<String>,
     files: Vec<ThemeFile>,
 }
 
@@ -162,6 +164,9 @@ fn info(args: ThemeArgs) -> Result<()> {
     println!("AUTHOR {}", theme.author);
     println!("LICENSE {}", theme.license);
     println!("THEME API {}", theme.theme_api);
+    if let Some(preview) = theme.preview {
+        println!("PREVIEW {preview}");
+    }
     Ok(())
 }
 
@@ -323,6 +328,14 @@ fn validate_metadata(theme: &ThemeMetadata) -> Result<()> {
                 theme.name
             )));
         }
+    }
+    if let Some(preview) = &theme.preview
+        && !paths.contains(preview)
+    {
+        return Err(Error::ThemeRegistry(format!(
+            "theme `{}` preview is not included in its files",
+            theme.name
+        )));
     }
     Ok(())
 }

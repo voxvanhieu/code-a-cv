@@ -19,7 +19,7 @@ fn help_screens_match_snapshots() {
         (&["check"][..], include_str!("snapshots/check-help.txt")),
         (&["convert"][..], include_str!("snapshots/convert-help.txt")),
         (&["schema"][..], include_str!("snapshots/schema-help.txt")),
-        (&["themes"][..], include_str!("snapshots/themes-help.txt")),
+        (&["theme"][..], include_str!("snapshots/theme-help.txt")),
     ];
 
     for (arguments, snapshot) in snapshots {
@@ -622,7 +622,7 @@ fn themes_install_rejects_system_theme_names() {
         Command::cargo_bin("cac")
             .unwrap()
             .current_dir(directory.path())
-            .args(["themes", "install", theme, "--local"])
+            .args(["theme", "install", theme, "--local"])
             .assert()
             .code(1)
             .stdout("")
@@ -635,7 +635,7 @@ fn themes_install_rejects_system_theme_names() {
     Command::cargo_bin("cac")
         .unwrap()
         .current_dir(directory.path())
-        .args(["themes", "list"])
+        .args(["theme", "list"])
         .assert()
         .success()
         .stdout(predicates::str::contains("classic (embedded)"))
@@ -652,14 +652,14 @@ fn themes_list_and_remove_a_local_theme() {
     Command::cargo_bin("cac")
         .unwrap()
         .current_dir(directory.path())
-        .args(["themes", "list"])
+        .args(["theme", "list"])
         .assert()
         .success()
         .stdout(predicates::str::contains("custom (project)"));
     Command::cargo_bin("cac")
         .unwrap()
         .current_dir(directory.path())
-        .args(["themes", "remove", "custom", "--local"])
+        .args(["theme", "remove", "custom", "--local"])
         .assert()
         .success()
         .stdout("REMOVED custom (project)\n");
@@ -680,7 +680,7 @@ fn themes_search_info_install_and_build_from_a_registry() {
     Command::cargo_bin("cac")
         .unwrap()
         .env("CAC_THEME_REGISTRY", &registry)
-        .args(["themes", "search", "blue"])
+        .args(["theme", "search", "blue"])
         .assert()
         .success()
         .stdout("classic-blue: The classic centered CV with blue headings\n");
@@ -688,7 +688,7 @@ fn themes_search_info_install_and_build_from_a_registry() {
     Command::cargo_bin("cac")
         .unwrap()
         .env("CAC_THEME_REGISTRY", &registry)
-        .args(["themes", "info", "classic-blue"])
+        .args(["theme", "info", "classic-blue"])
         .assert()
         .success()
         .stdout(predicates::str::contains("NAME classic-blue\n"))
@@ -698,7 +698,7 @@ fn themes_search_info_install_and_build_from_a_registry() {
         .unwrap()
         .current_dir(directory.path())
         .env("CAC_THEME_REGISTRY", &registry)
-        .args(["themes", "install", "classic-blue", "--local"])
+        .args(["theme", "install", "classic-blue", "--local"])
         .assert()
         .success()
         .stdout("INSTALLED classic-blue (project)\n");
@@ -728,7 +728,7 @@ fn themes_search_info_install_and_build_from_a_registry() {
         .unwrap()
         .current_dir(directory.path())
         .env("CAC_THEME_REGISTRY", &registry)
-        .args(["themes", "install", "classic-left", "--local"])
+        .args(["theme", "install", "classic-left", "--local"])
         .assert()
         .success()
         .stdout("INSTALLED classic-left (project)\n");
@@ -775,7 +775,7 @@ fn themes_install_rejects_a_download_with_the_wrong_checksum() {
             "CAC_THEME_REGISTRY",
             format!("file://{}", registry.path().display()),
         )
-        .args(["themes", "install", "classic-blue", "--local"])
+        .args(["theme", "install", "classic-blue", "--local"])
         .assert()
         .code(1)
         .stdout("")
