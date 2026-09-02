@@ -95,6 +95,10 @@ pub fn run(args: Args) -> Result<()> {
         )
     });
     let cv = read_cv(&input, args.input_format)?;
+    let stem = settings
+        .naming
+        .as_deref()
+        .map_or_else(|| input_stem(&input).to_owned(), str::to_owned);
     let project = project_directory(&input)?;
     let render_options = cac_render::RenderOptions {
         project_dir: Some(project.join(".cac")),
@@ -102,7 +106,6 @@ pub fn run(args: Args) -> Result<()> {
         settings,
     };
     fs::create_dir_all(&args.output)?;
-    let stem = input_stem(&input);
     for format in args.formats {
         let path = match format {
             OutputFormat::Pdf => {

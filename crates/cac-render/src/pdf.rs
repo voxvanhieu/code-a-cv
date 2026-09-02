@@ -98,6 +98,7 @@ pub fn render_pdf_with_options(
     let resolved = resolve_theme(&theme_name, options)?;
     let mut render_settings = settings;
     render_settings.root = None;
+    render_settings.naming = None;
     render_settings.theme = None;
     let world = CacWorld::new(
         serde_json::to_vec(&RenderView::from(cv))?,

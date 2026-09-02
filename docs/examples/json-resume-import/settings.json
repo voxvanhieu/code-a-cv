@@ -1,5 +1,6 @@
 {
   "$schema": ".cac/settings.schema.json",
-  "root": "cv.md",
+  "root": "Ada_Lovelace.md",
+  "naming": "Ada_Lovelace_JsonResumeImport",
   "theme": "classic"
 }

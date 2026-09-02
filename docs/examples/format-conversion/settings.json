@@ -1,5 +1,6 @@
 {
   "$schema": ".cac/settings.schema.json",
   "root": "cv.yaml",
+  "naming": "Ada_Lovelace_FormatConversion",
   "theme": "classic"
 }
