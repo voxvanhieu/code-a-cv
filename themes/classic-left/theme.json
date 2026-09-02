@@ -4,10 +4,19 @@
   "author": "Code a CV contributors",
   "license": "MIT",
   "theme_api": 1,
+  "preview": "preview.jpg",
   "files": [
     {
       "path": "theme.typ",
       "sha256": "b9f0405215fcd46f7e0603f86b8fa485e628443bd297eb66693fcd6f49e659d0"
+    },
+    {
+      "path": "README.md",
+      "sha256": "82a02e1dc54e1747f6bb243aa9578a51f6b12622d5461c5cc477278156d7ca6d"
+    },
+    {
+      "path": "preview.jpg",
+      "sha256": "4459e52f5b95a40835717ce3a31677015d761a6873caea48b85cda0e1d78b629"
     }
   ]
 }
