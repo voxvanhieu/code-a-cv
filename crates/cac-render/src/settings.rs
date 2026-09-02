@@ -86,6 +86,8 @@ pub struct Settings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub root: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub naming: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub theme: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub page: Option<PageSettings>,
@@ -137,6 +139,10 @@ pub enum SettingsError {
     HighlightBullet,
     #[error("invalid `root` value `{0}`; expected a CV file name without directory components")]
     Root(String),
+    #[error(
+        "invalid `naming` value `{0}`; expected a non-empty file name pattern without directory components"
+    )]
+    Naming(String),
 }
 
 impl Settings {
@@ -157,6 +163,11 @@ impl Settings {
             && !valid_root(root)
         {
             return Err(SettingsError::Root(root.clone()));
+        }
+        if let Some(naming) = &settings.naming
+            && !valid_root(naming)
+        {
+            return Err(SettingsError::Naming(naming.clone()));
         }
         if let Some(theme) = &settings.theme {
             validate_theme_name(theme)?;
@@ -324,6 +335,11 @@ pub fn settings_schema() -> serde_json::Value {
                 "type": "string",
                 "pattern": "^(?!\\.{1,2}$)[^/\\\\]+$",
                 "description": "CV source filename in the same directory as settings.json."
+            },
+            "naming": {
+                "type": "string",
+                "pattern": "^(?!\\.{1,2}$)[^/\\\\]+$",
+                "description": "Build artifact filename. The file extension is added automatically."
             },
             "theme": {
                 "type": "string",

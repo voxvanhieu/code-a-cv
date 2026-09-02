@@ -1,7 +1,6 @@
 /target
 /dist
 /offering/
-docs/examples/**/offering/
 docs/examples/**/.cac/settings.schema.json
 /cv.md
 **/*.rs.bk
