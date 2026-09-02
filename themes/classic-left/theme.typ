@@ -1,9 +1,9 @@
 #import "/.cac/base.typ" as base
 
 #let header(ctx) = align(ctx.styles.header.alignment)[
-  (ctx.components.heading)(ctx, 1, [#ctx.cv.profile.name])
-  if ctx.cv.profile.contacts.len() > 0 [#ctx.cv.profile.contacts.join(" | ")]
-  line(length: 100%, stroke: 0.5pt + ctx.tokens.colors.accent)
+  #(ctx.components.heading)(ctx, 1, [#ctx.cv.profile.name])
+  #if ctx.cv.profile.contacts.len() > 0 [#ctx.cv.profile.contacts.join(" | ")]
+  #line(length: 100%, stroke: 0.5pt + ctx.tokens.colors.accent)
 ]
 
 #let section-heading(ctx, section) = {

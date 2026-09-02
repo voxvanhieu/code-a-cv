@@ -21,6 +21,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 * Rename the default generated-document directory from `dist/` to `offering/`
 * Move the runnable example projects under `docs/examples/`
 
+### Fixed
+
+* Render the `classic-left` PDF header instead of displaying its Typst source
+
 ## [0.2.0]
 
 ### Added

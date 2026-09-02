@@ -8,7 +8,7 @@
   "files": [
     {
       "path": "theme.typ",
-      "sha256": "b9f0405215fcd46f7e0603f86b8fa485e628443bd297eb66693fcd6f49e659d0"
+      "sha256": "0b61c05432f0039543d711ac40927849d7b7e0d601c39cbd267e47e185c9eb01"
     },
     {
       "path": "README.md",
@@ -16,7 +16,7 @@
     },
     {
       "path": "preview.jpg",
-      "sha256": "4459e52f5b95a40835717ce3a31677015d761a6873caea48b85cda0e1d78b629"
+      "sha256": "92f9f5913ca2ce8ebcc366a9608ae5bf9860bf57f629caecb6d80acca2765bfc"
     }
   ]
 }
