@@ -49,8 +49,8 @@ Files may be placed under the theme directory, including `assets/` and `fonts/`.
 Point `cac` at a local registry while developing:
 
 ```console
-$ CAC_THEME_REGISTRY="file:///path/to/code-a-cv/themes" cac theme search
-$ CAC_THEME_REGISTRY="file:///path/to/code-a-cv/themes" cac theme install example --local
+$ CAC_THEME_REGISTRY="file:///path/to/code-a-cv/themes" cac themes search
+$ CAC_THEME_REGISTRY="file:///path/to/code-a-cv/themes" cac themes install example --local
 $ cac build
 ```
 
