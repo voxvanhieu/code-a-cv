@@ -386,14 +386,14 @@ BUILT offering/cv.pdf
 Possible theme-management commands are:
 
 ```console
-cac themes list
-cac themes search
-cac themes search blue
-cac themes info classic-blue
-cac themes install oxford
-cac themes install oxford --local
-cac themes remove oxford
-cac themes remove oxford --local
+cac theme list
+cac theme search
+cac theme search blue
+cac theme info classic-blue
+cac theme install oxford
+cac theme install oxford --local
+cac theme remove oxford
+cac theme remove oxford --local
 ```
 
 `classic` is embedded and available without installation. Downloadable names, including `classic-left`, are resolved through `themes/index.json`; `cac` then downloads the theme's `theme.json` manifest and files from the repository, verifies their SHA-256 checksums, and installs them. The default install location is `~/.cac/themes`. The `--local` option installs into `<project>/.cac/themes`, and `--force` replaces an existing installation. The system names `classic`, `base`, and `main` cannot be installed.
@@ -410,7 +410,7 @@ The current monolithic Typst template should be divided without adding formattin
 * `crates/cac-render/src/pdf.rs` resolves virtual Typst files, theme assets, and theme fonts
 * `crates/cac-render/src/settings.rs` defines and validates the supported settings
 * `crates/cac/src/commands/build.rs` locates `settings.json` and passes render options to `cac-render`
-* `crates/cac/src/commands/themes.rs` lists and manages embedded, user-global, and project-local themes
+* `crates/cac/src/commands/theme.rs` lists and manages embedded, user-global, and project-local themes
 
 `cac-core` remains concerned only with CV content. Theme selection and formatting settings belong to the rendering boundary.
 

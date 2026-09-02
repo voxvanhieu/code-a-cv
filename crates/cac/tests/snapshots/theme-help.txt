@@ -1,6 +1,6 @@
 Find, install, and manage themes
 
-Usage: cac themes <COMMAND>
+Usage: cac theme <COMMAND>
 
 Commands:
   list     List embedded and installed themes
@@ -14,8 +14,8 @@ Options:
   -h, --help  Print help
 
 Examples:
-  cac themes list
-  cac themes search blue
-  cac themes info classic-blue
-  cac themes install classic-blue --local
-  cac themes remove classic-blue --local
+  cac theme list
+  cac theme search blue
+  cac theme info classic-blue
+  cac theme install classic-blue --local
+  cac theme remove classic-blue --local
