@@ -13,6 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Changed
 
+* Renamed the `cac themes` command to `cac theme`
 * Made generated settings reference `.cac/settings.schema.json` for editor validation and completion
 * Grouped rendering settings under `page`, `typography`, `style`, `spacing`, and `pagination` while keeping `root` and `theme` at the top level
 * Generate the project-local settings schema from the internal Rust model instead of tracking a standalone schema file
@@ -59,7 +60,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 * Five-crate `cac` workspace with a filesystem-free core model
 * Markdown, YAML, JSON, TOML, and JSON Resume input
 * Embedded Typst PDF/A-2b rendering and self-contained HTML rendering
-* `init`, `build`, `check`, `convert`, `schema`, and `themes` commands
+* `init`, `build`, `check`, `convert`, `schema`, and `theme` commands
 * Generated JSON Schema and deterministic PDF identifiers and timestamps
 * Content checks for the seven planned source rules
 * Cross-platform CI and `cargo-dist` release packaging for Linux, macOS, and Windows

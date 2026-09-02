@@ -85,10 +85,10 @@ The `root` property in `settings.json` selects the CV source used by `cac build`
 `classic` is included by default. Find and install another theme with:
 
 ```sh
-cac themes list
-cac themes search blue
-cac themes install classic-blue
-cac themes install classic-blue --local
+cac theme list
+cac theme search blue
+cac theme install classic-blue
+cac theme install classic-blue --local
 ```
 
 The first install is available to all projects. `--local` installs it only for the current project. Select it in `settings.json`, then run `cac build`:

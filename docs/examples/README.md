@@ -17,7 +17,7 @@ working tree.
 | [`json-resume-import`](json-resume-import/) | Implemented | Import an existing JSON Resume document into a regular Markdown-based `cac` project. | `cd json-resume-import`<br>`cac build`<br>`cac build resume.json --input-format jsonresume` |
 | [`format-conversion`](format-conversion/) | Implemented | Convert a YAML CV to Markdown, then build the converted document. | `cd format-conversion`<br>`cac convert cv.yaml --to markdown -o cv.md`<br>`cac build cv.md` |
 | [`customized-layout`](customized-layout/) | Implemented | Render each section with a table suited to its content using a project-local theme. | `cd customized-layout`<br>`cac build` |
-| [`local-theme`](local-theme/) | Documentation | Find and download themes into a project's `.cac/themes` directory. | `cd local-theme`<br>`cac themes list`<br>`cac themes search`<br>`cac themes install THEME --local` |
+| [`local-theme`](local-theme/) | Documentation | Find and download themes into a project's `.cac/themes` directory. | `cd local-theme`<br>`cac theme list`<br>`cac theme search`<br>`cac theme install THEME --local` |
 | [`content-checking`](content-checking/) | Planned | Demonstrate normal and strict content diagnostics. | To be added |
 | [`job-specific-cv`](job-specific-cv/) | Planned | Maintain a CV tailored to a particular role. | To be added |
 | [`complete-cv`](complete-cv/) | Implemented | Exercise a long, complex Markdown CV with every supported section and entry shape. | `cd complete-cv`<br>`cac check`<br>`cac build --format pdf,html` |
