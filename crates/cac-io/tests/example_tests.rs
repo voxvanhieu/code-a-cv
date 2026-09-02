@@ -4,7 +4,7 @@ use cac_io::{InputFormat, parse};
 #[test]
 fn supported_input_examples_parse() {
     let markdown = parse(
-        include_str!("../../../docs/examples/basic-markdown/cv.md"),
+        include_str!("../../../docs/examples/basic-markdown/Ada_Lovelace.md"),
         InputFormat::Markdown,
     )
     .unwrap();
