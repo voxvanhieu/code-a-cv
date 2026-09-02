@@ -2,12 +2,22 @@
   "name": "classic-left",
   "description": "The classic CV with left-aligned headings",
   "author": "Code a CV contributors",
+  "author_url": "https://github.com/voxvanhieu/code-a-cv/graphs/contributors",
   "license": "MIT",
   "theme_api": 1,
+  "preview": "preview.jpg",
   "files": [
     {
       "path": "theme.typ",
-      "sha256": "b9f0405215fcd46f7e0603f86b8fa485e628443bd297eb66693fcd6f49e659d0"
+      "sha256": "0b61c05432f0039543d711ac40927849d7b7e0d601c39cbd267e47e185c9eb01"
+    },
+    {
+      "path": "README.md",
+      "sha256": "3def7e88af79c17480a43859737d5365f5b4212e3b774094f54dff01253ef036"
+    },
+    {
+      "path": "preview.jpg",
+      "sha256": "92f9f5913ca2ce8ebcc366a9608ae5bf9860bf57f629caecb6d80acca2765bfc"
     }
   ]
 }
