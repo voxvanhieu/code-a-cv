@@ -2,6 +2,7 @@
   "name": "classic-blue",
   "description": "The classic centered CV with blue headings",
   "author": "Code a CV contributors",
+  "author_url": "https://github.com/voxvanhieu/code-a-cv/graphs/contributors",
   "license": "MIT",
   "theme_api": 1,
   "preview": "preview.jpg",
@@ -12,7 +13,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "0b3192d80a3789db2a32b4fe592ef8ff086d5474b55dec8af31117cb1bb3202e"
+      "sha256": "bd008772a391c20904aea50da161ae6e69cedd7cc88ed24f9bcbeb3914f654b3"
     },
     {
       "path": "preview.jpg",

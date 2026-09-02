@@ -33,6 +33,7 @@ The manifest format is:
   "name": "example",
   "description": "A short searchable description",
   "author": "Contributor name",
+  "author_url": "https://example.com/contributor",
   "license": "MIT",
   "theme_api": 1,
   "preview": "preview.jpg",
@@ -53,7 +54,7 @@ The manifest format is:
 }
 ```
 
-`preview` names the image shown in the theme README. Use a repository-relative path inside the theme directory and include that image and `README.md` in `files`. The README must show the manifest's name, description, author, license, Theme API version, and entrypoint without duplicating file checksums.
+`author_url` is optional and, when provided, must be an HTTP or HTTPS URL. Link the author name to it in the theme README. `preview` names the image shown in the theme README. Use a repository-relative path inside the theme directory and include that image and `README.md` in `files`. Display it with an HTML `img` element that sets `width` and `height` to its intrinsic dimensions. The README must show the manifest's name, description, author, license, Theme API version, and entrypoint without duplicating file checksums.
 
 Files may be placed under the theme directory, including `assets/` and `fonts/`. Absolute paths and parent-directory traversal are rejected. `cac` verifies every checksum before writing an installed theme.
 
