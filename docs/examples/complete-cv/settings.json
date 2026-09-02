@@ -1,6 +1,7 @@
 {
   "$schema": ".cac/settings.schema.json",
-  "root": "cv.md",
+  "root": "Ada_Lovelace.md",
+  "naming": "Ada_Lovelace_CompleteCV",
   "theme": "classic",
   "page": {
     "paper": "a4",

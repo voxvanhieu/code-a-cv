@@ -262,6 +262,33 @@ fn build_uses_the_settings_root_when_input_is_omitted() {
 }
 
 #[test]
+fn build_uses_the_configured_artifact_name() {
+    let directory = tempdir().unwrap();
+    fs::write(directory.path().join("resume.md"), CLEAN_MARKDOWN).unwrap();
+    fs::write(
+        directory.path().join("settings.json"),
+        r#"{"root":"resume.md","naming":"Ada_Lovelace_Engineering","theme":"classic"}"#,
+    )
+    .unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["build", "--format", "html"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains(
+            "BUILT offering/Ada_Lovelace_Engineering.html",
+        ));
+    assert!(
+        directory
+            .path()
+            .join("offering/Ada_Lovelace_Engineering.html")
+            .is_file()
+    );
+}
+
+#[test]
 fn build_resolves_root_relative_to_an_explicit_settings_file() {
     let directory = tempdir().unwrap();
     let project = directory.path().join("project");
