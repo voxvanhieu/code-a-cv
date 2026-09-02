@@ -85,6 +85,8 @@ struct ThemeMetadata {
     author: String,
     license: String,
     theme_api: u32,
+    #[serde(default)]
+    preview: Option<String>,
     files: Vec<ThemeFile>,
 }
 
@@ -162,6 +164,9 @@ fn info(args: ThemeArgs) -> Result<()> {
     println!("AUTHOR {}", theme.author);
     println!("LICENSE {}", theme.license);
     println!("THEME API {}", theme.theme_api);
+    if let Some(preview) = theme.preview {
+        println!("PREVIEW {preview}");
+    }
     Ok(())
 }
 
@@ -323,6 +328,14 @@ fn validate_metadata(theme: &ThemeMetadata) -> Result<()> {
                 theme.name
             )));
         }
+    }
+    if let Some(preview) = &theme.preview
+        && !paths.contains(preview)
+    {
+        return Err(Error::ThemeRegistry(format!(
+            "theme `{}` preview is not included in its files",
+            theme.name
+        )));
     }
     Ok(())
 }
