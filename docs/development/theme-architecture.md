@@ -46,6 +46,12 @@ my-cv/
 
 Only the CV source file is required. When `settings.json` is absent, `cac build` reads `cv.md` by default and uses the embedded `classic` theme and its defaults.
 
+## Theme-development projects
+
+`cac theme init` creates the same project-local theme layout plus a `themeProject` setting equal to `theme`. This marker lets `cac theme test` load the representative CV, require the current Theme API, confirm project-local resolution, and generate the validation PDF, preview, README, and complete manifest hashes. It is omitted from the settings exposed to Typst.
+
+`cac theme pack` invokes that same test pipeline before building a deterministic ZIP under a top-level theme-name directory. The validation PDF is deliberately excluded. Theme installation is disabled in a theme-development project, and the active development theme cannot be removed.
+
 ## Settings
 
 The selected theme is stored in `settings.json`:

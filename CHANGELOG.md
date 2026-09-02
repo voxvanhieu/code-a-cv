@@ -8,6 +8,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+* Added `cac theme init`, `cac theme test`, and `cac theme pack` for scaffolding, validating, previewing, hashing, and reproducibly packaging project-local themes
+* Added the `themeProject` project marker, settings validation, and protections for the active development theme
+
 * Added configurable build artifact naming through the `naming` setting
 * Restored `cac schema` to synchronize the project-local settings schema and validate `settings.json`
 * Made `cac init` and `cac build` keep `.cac/settings.schema.json` synchronized with the running binary

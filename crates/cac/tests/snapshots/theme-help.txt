@@ -3,6 +3,9 @@ Find, install, and manage themes
 Usage: cac theme <COMMAND>
 
 Commands:
+  init     Create a theme-development project
+  test     Validate and generate the current theme project
+  pack     Test and package the current theme project
   list     List embedded and installed themes
   search   Search downloadable themes
   info     Show a downloadable theme's metadata
@@ -14,8 +17,8 @@ Options:
   -h, --help  Print help
 
 Examples:
+  cac theme init my-theme --author 'Ada Lovelace'
+  cac theme test
+  cac theme pack
   cac theme list
-  cac theme search blue
-  cac theme info classic-blue
   cac theme install classic-blue --local
-  cac theme remove classic-blue --local

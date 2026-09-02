@@ -1,0 +1,6 @@
+Validate and generate the current theme project
+
+Usage: cac theme test
+
+Options:
+  -h, --help  Print help
