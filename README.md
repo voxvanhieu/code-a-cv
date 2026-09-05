@@ -160,5 +160,3 @@ See the [development guide](docs/development/README.md) for setup, architecture,
 ## License
 
 Code a CV is available under the [MIT License](LICENSE).
-
-See the [shared theme contract](docs/development/shared-theme-contract.md) for strict acceptance requirements, regression checks, and visual review before publishing.
