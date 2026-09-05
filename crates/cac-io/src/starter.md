@@ -1,49 +1,62 @@
 # Ada Lovelace
 
-ada@example.com · London, United Kingdom
+ada@example.com · +44 1632 960 000 · London, United Kingdom · https://example.com
+
+Software engineer focused on reliable developer tools and clear technical communication.
+
+## Experience
+
+### Senior Software Engineer, Analytical Engines Ltd
+Jan 2023–Present
+
+- Reduced deployment time by **35%** through parallel build stages
+- Led 4 engineers in delivering a new release workflow within 3 months
+
+### Software Engineer, Difference Engine Co
+Jul 2020–Dec 2022
+
+- Improved test coverage from 72% to 91% across 6 services
 
 ## Education
 
 ### BSc Computer Science, University of London
-2020–2023
+Sep 2016–Jun 2020
 
-- First-class degree
-
-## Experience
-
-### Software Engineer, Analytical Engines Ltd
-Jan 2023–Present
-
-- Reduced build time by **35%** by replacing the deployment pipeline
+- Graduated in the top 5% of the class
 
 ## Projects
 
 ### Reproducible Release Toolkit
-2022–Present
+Jan 2022–Present
 
-- Automated releases for 8 open-source projects
+- Built a cross-platform release pipeline used by 18 open-source projects
+- Reduced release preparation from 2 hours to 15 minutes
 
 ## Publications
 
-### A Practical Guide to Reproducible Builds
-2022
+### Reproducible Builds for Small Engineering Teams
+Oct 2022
 
-- Published guidance on build isolation and artifact verification
+- Published a practical guide to build isolation, artifact verification, and release automation
 
-## Additional Skills
+## Skills
 
 ### Languages and tools
 
-- Rust, TypeScript, and PostgreSQL
+- Rust, TypeScript, PostgreSQL, and GitHub Actions
 
-## Advisory Work
+### Engineering practices
 
-### Volunteer Technical Advisor, Open Computing Foundation
-2024–Present
+- Automated testing, performance profiling, and technical writing
 
-- Advise maintainers on release security and contributor workflows
+## Board and Advisory Work
 
-## Interests
+### Technical Advisor, Open Computing Foundation
+Jan 2024–Present
 
-- Volunteer programming mentor
-- Computing history and technical education
+- Advise maintainers on release security, contributor workflows, and project governance
+
+## Professional Interests
+
+- Dependable developer infrastructure and reproducible software delivery
+- Computing history, technical education, and volunteer mentoring

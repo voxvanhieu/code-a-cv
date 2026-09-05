@@ -8,6 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+* Enriched the default CV used by `cac init` and `cac theme init` with full contacts, a summary, multiple roles, and detailed project, publication, skill, and advisory examples
+
 * Added optional Markdown section annotations for explicit IDs and semantic kinds, including semantic export and line diagnostics
 
 * Added `cac theme init`, `cac theme test`, and `cac theme pack` for scaffolding, validating, previewing, hashing, and reproducibly packaging project-local themes

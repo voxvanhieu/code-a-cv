@@ -12,13 +12,17 @@ fn starter_markdown_parses_into_typed_entries() {
         Some("London, United Kingdom")
     );
     assert!(matches!(
-        cv.sections[0].entries[0].kind,
+        cv.sections[1].entries[0].kind,
         EntryKind::Education(_)
     ));
     assert!(matches!(
-        cv.sections[1].entries[0].kind,
+        cv.sections[0].entries[0].kind,
         EntryKind::Experience(_)
     ));
+    assert_eq!(cv.profile.phone.as_deref(), Some("+44 1632 960 000"));
+    assert!(cv.profile.website.is_some());
+    assert!(cv.profile.summary.is_some());
+    assert_eq!(cv.sections[0].entries.len(), 2);
     for kind in [
         SectionKind::Experience,
         SectionKind::Education,
