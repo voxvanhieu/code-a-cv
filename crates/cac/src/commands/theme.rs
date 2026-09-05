@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 use clap::{Args as ClapArgs, Subcommand};
 use serde::Deserialize;
@@ -12,8 +12,14 @@ const DEFAULT_REGISTRY: &str = "https://raw.githubusercontent.com/voxvanhieu/cod
 const REGISTRY_ENV: &str = "CAC_THEME_REGISTRY";
 const SYSTEM_THEME_NAMES: &[&str] = &["classic", "base", "main"];
 
+mod init;
+mod metadata;
+mod pack;
+mod project;
+mod test;
+
 pub const ABOUT: &str = "Find, install, and manage themes";
-pub const AFTER_HELP: &str = "Examples:\n  cac theme list\n  cac theme search blue\n  cac theme info classic-blue\n  cac theme install classic-blue --local\n  cac theme remove classic-blue --local";
+pub const AFTER_HELP: &str = "Examples:\n  cac theme init my-theme --author 'Ada Lovelace'\n  cac theme test\n  cac theme pack\n  cac theme list\n  cac theme install classic-blue --local";
 
 #[derive(ClapArgs)]
 pub struct Args {
@@ -23,6 +29,12 @@ pub struct Args {
 
 #[derive(Subcommand)]
 enum Command {
+    /// Create a theme-development project
+    Init(init::Args),
+    /// Validate and generate the current theme project
+    Test,
+    /// Test and package the current theme project
+    Pack,
     /// List embedded and installed themes
     List,
     /// Search downloadable themes
@@ -77,28 +89,11 @@ struct ThemeSummary {
     description: String,
 }
 
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ThemeMetadata {
-    name: String,
-    description: String,
-    author: String,
-    license: String,
-    theme_api: u32,
-    #[serde(default)]
-    preview: Option<String>,
-    files: Vec<ThemeFile>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ThemeFile {
-    path: String,
-    sha256: String,
-}
-
 pub fn run(args: Args) -> Result<()> {
     match args.command {
+        Command::Init(args) => init::run(args),
+        Command::Test => test::run(),
+        Command::Pack => pack::run(),
         Command::List => list(),
         Command::Search(args) => search(args),
         Command::Info(args) => info(args),
@@ -162,6 +157,9 @@ fn info(args: ThemeArgs) -> Result<()> {
     println!("NAME {}", theme.name);
     println!("DESCRIPTION {}", theme.description);
     println!("AUTHOR {}", theme.author);
+    if let Some(author_url) = theme.author_url {
+        println!("AUTHOR URL {author_url}");
+    }
     println!("LICENSE {}", theme.license);
     println!("THEME API {}", theme.theme_api);
     if let Some(preview) = theme.preview {
@@ -176,6 +174,7 @@ fn install(args: InstallArgs) -> Result<()> {
     if SYSTEM_THEME_NAMES.contains(&name.as_str()) {
         return Err(Error::SystemThemeName(name.clone()));
     }
+    project::reject_install()?;
     let root = selected_root(args.location.local)?;
     let directory = root.join(name);
     if directory.exists() && !args.force {
@@ -235,6 +234,7 @@ fn replace_directory(directory: &Path, force: bool) -> Result<()> {
 
 fn remove(args: LocationArgs) -> Result<()> {
     cac_render::validate_theme_name(&args.theme)?;
+    project::reject_selected_removal(&args.theme)?;
     let directory = selected_root(args.local)?.join(&args.theme);
     if !directory.join("theme.typ").is_file() {
         return Err(Error::ThemeNotInstalled(args.theme));
@@ -275,10 +275,10 @@ fn find_theme<'a>(registry: &'a Registry, name: &str) -> Result<&'a ThemeSummary
         .ok_or_else(|| Error::DownloadableTheme(name.into()))
 }
 
-fn metadata(name: &str) -> Result<ThemeMetadata> {
+fn metadata(name: &str) -> Result<metadata::ThemeMetadata> {
     let resource = resource(&registry_base(), &format!("{name}/theme.json"));
     let bytes = fetch(&resource)?;
-    let theme: ThemeMetadata = serde_json::from_slice(&bytes)
+    let theme: metadata::ThemeMetadata = serde_json::from_slice(&bytes)
         .map_err(|source| Error::ThemeRegistry(format!("invalid `{resource}`: {source}")))?;
     if theme.name != name {
         return Err(Error::ThemeRegistry(format!(
@@ -286,58 +286,8 @@ fn metadata(name: &str) -> Result<ThemeMetadata> {
             theme.name
         )));
     }
-    validate_metadata(&theme)?;
+    metadata::validate_packaged(&theme).map_err(Error::ThemeRegistry)?;
     Ok(theme)
-}
-
-fn validate_metadata(theme: &ThemeMetadata) -> Result<()> {
-    cac_render::validate_theme_name(&theme.name)?;
-    if theme.theme_api != 1 {
-        return Err(Error::ThemeRegistry(format!(
-            "theme `{}` uses unsupported theme API {}",
-            theme.name, theme.theme_api
-        )));
-    }
-    if theme.description.trim().is_empty()
-        || theme.author.trim().is_empty()
-        || theme.license.trim().is_empty()
-        || theme.files.is_empty()
-        || !theme.files.iter().any(|file| file.path == "theme.typ")
-    {
-        return Err(Error::ThemeRegistry(format!(
-            "theme `{}` has incomplete metadata",
-            theme.name
-        )));
-    }
-    let mut paths = std::collections::BTreeSet::new();
-    for file in &theme.files {
-        let path = Path::new(&file.path);
-        if path.is_absolute()
-            || path
-                .components()
-                .any(|component| !matches!(component, Component::Normal(_)))
-            || !paths.insert(&file.path)
-            || file.sha256.len() != 64
-            || !file
-                .sha256
-                .bytes()
-                .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
-        {
-            return Err(Error::ThemeRegistry(format!(
-                "theme `{}` has an invalid file entry",
-                theme.name
-            )));
-        }
-    }
-    if let Some(preview) = &theme.preview
-        && !paths.contains(preview)
-    {
-        return Err(Error::ThemeRegistry(format!(
-            "theme `{}` preview is not included in its files",
-            theme.name
-        )));
-    }
-    Ok(())
 }
 
 fn registry_base() -> String {

@@ -15,6 +15,8 @@ use typst_kit::fonts::{FontStore, embedded};
 use typst_layout::PagedDocument;
 use typst_pdf::{PdfOptions, PdfStandard, PdfStandards, Timestamp};
 
+pub const THEME_API_VERSION: u32 = 1;
+
 use crate::{Settings, SettingsError, format_date, validate_theme_name};
 
 const MAIN_TYP: &str = include_str!("typst/main.typ");
@@ -49,6 +51,8 @@ pub enum RenderError {
     Compile(String),
     #[error("PDF export failed: {0}")]
     Pdf(String),
+    #[error("preview image export failed: {0}")]
+    Image(String),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -100,6 +104,7 @@ pub fn render_pdf_with_options(
     render_settings.root = None;
     render_settings.naming = None;
     render_settings.theme = None;
+    render_settings.theme_project = None;
     let world = CacWorld::new(
         serde_json::to_vec(&RenderView::from(cv))?,
         serde_json::to_vec(&render_settings)?,
@@ -129,6 +134,77 @@ pub fn render_pdf_with_options(
         theme: theme_name,
         theme_source: resolved.source,
     })
+}
+
+pub fn render_pdf_and_preview_with_options(
+    cv: &CvDocument,
+    options: &RenderOptions,
+) -> Result<(RenderedPdf, Vec<u8>, u32, u32), RenderError> {
+    let settings = Settings::validate(options.settings.clone())?;
+    let theme_name = settings.theme_name().to_owned();
+    let resolved = resolve_theme(&theme_name, options)?;
+    let mut render_settings = settings;
+    render_settings.root = None;
+    render_settings.naming = None;
+    render_settings.theme = None;
+    render_settings.theme_project = None;
+    let world = CacWorld::new(
+        serde_json::to_vec(&RenderView::from(cv))?,
+        serde_json::to_vec(&render_settings)?,
+        &resolved,
+    )?;
+    let document = typst::compile::<PagedDocument>(&world)
+        .output
+        .map_err(|errors| RenderError::Compile(format_diagnostics(&errors)))?;
+    let first_page = document
+        .pages()
+        .first()
+        .ok_or_else(|| RenderError::Image("document has no pages".into()))?;
+    let preview_options = typst_render::RenderOptions {
+        pixel_per_pt: 1.0.into(),
+        render_bleed: false,
+    };
+    let pixmap = typst_render::render(first_page, &preview_options);
+    let width = pixmap.width();
+    let height = pixmap.height();
+    let rgba = pixmap.take();
+    let mut rgb = Vec::with_capacity((width * height * 3) as usize);
+    for pixel in rgba.as_chunks::<4>().0 {
+        let alpha = u16::from(pixel[3]);
+        for channel in &pixel[..3] {
+            rgb.push((u16::from(*channel) + 255 - alpha).min(255) as u8);
+        }
+    }
+    use image::ImageEncoder as _;
+    let mut jpeg = Vec::new();
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg, 90)
+        .write_image(&rgb, width, height, image::ExtendedColorType::Rgb8)
+        .map_err(|error| RenderError::Image(error.to_string()))?;
+    let standards = PdfStandards::new(&[PdfStandard::A_2b])
+        .map_err(|error| RenderError::Pdf(format!("{error:?}")))?;
+    let pdf_options = PdfOptions {
+        ident: Smart::Custom(format!("cac:{}", cv.profile.name)),
+        creator: Smart::Custom(Some(format!("cac {}", env!("CARGO_PKG_VERSION")))),
+        timestamp: Some(Timestamp::new_utc(
+            Datetime::from_ymd_hms(2000, 1, 1, 0, 0, 0).expect("valid pinned timestamp"),
+        )),
+        standards,
+        ..PdfOptions::default()
+    };
+    let bytes = typst_pdf::pdf(&document, &pdf_options)
+        .map_err(|errors| RenderError::Pdf(format_diagnostics(&errors)))?;
+    let pages = document.pages().len();
+    Ok((
+        RenderedPdf {
+            bytes,
+            pages,
+            theme: theme_name,
+            theme_source: resolved.source,
+        },
+        jpeg,
+        width,
+        height,
+    ))
 }
 
 struct ResolvedTheme {
@@ -330,6 +406,16 @@ fn load_theme_fonts(directory: &Path, fonts: &mut FontStore) -> Result<(), Rende
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn theme_api_constant_matches_base_module() {
+        assert!(BASE_TYP.contains(&format!("#let api_version = {THEME_API_VERSION}")));
+    }
 }
 
 #[derive(Serialize)]

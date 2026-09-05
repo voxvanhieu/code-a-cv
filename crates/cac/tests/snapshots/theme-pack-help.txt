@@ -1,0 +1,6 @@
+Test and package the current theme project
+
+Usage: cac theme pack
+
+Options:
+  -h, --help  Print help

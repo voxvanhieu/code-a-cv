@@ -77,6 +77,9 @@ The finished PDF is `offering/cv.pdf`—your carefully prepared offering to the 
 | `cac build [FILE]` | Validate and render a CV as PDF or HTML |
 | `cac check [FILE] [--strict]` | Check source content |
 | `cac convert <FILE> --to <FORMAT>` | Convert supported input formats |
+| `cac theme init [THEME_NAME]` | Create a project-local theme development project |
+| `cac theme test` | Render and validate a theme and generate its artifacts |
+| `cac theme pack` | Create a reproducible archive ready to contribute |
 
 The `root` property in `settings.json` selects the CV source used by `cac build` when no file is provided. This avoids ambiguity when a directory contains several supported CV files. By default, build artifacts use the source file name. Set `naming` to an explicit artifact name such as `Ada_Lovelace_Engineering`; `cac build` then produces `Ada_Lovelace_Engineering.pdf`. Put common PDF formatting overrides in the same file. Internally, `cac init` and `cac build` keep the project-local settings schema current for editor completion and validation.
 
@@ -100,6 +103,8 @@ The first install is available to all projects. `--local` installs it only for t
 ```
 
 > Created a great theme? Read the [theme contribution guide](themes/README.md) and share it with the community.
+
+To start one from scratch, create an empty directory and run `cac theme init`. After editing `theme.typ` and completing its manifest description, `cac theme test` generates a validation PDF, preview, README, and checksums. `cac theme pack` produces the ZIP and prints the upstream contribution steps.
 
 ## Examples
 

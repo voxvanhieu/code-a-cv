@@ -89,6 +89,8 @@ pub struct Settings {
     pub naming: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub theme: Option<String>,
+    #[serde(rename = "themeProject", skip_serializing_if = "Option::is_none")]
+    pub theme_project: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub page: Option<PageSettings>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -143,6 +145,8 @@ pub enum SettingsError {
         "invalid `naming` value `{0}`; expected a non-empty file name pattern without directory components"
     )]
     Naming(String),
+    #[error("`theme` and `themeProject` must contain the same theme name")]
+    ThemeProjectMismatch,
 }
 
 impl Settings {
@@ -171,6 +175,12 @@ impl Settings {
         }
         if let Some(theme) = &settings.theme {
             validate_theme_name(theme)?;
+        }
+        if let Some(theme_project) = &settings.theme_project {
+            validate_theme_name(theme_project)?;
+            if settings.theme.as_deref() != Some(theme_project) {
+                return Err(SettingsError::ThemeProjectMismatch);
+            }
         }
         let page = settings.page.as_ref();
         let typography = settings.typography.as_ref();
@@ -346,6 +356,11 @@ pub fn settings_schema() -> serde_json::Value {
                 "pattern": "^[a-z0-9_-]+$",
                 "description": "Embedded, project-local, or user-installed theme name."
             },
+            "themeProject": {
+                "type": "string",
+                "pattern": "^[a-z0-9_-]+$",
+                "description": "Theme under development; must equal theme."
+            },
             "page": { "$ref": "#/$defs/page" },
             "typography": { "$ref": "#/$defs/typography" },
             "style": { "$ref": "#/$defs/style" },
@@ -431,4 +446,30 @@ fn valid_length(value: &str) -> bool {
             .and_then(|number| number.parse::<f64>().ok())
             .is_some_and(|number| number.is_finite() && number > 0.0)
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn theme_project_must_match_selected_theme() {
+        let settings = Settings {
+            theme: Some("one".into()),
+            theme_project: Some("two".into()),
+            ..Settings::default()
+        };
+        assert!(matches!(
+            Settings::validate(settings),
+            Err(SettingsError::ThemeProjectMismatch)
+        ));
+    }
+
+    #[test]
+    fn schema_includes_theme_project() {
+        assert_eq!(
+            settings_schema()["properties"]["themeProject"]["pattern"],
+            "^[a-z0-9_-]+$"
+        );
+    }
 }

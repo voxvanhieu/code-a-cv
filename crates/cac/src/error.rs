@@ -47,4 +47,6 @@ pub enum Error {
     ThemeChecksum { theme: String, path: String },
     #[error("theme `{0}` is not installed in the selected location")]
     ThemeNotInstalled(String),
+    #[error("theme project error: {0}")]
+    ThemeProject(String),
 }
