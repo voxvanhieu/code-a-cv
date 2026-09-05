@@ -621,3 +621,66 @@ fn base_spacing_properties_resolve_independently() {
 
     assert!(rendered.bytes.starts_with(b"%PDF-"));
 }
+
+#[test]
+fn preview_is_a_decodable_jpeg_with_intrinsic_dimensions_and_white_background() {
+    let cv = parse(STARTER_MARKDOWN, InputFormat::Markdown).unwrap();
+    for (paper, dimensions) in [("us-letter", (612, 792)), ("a4", (595, 842))] {
+        let options = RenderOptions {
+            settings: Settings {
+                page: Some(PageSettings {
+                    paper: Some(paper.into()),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let (pdf, jpeg, width, height) =
+            cac_render::render_pdf_and_preview_with_options(&cv, &options).unwrap();
+        assert_eq!((width, height), dimensions);
+        assert!(pdf.bytes.starts_with(b"%PDF-"));
+        let decoded = image::load_from_memory_with_format(&jpeg, image::ImageFormat::Jpeg)
+            .unwrap()
+            .to_rgb8();
+        assert_eq!(decoded.dimensions(), dimensions);
+        assert!(
+            decoded
+                .get_pixel(0, 0)
+                .0
+                .iter()
+                .all(|channel| *channel >= 250)
+        );
+        assert!(
+            decoded
+                .pixels()
+                .any(|pixel| pixel.0.iter().any(|channel| *channel < 128))
+        );
+    }
+}
+
+#[test]
+fn theme_project_schema_requires_a_selected_theme_and_runtime_checks_equality() {
+    let schema = cac_render::settings_schema();
+    assert_eq!(
+        schema["dependentRequired"]["themeProject"],
+        serde_json::json!(["theme"])
+    );
+    for value in [
+        serde_json::json!({"themeProject": "sample"}),
+        serde_json::json!({"themeProject": "sample", "theme": "other"}),
+        serde_json::json!({"themeProject": "../sample", "theme": "../sample"}),
+    ] {
+        let settings = serde_json::from_value(value).unwrap();
+        assert!(Settings::validate(settings).is_err());
+    }
+    let settings = Settings::validate(
+        serde_json::from_value(serde_json::json!({"themeProject": "sample", "theme": "sample"}))
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        serde_json::to_value(settings).unwrap()["themeProject"],
+        "sample"
+    );
+}

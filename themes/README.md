@@ -69,3 +69,5 @@ $ cac build
 ```
 
 After a contribution is merged, users install it from the default GitHub registry without setting the environment variable.
+
+See the [theme toolkit quality gate](../docs/development/theme-toolkit-quality-gate.md) for strict acceptance requirements, regression checks, and visual review before publishing.

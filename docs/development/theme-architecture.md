@@ -434,3 +434,5 @@ The implementation should test:
 * Rejecting invalid theme names and paths outside allowed roots
 * Reporting missing themes, invalid settings, and unsupported theme API versions
 * Producing reproducible PDFs from project-local themes
+
+See the [theme toolkit quality gate](theme-toolkit-quality-gate.md) for strict acceptance requirements, regression checks, and visual review before publishing.

@@ -335,6 +335,7 @@ pub fn settings_schema() -> serde_json::Value {
         "description": "Rendering and project settings for the cac command-line application.",
         "type": "object",
         "additionalProperties": false,
+        "dependentRequired": { "themeProject": ["theme"] },
         "properties": {
             "$schema": {
                 "type": "string",

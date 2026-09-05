@@ -136,3 +136,5 @@ See the [development guide](docs/development/README.md) for setup, architecture,
 ## License
 
 Code a CV is available under the [MIT License](LICENSE).
+
+See the [theme toolkit quality gate](docs/development/theme-toolkit-quality-gate.md) for strict acceptance requirements, regression checks, and visual review before publishing.

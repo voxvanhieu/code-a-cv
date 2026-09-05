@@ -15,8 +15,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 * Restored `cac schema` to synchronize the project-local settings schema and validate `settings.json`
 * Made `cac init` and `cac build` keep `.cac/settings.schema.json` synchronized with the running binary
 
+### Fixed
+
+* Reject unsafe theme paths, symlinked development directories, and manifests that hash themselves
+* Escape theme README metadata as literal text and verify the complete packaged file inventory
+* Validate theme initialization arguments before prompting and protect dangling targets from writes
+* Stage generated theme artifacts without rewriting sources and clean up temporary ZIPs on failure
+* Require a selected theme in the settings schema when `themeProject` is present
+
 ### Changed
 
+* Limit cargo-dist release binaries to Linux (x64 and ARM64) and Windows (x64); use Homebrew for macOS installation
 * Renamed the `cac themes` command to `cac theme`
 * Made generated settings reference `.cac/settings.schema.json` for editor validation and completion
 * Grouped rendering settings under `page`, `typography`, `style`, `spacing`, and `pagination` while keeping `root` and `theme` at the top level

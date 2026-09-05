@@ -1,5 +1,5 @@
 use std::collections::BTreeSet;
-use std::path::{Component, Path};
+use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
@@ -57,7 +57,8 @@ pub(super) fn validate_packaged(theme: &ThemeMetadata) -> Result<(), String> {
     validate_editable(theme)?;
     let mut paths = BTreeSet::new();
     for file in &theme.files {
-        if !safe_path(&file.path)
+        if file.path == "theme.json"
+            || !safe_path(&file.path)
             || !paths.insert(file.path.as_str())
             || file.sha256.len() != 64
             || !file
@@ -80,12 +81,12 @@ pub(super) fn validate_packaged(theme: &ThemeMetadata) -> Result<(), String> {
 }
 
 pub(super) fn safe_path(value: &str) -> bool {
-    let path = Path::new(value);
-    !value.contains('\\')
-        && !path.is_absolute()
-        && path
-            .components()
-            .all(|component| matches!(component, Component::Normal(_)))
+    !value.is_empty()
+        && !value.contains(['\\', ':'])
+        && !value.chars().any(char::is_control)
+        && value
+            .split('/')
+            .all(|part| !part.is_empty() && part != "." && part != "..")
 }
 
 pub(super) fn read(path: &Path) -> Result<ThemeMetadata, String> {
@@ -110,7 +111,15 @@ pub(super) fn readme(theme: &ThemeMetadata, width: u32, height: u32) -> String {
         .join(" ");
     let author = escape_markdown(&theme.author);
     let author = theme.author_url.as_ref().map_or(author.clone(), |url| {
-        format!("[{author}]({})", url.as_str().replace(')', "%29"))
+        format!(
+            "[{author}]({})",
+            url.as_str()
+                .replace('(', "%28")
+                .replace(')', "%29")
+                .replace('|', "%7C")
+                .replace('<', "%3C")
+                .replace('>', "%3E")
+        )
     });
     format!(
         "# {title}\n\n{}\n\n<img src=\"preview.jpg\" alt=\"Preview of the {} theme\" width=\"{width}\" height=\"{height}\">\n\n## Theme information\n\n| Field | Value |\n|---|---|\n| Name | `{}` |\n| Author | {author} |\n| License | {} |\n| Theme API | {} |\n| Entrypoint | `theme.typ` |\n",
@@ -131,7 +140,29 @@ fn capitalize(value: &str) -> String {
 
 fn escape_markdown(value: &str) -> String {
     value.chars().fold(String::new(), |mut output, character| {
-        if matches!(character, '\\' | '|' | '[' | ']' | '`' | '*' | '_') {
+        match character {
+            '&' => {
+                output.push_str("&amp;");
+                return output;
+            }
+            '<' => {
+                output.push_str("&lt;");
+                return output;
+            }
+            '>' => {
+                output.push_str("&gt;");
+                return output;
+            }
+            '\n' | '\r' => {
+                output.push(' ');
+                return output;
+            }
+            _ => {}
+        }
+        if matches!(
+            character,
+            '\\' | '|' | '[' | ']' | '`' | '*' | '_' | '#' | '!' | '+' | '-' | '.' | '(' | ')'
+        ) {
             output.push('\\');
         }
         output.push(character);
@@ -187,5 +218,69 @@ mod tests {
         assert!(safe_path("assets/icon.svg"));
         assert!(!safe_path("../theme.typ"));
         assert!(!safe_path("assets\\icon.svg"));
+    }
+
+    #[test]
+    fn rejects_noncanonical_and_nonportable_paths() {
+        for path in [
+            "",
+            "/absolute",
+            "a//b",
+            "a/./b",
+            "a/../b",
+            "a/",
+            "C:foo",
+            "C:/foo",
+            "bad\nname",
+            "bad\0name",
+        ] {
+            assert!(!safe_path(path), "accepted {path:?}");
+        }
+        assert!(safe_path("assets/日本語.svg"));
+    }
+
+    #[test]
+    fn packaged_manifest_rejects_self_hash_duplicates_and_bad_hashes() {
+        let mut manifest = theme(None);
+        manifest.files = ["theme.typ", "README.md", "preview.jpg"]
+            .into_iter()
+            .map(|path| ThemeFile {
+                path: path.into(),
+                sha256: "a".repeat(64),
+            })
+            .collect();
+        assert!(validate_packaged(&manifest).is_ok());
+        for path in ["theme.json", "theme.typ", "assets/../bad", ""] {
+            let mut invalid = manifest.clone();
+            invalid.files.push(ThemeFile {
+                path: path.into(),
+                sha256: "a".repeat(64),
+            });
+            assert!(validate_packaged(&invalid).is_err(), "accepted {path:?}");
+        }
+        for hash in ["A".repeat(64), "g".repeat(64), "a".repeat(63)] {
+            let mut invalid = manifest.clone();
+            invalid.files[0].sha256 = hash;
+            assert!(validate_packaged(&invalid).is_err());
+        }
+        for index in 0..3 {
+            let mut invalid = manifest.clone();
+            invalid.files.remove(index);
+            assert!(validate_packaged(&invalid).is_err());
+        }
+    }
+
+    #[test]
+    fn readme_treats_metadata_as_text_in_every_context() {
+        let mut manifest = theme(Some(url::Url::parse("https://example.com/a(b)|c").unwrap()));
+        manifest.author = "<script> & [Ada]".into();
+        manifest.description = "# Heading\n![image](evil)\n<div>".into();
+        manifest.license = "MIT\n| forged | row |".into();
+        let output = readme(&manifest, 123, 456);
+        assert!(output.contains("&lt;script&gt; &amp;"));
+        assert!(!output.contains("<div>"));
+        assert!(!output.contains("\n| forged"));
+        assert!(!output.contains("\n# Heading"));
+        assert!(output.contains("https://example.com/a%28b%29%7Cc"));
     }
 }

@@ -29,6 +29,15 @@ pub(super) struct Args {
 }
 
 pub(super) fn run(args: Args) -> Result<()> {
+    if let Some(name) = &args.name {
+        validate_name(name).map_err(Error::ThemeProject)?;
+    }
+    if let Some(author) = &args.author {
+        validate_author(author).map_err(Error::ThemeProject)?;
+    }
+    if let Some(url) = &args.author_url {
+        parse_url(url).map_err(Error::ThemeProject)?;
+    }
     let stdin = io::stdin();
     let mut input = stdin.lock();
     let name = value(args.name, "Theme name", &mut input, validate_name)?;
@@ -122,7 +131,14 @@ fn scaffold(name: &str, author: &str, author_url: Option<url::Url>) -> Result<()
         Path::new(".cac/settings.schema.json"),
         theme_dir.as_path(),
     ] {
-        if path.exists() {
+        if fs::symlink_metadata(path).is_ok() {
+            return Err(Error::Exists(path.into()));
+        }
+    }
+    for path in [Path::new(".cac"), Path::new(".cac/themes")] {
+        if let Ok(metadata) = fs::symlink_metadata(path)
+            && (!metadata.is_dir() || metadata.file_type().is_symlink())
+        {
             return Err(Error::Exists(path.into()));
         }
     }
