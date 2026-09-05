@@ -43,28 +43,16 @@ jobs:
             )
 
             code=false
-            themes_changed=false
-            themes_only=true
 
             for path in "${changed_paths[@]}"; do
-              if [[ "${path}" = themes/* ]]; then
-                themes_changed=true
-              else
-                themes_only=false
-              fi
-
               case "${path}" in
                 Cargo.lock | Cargo.toml | dist-workspace.toml | \
-                  crates/* | scripts/* | .cargo/* | rust-toolchain*)
+                  crates/* | themes/* | docs/examples/customized-layout/* | scripts/* | .cargo/* | .github/workflows/ci.yaml | rust-toolchain*)
                   code=true
                   ;;
               esac
             done
 
-            if [[ "${themes_changed}" = "true" && "${themes_only}" != "true" ]]; then
-              echo "Theme changes must not include files outside themes/." >&2
-              exit 1
-            fi
           fi
 
           echo "code=${code}" >> "${GITHUB_OUTPUT}"
