@@ -4,28 +4,12 @@ The `themes/` directory is the official downloadable theme registry. The default
 
 ## Add a theme
 
-The recommended workflow uses the built-in development toolkit:
-
-```console
-$ mkdir my-theme-project && cd my-theme-project
-$ cac theme init my-theme --author "Your Name"
-$ # Edit .cac/themes/my-theme/theme.typ and complete theme.json
-$ cac theme test
-$ cac theme pack
-```
-
-`test` uses the project's representative CV to generate the PDF, JPEG preview, README, and manifest hashes. `pack` repeats that validation and creates a deterministic `my-theme.zip`; follow its printed steps to extract the archive into a fork's `themes/` directory and update `themes/index.json`.
-
-The generated `settings.json` identifies this workflow with `themeProject`. While it is present, `cac` prevents installing themes and prevents removing the selected development theme.
-
-For manual contributions, the published layout remains:
-
 1. Create `themes/<theme-name>/theme.typ`
 2. Create `themes/<theme-name>/preview.jpg` with a representative rendered CV
 3. Create `themes/<theme-name>/README.md` using the manifest information and display the preview directly below the description
 4. Create `themes/<theme-name>/theme.json`
 5. Add the theme name and description to `themes/index.json`
-6. Calculate SHA-256 on every downloadable file and record each lowercase digest in `theme.json`
+6. Run `shasum -a 256` on every downloadable file and record each digest in `theme.json`
 7. Run the repository test and lint commands
 8. Open a pull request with the theme, manifest, registry entry, README, preview, and a short description of the design
 
