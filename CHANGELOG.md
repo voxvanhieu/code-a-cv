@@ -8,6 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+* Added optional Markdown section annotations for explicit IDs and semantic kinds, including semantic export and line diagnostics
+
 * Added `cac theme init`, `cac theme test`, and `cac theme pack` for scaffolding, validating, previewing, hashing, and reproducibly packaging project-local themes
 * Added the `themeProject` project marker, settings validation, and protections for the active development theme
 

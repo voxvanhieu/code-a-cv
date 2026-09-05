@@ -1,4 +1,5 @@
 use std::collections::BTreeSet;
+use std::fmt::Write as _;
 
 use cac_core::{
     CustomEntry, CvDocument, DatePoint, EducationEntry, Entry, EntryKind, ExperienceEntry, Origin,
@@ -119,6 +120,7 @@ pub fn parse_markdown(source: &str) -> Result<CvDocument, ParseError> {
     let mut last_direct_entry: Option<usize> = None;
     let mut saw_name = false;
     let mut before_sections = true;
+    let mut annotation_allowed = false;
 
     for (index, raw_line) in source.lines().enumerate() {
         let line_number = index + 1;
@@ -126,6 +128,19 @@ pub fn parse_markdown(source: &str) -> Result<CvDocument, ParseError> {
         if line.is_empty() {
             continue;
         }
+        if line.starts_with("<!-- cac:section") {
+            if !annotation_allowed {
+                return markdown_error(
+                    line_number,
+                    "section annotation must immediately follow a section heading and may appear only once",
+                );
+            }
+            let current = section.as_mut().expect("annotation follows section");
+            parse_section_annotation(line, line_number, current)?;
+            annotation_allowed = false;
+            continue;
+        }
+        annotation_allowed = false;
         if let Some(value) = line.strip_prefix("# ") {
             if saw_name || section.is_some() {
                 return markdown_error(
@@ -158,6 +173,7 @@ pub fn parse_markdown(source: &str) -> Result<CvDocument, ParseError> {
             });
             last_direct_entry = None;
             before_sections = false;
+            annotation_allowed = true;
             continue;
         }
         if let Some(value) = line.strip_prefix("### ") {
@@ -256,6 +272,86 @@ fn markdown_error<T>(line: usize, message: &str) -> Result<T, ParseError> {
         line,
         message: message.into(),
     })
+}
+
+// IDs use percent-encoded UTF-8 so spaces and comment delimiters round-trip.
+fn encode_section_id(id: &str) -> String {
+    let mut result = String::new();
+    for byte in id.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.') {
+            result.push(char::from(byte));
+        } else {
+            let _ = write!(result, "%{byte:02X}");
+        }
+    }
+    result
+}
+
+fn decode_section_id(value: &str) -> Option<String> {
+    let mut bytes = Vec::new();
+    let mut input = value.bytes();
+    while let Some(byte) = input.next() {
+        bytes.push(if byte == b'%' {
+            let high = char::from(input.next()?).to_digit(16)?;
+            let low = char::from(input.next()?).to_digit(16)?;
+            (high * 16 + low) as u8
+        } else {
+            byte
+        });
+    }
+    String::from_utf8(bytes)
+        .ok()
+        .filter(|id| !id.trim().is_empty())
+}
+
+fn parse_section_annotation(
+    line: &str,
+    number: usize,
+    section: &mut Section,
+) -> Result<(), ParseError> {
+    let Some(body) = line
+        .strip_prefix("<!-- cac:section ")
+        .and_then(|v| v.strip_suffix("-->"))
+    else {
+        return markdown_error(
+            number,
+            "invalid section annotation; expected <!-- cac:section id=... kind=... -->",
+        );
+    };
+    let mut keys = BTreeSet::new();
+    for field in body.split_whitespace() {
+        let Some((key, value)) = field.split_once('=') else {
+            return markdown_error(number, "expected key=value in section annotation");
+        };
+        if !keys.insert(key) {
+            return markdown_error(number, "duplicate section annotation field");
+        }
+        match key {
+            "id" => {
+                section.id = decode_section_id(value).ok_or_else(|| ParseError::Markdown {
+                    line: number,
+                    message: "invalid or empty section id".into(),
+                })?
+            }
+            "kind" => {
+                section.kind = serde_json::from_value(serde_json::Value::String(value.into()))
+                    .map_err(|_| ParseError::Markdown {
+                        line: number,
+                        message: format!("invalid section kind `{value}`"),
+                    })?
+            }
+            _ => {
+                return markdown_error(
+                    number,
+                    "unknown section annotation field; expected id or kind",
+                );
+            }
+        }
+    }
+    if keys.is_empty() {
+        return markdown_error(number, "section annotation must specify id or kind");
+    }
+    Ok(())
 }
 
 fn parse_profile_line(profile: &mut Profile, line: &str) {
@@ -467,8 +563,6 @@ pub fn parse_date_point(value: &str) -> Option<DatePoint> {
 pub const STARTER_MARKDOWN: &str = include_str!("starter.md");
 
 pub fn to_markdown(cv: &CvDocument) -> String {
-    use std::fmt::Write;
-
     let mut output = format!("# {}\n\n", cv.profile.name);
     let contacts: Vec<String> = [
         cv.profile.email.clone(),
@@ -486,7 +580,14 @@ pub fn to_markdown(cv: &CvDocument) -> String {
         let _ = writeln!(output, "{}\n", summary.to_markdown());
     }
     for section in &cv.sections {
-        let _ = writeln!(output, "## {}\n", section.title);
+        let _ = writeln!(output, "## {}", section.title);
+        let kind = serde_json::to_value(section.kind).expect("section kind serializes");
+        let id = encode_section_id(&section.id);
+        let _ = writeln!(
+            output,
+            "<!-- cac:section id={id} kind={} -->\n",
+            kind.as_str().expect("section kind is a string")
+        );
         write_tags(&section.tags, &mut output);
         for entry in &section.entries {
             let (primary, secondary) = entry.kind.heading();
@@ -526,7 +627,6 @@ pub fn to_markdown(cv: &CvDocument) -> String {
 }
 
 fn write_tags(tags: &TagSet, output: &mut String) {
-    use std::fmt::Write;
     if !tags.is_empty() {
         let _ = writeln!(
             output,

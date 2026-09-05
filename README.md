@@ -106,6 +106,30 @@ The first install is available to all projects. `--local` installs it only for t
 
 To start one from scratch, create an empty directory and run `cac theme init`. After editing `theme.typ` and completing its manifest description, `cac theme test` generates a validation PDF, preview, README, and checksums. `cac theme pack` produces the ZIP and prints the upstream contribution steps.
 
+## Explicit Markdown section semantics
+
+Keep translated or renamed headings independent of entry typing with an optional
+annotation immediately after the section heading (blank lines are allowed):
+
+```markdown
+## Kinh nghiệm
+<!-- cac:section id=career kind=experience -->
+
+### Engineer, Example Organization
+2022–Present
+
+- Built reliable tools
+```
+
+`id` and `kind` are independently optional. Kinds are `experience`, `education`,
+`projects`, `publications`, `skills`, and `custom`. Omitted values retain title
+inference and slug generation. Duplicate, invalid, or misplaced annotations
+report line errors. Markdown export emits annotations to preserve section IDs
+and kinds; IDs with spaces or special bytes use percent-encoded UTF-8. Annotations
+hold content semantics, never layout. Mixed typed entries and fields outside the
+Markdown subset still require structured formats for lossless conversion. Reimporting
+new Markdown exports requires a `cac` version that supports these annotations.
+
 ## Examples
 
 See the runnable [`docs/examples/`](docs/examples/) projects for Markdown, structured formats,
