@@ -1,6 +1,7 @@
 Validate and generate the current theme project
 
-Usage: cac theme test
+Usage: cac theme test [OPTIONS]
 
 Options:
-  -h, --help  Print help
+      --shared  Check the bundled shared-theme content corpus
+  -h, --help    Print help

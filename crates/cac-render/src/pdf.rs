@@ -2,8 +2,8 @@ use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use cac_core::{CvDocument, Entry, EntryKind, Inline, RichText};
-use serde::Serialize;
+use cac_core::CvDocument;
+use image::ImageEncoder as _;
 use thiserror::Error;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Duration, Smart};
@@ -15,9 +15,7 @@ use typst_kit::fonts::{FontStore, embedded};
 use typst_layout::PagedDocument;
 use typst_pdf::{PdfOptions, PdfStandard, PdfStandards, Timestamp};
 
-pub const THEME_API_VERSION: u32 = 1;
-
-use crate::{Settings, SettingsError, format_date, validate_theme_name};
+use crate::{Settings, SettingsError, validate_theme_name};
 
 const MAIN_TYP: &str = include_str!("typst/main.typ");
 const BASE_TYP: &str = include_str!("typst/base.typ");
@@ -97,6 +95,13 @@ pub fn render_pdf_with_options(
     cv: &CvDocument,
     options: &RenderOptions,
 ) -> Result<RenderedPdf, RenderError> {
+    render_pdf_document(cv, options).map(|(pdf, _)| pdf)
+}
+
+pub(crate) fn render_pdf_document(
+    cv: &CvDocument,
+    options: &RenderOptions,
+) -> Result<(RenderedPdf, PagedDocument), RenderError> {
     let settings = Settings::validate(options.settings.clone())?;
     let theme_name = settings.theme_name().to_owned();
     let resolved = resolve_theme(&theme_name, options)?;
@@ -106,7 +111,7 @@ pub fn render_pdf_with_options(
     render_settings.theme = None;
     render_settings.theme_project = None;
     let world = CacWorld::new(
-        serde_json::to_vec(&RenderView::from(cv))?,
+        crate::view::render_view(cv)?,
         serde_json::to_vec(&render_settings)?,
         &resolved,
     )?;
@@ -128,12 +133,15 @@ pub fn render_pdf_with_options(
     };
     let bytes = typst_pdf::pdf(&document, &pdf_options)
         .map_err(|errors| RenderError::Pdf(format_diagnostics(&errors)))?;
-    Ok(RenderedPdf {
-        bytes,
-        pages,
-        theme: theme_name,
-        theme_source: resolved.source,
-    })
+    Ok((
+        RenderedPdf {
+            bytes,
+            pages,
+            theme: theme_name,
+            theme_source: resolved.source,
+        },
+        document,
+    ))
 }
 
 pub fn render_pdf_and_preview_with_options(
@@ -149,7 +157,7 @@ pub fn render_pdf_and_preview_with_options(
     render_settings.theme = None;
     render_settings.theme_project = None;
     let world = CacWorld::new(
-        serde_json::to_vec(&RenderView::from(cv))?,
+        crate::view::render_view(cv)?,
         serde_json::to_vec(&render_settings)?,
         &resolved,
     )?;
@@ -175,7 +183,6 @@ pub fn render_pdf_and_preview_with_options(
             rgb.push((u16::from(*channel) + 255 - alpha).min(255) as u8);
         }
     }
-    use image::ImageEncoder as _;
     let mut jpeg = Vec::new();
     image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg, 90)
         .write_image(&rgb, width, height, image::ExtendedColorType::Rgb8)
@@ -406,149 +413,4 @@ fn load_theme_fonts(directory: &Path, fonts: &mut FontStore) -> Result<(), Rende
         }
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn theme_api_constant_matches_base_module() {
-        assert!(BASE_TYP.contains(&format!("#let api_version = {THEME_API_VERSION}")));
-    }
-}
-
-#[derive(Serialize)]
-struct RenderView {
-    profile: ProfileView,
-    sections: Vec<SectionView>,
-}
-#[derive(Serialize)]
-struct ProfileView {
-    name: String,
-    contacts: Vec<String>,
-    summary: Option<Vec<InlineView>>,
-}
-#[derive(Serialize)]
-struct SectionView {
-    title: String,
-    entries: Vec<EntryView>,
-}
-#[derive(Serialize)]
-struct EntryView {
-    kind: &'static str,
-    primary: Vec<InlineView>,
-    secondary: Option<Vec<InlineView>>,
-    period: Option<String>,
-    highlights: Vec<Vec<InlineView>>,
-}
-#[derive(Serialize)]
-#[serde(tag = "kind", rename_all = "kebab-case")]
-enum InlineView {
-    Text { text: String },
-    Emph { body: Vec<InlineView> },
-    Strong { body: Vec<InlineView> },
-    Code { text: String },
-    Link { href: String, body: Vec<InlineView> },
-}
-
-fn inline_view(nodes: &[Inline]) -> Vec<InlineView> {
-    nodes
-        .iter()
-        .map(|node| match node {
-            Inline::Text(text) => InlineView::Text { text: text.clone() },
-            Inline::Emph(body) => InlineView::Emph {
-                body: inline_view(body),
-            },
-            Inline::Strong(body) => InlineView::Strong {
-                body: inline_view(body),
-            },
-            Inline::Code(text) => InlineView::Code { text: text.clone() },
-            Inline::Link { href, body } => InlineView::Link {
-                href: href.to_string(),
-                body: inline_view(body),
-            },
-        })
-        .collect()
-}
-
-fn rich_view(value: &RichText) -> Vec<InlineView> {
-    inline_view(&value.0)
-}
-
-fn entry_kind_name(kind: &EntryKind) -> &'static str {
-    match kind {
-        EntryKind::Experience(_) => "experience",
-        EntryKind::Education(_) => "education",
-        EntryKind::Project(_) => "project",
-        EntryKind::Publication(_) => "publication",
-        EntryKind::SkillGroup(_) => "skill-group",
-        EntryKind::Custom(_) => "custom",
-        EntryKind::Text(_) => "text",
-    }
-}
-
-fn entry_view(entry: &Entry) -> EntryView {
-    let (primary, secondary) = entry.kind.heading();
-    EntryView {
-        kind: entry_kind_name(&entry.kind),
-        primary: rich_view(primary),
-        secondary: secondary.filter(|value| !value.is_empty()).map(rich_view),
-        period: entry
-            .kind
-            .period()
-            .map(|period| {
-                format!(
-                    "{} – {}",
-                    format_date(&period.start),
-                    format_date(&period.end)
-                )
-            })
-            .or_else(|| entry.kind.date().map(format_date)),
-        highlights: entry.kind.highlights().iter().map(rich_view).collect(),
-    }
-}
-
-fn entry_views(entries: &[Entry]) -> Vec<EntryView> {
-    let mut views: Vec<EntryView> = Vec::new();
-    for entry in entries {
-        if let EntryKind::Text(value) = &entry.kind
-            && let Some(previous) = views.last_mut()
-            && previous.kind == "text"
-        {
-            previous.highlights.push(rich_view(&value.body));
-            continue;
-        }
-        views.push(entry_view(entry));
-    }
-    views
-}
-
-impl From<&CvDocument> for RenderView {
-    fn from(cv: &CvDocument) -> Self {
-        let contacts = [
-            cv.profile.email.clone(),
-            cv.profile.phone.clone(),
-            cv.profile.location.clone(),
-            cv.profile.website.as_ref().map(ToString::to_string),
-        ]
-        .into_iter()
-        .flatten()
-        .collect();
-        Self {
-            profile: ProfileView {
-                name: cv.profile.name.clone(),
-                contacts,
-                summary: cv.profile.summary.as_ref().map(rich_view),
-            },
-            sections: cv
-                .sections
-                .iter()
-                .map(|section| SectionView {
-                    title: section.title.clone(),
-                    entries: entry_views(&section.entries),
-                })
-                .collect(),
-        }
-    }
 }

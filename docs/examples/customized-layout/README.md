@@ -16,3 +16,10 @@ cac build
 
 The theme is committed at `.cac/themes/table-layout/theme.typ`, so the layout
 does not depend on a theme installed in the user's home directory.
+
+This is a reusable theme with English column labels. Every row must have a
+compatible type before a table is selected. Mixed sections fall back as a whole,
+empty sections retain their headings, and sections without dates collapse the
+date column. Locations, linked URLs, and all generic fields remain visible.
+The bundled helpers apply common settings and permit oversized rows to continue.
+See the [shared-theme contract](../../development/shared-theme-contract.md).

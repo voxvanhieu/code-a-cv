@@ -16,12 +16,23 @@ pub(super) struct TestedTheme {
     pub theme_dir: PathBuf,
 }
 
-pub(super) fn run() -> Result<()> {
-    test_current()?;
+#[derive(clap::Args)]
+pub(super) struct Args {
+    /// Check the bundled shared-theme content corpus
+    #[arg(long)]
+    shared: bool,
+}
+
+pub(super) fn run(args: Args) -> Result<()> {
+    test_current_with_shared(args.shared)?;
     Ok(())
 }
 
 pub(super) fn test_current() -> Result<TestedTheme> {
+    test_current_with_shared(false)
+}
+
+fn test_current_with_shared(shared: bool) -> Result<TestedTheme> {
     let project = project::current()?;
     let theme_dir = project.root.join(".cac/themes").join(&project.name);
     for path in [
@@ -69,6 +80,12 @@ pub(super) fn test_current() -> Result<TestedTheme> {
             "rendering did not resolve the project-local development theme".into(),
         ));
     }
+    let shared_artifacts = if shared {
+        cac_render::test_shared_theme(&options)
+            .map_err(|error| Error::ThemeProject(error.to_string()))?
+    } else {
+        Vec::new()
+    };
     let readme = metadata::readme(&manifest, width, height);
     let mut generated = BTreeMap::new();
     generated.insert("README.md".to_owned(), readme.into_bytes());
@@ -96,7 +113,7 @@ pub(super) fn test_current() -> Result<TestedTheme> {
     }
     fs::create_dir_all(&offering)?;
     let pdf_path = offering.join(format!("{}.pdf", project.name));
-    let artifacts = [
+    let mut artifacts = vec![
         (theme_dir.join("README.md"), generated["README.md"].clone()),
         (
             theme_dir.join("preview.jpg"),
@@ -105,6 +122,12 @@ pub(super) fn test_current() -> Result<TestedTheme> {
         (manifest_path, metadata::bytes(&manifest)?),
         (pdf_path.clone(), rendered.bytes),
     ];
+    for artifact in shared_artifacts {
+        artifacts.push((
+            offering.join(format!("{}-shared-{}.pdf", project.name, artifact.name)),
+            artifact.pdf.bytes,
+        ));
+    }
     for (path, _) in &artifacts {
         if let Ok(metadata) = fs::symlink_metadata(path)
             && !metadata.is_file()
@@ -233,7 +256,6 @@ mod tests {
             author: "Ada".into(),
             author_url: None,
             license: "MIT".into(),
-            theme_api: cac_render::THEME_API_VERSION,
             preview: Some("preview.jpg".into()),
             files: Vec::new(),
         };

@@ -89,8 +89,10 @@ A command follows this data flow:
 | `crates/cac-render/src/html.rs` | Escaped HTML output |
 | `crates/cac-render/src/pdf.rs` | Typst world, normalized render view, and PDF output |
 | `crates/cac-render/src/settings.rs` | Rendering settings parsing and validation |
-| `crates/cac-render/src/typst/base.typ` | Stable Typst rendering and component API |
+| `crates/cac-render/src/typst/base.typ` | Typst rendering, component API, and shared flow/table/label/classic helpers |
 | `crates/cac-render/src/typst/themes/classic.typ` | Embedded default theme |
+| `crates/cac-render/src/view.rs` | Complete normalized render view |
+| `crates/cac-render/src/shared.rs` | Shared-theme fixture corpus and rendered-content checks |
 | `crates/cac-check/src/lib.rs` | Diagnostic definitions and content rules |
 
 Each library crate exposes its supported API through `src/lib.rs`. Keep implementation modules private unless downstream crates need the type or function.

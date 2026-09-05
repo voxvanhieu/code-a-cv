@@ -156,7 +156,6 @@ fn invalid_metadata_and_missing_entrypoint_fail_without_output() {
         ("author", serde_json::json!("bad\nauthor")),
         ("license", serde_json::json!("")),
         ("author_url", serde_json::json!("file:///tmp")),
-        ("theme_api", serde_json::json!(999)),
     ] {
         let root = project();
         edit_manifest(root.path(), |manifest| manifest[key] = value);
@@ -419,4 +418,71 @@ fn testing_preserves_read_only_sources_and_rejects_unsupported_entries() {
         .stderr(contains("unsupported theme entry"));
     assert_eq!(artifacts(root.path()), before);
     drop(listener);
+}
+
+#[test]
+fn shared_test_keeps_fixture_pdfs_out_of_the_package_inventory() {
+    let root = project();
+    cac(root.path(), &["theme", "test", "--shared"])
+        .assert()
+        .success();
+    assert!(
+        root.path()
+            .join("offering/portfolio-shared-complete.pdf")
+            .is_file()
+    );
+    assert!(
+        root.path()
+            .join("offering/portfolio-shared-long.pdf")
+            .is_file()
+    );
+    let manifest: serde_json::Value = serde_json::from_slice(
+        &fs::read(root.path().join(".cac/themes/portfolio/theme.json")).unwrap(),
+    )
+    .unwrap();
+    assert!(
+        manifest["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|file| !file["path"].as_str().unwrap().contains("shared"))
+    );
+    let preview = fs::read(root.path().join(".cac/themes/portfolio/preview.jpg")).unwrap();
+    cac(root.path(), &["theme", "test"]).assert().success();
+    assert_eq!(
+        preview,
+        fs::read(root.path().join(".cac/themes/portfolio/preview.jpg")).unwrap()
+    );
+}
+
+#[test]
+fn shared_failure_names_the_fixture_and_preserves_previous_artifacts() {
+    let root = project();
+    cac(root.path(), &["theme", "pack"]).assert().success();
+    let before = artifacts(root.path());
+    fs::write(root.path().join(".cac/themes/portfolio/theme.typ"), "#import \"/.cac/base.typ\" as base\n#let theme = base.extend(components: (header: ctx => [Missing profile]))\n").unwrap();
+    cac(root.path(), &["theme", "test", "--shared"])
+        .assert()
+        .failure()
+        .stderr(contains("shared theme fixture `minimal` failed"));
+    assert_eq!(before, artifacts(root.path()));
+}
+
+#[test]
+fn theme_projects_package_without_version_metadata() {
+    let root = project();
+    let manifest: serde_json::Value = serde_json::from_slice(
+        &fs::read(root.path().join(".cac/themes/portfolio/theme.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        manifest
+            .as_object()
+            .unwrap()
+            .keys()
+            .filter(|key| key.contains("version") || key.contains("api"))
+            .count(),
+        0
+    );
+    cac(root.path(), &["theme", "pack"]).assert().success();
 }

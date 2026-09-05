@@ -29,6 +29,9 @@ From the repository root, use the local development binary:
 (cd docs/examples/basic-markdown && cargo run -p cac -- build)
 (cd docs/examples/structured-formats && cargo run -p cac -- build)
 (cd docs/examples/json-resume-import && cargo run -p cac -- build)
+(cd docs/examples/format-conversion && cargo run -p cac -- build)
+(cd docs/examples/customized-layout && cargo run -p cac -- build)
+(cd docs/examples/complete-cv && cargo run -p cac -- build --format pdf,html)
 ```
 
 With an installed `cac` binary, replace `cargo run -p cac --` with `cac`.

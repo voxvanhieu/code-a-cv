@@ -12,7 +12,6 @@ pub(super) struct ThemeMetadata {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub author_url: Option<url::Url>,
     pub license: String,
-    pub theme_api: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preview: Option<String>,
     #[serde(default)]
@@ -28,14 +27,6 @@ pub(super) struct ThemeFile {
 
 pub(super) fn validate_editable(theme: &ThemeMetadata) -> Result<(), String> {
     cac_render::validate_theme_name(&theme.name).map_err(|error| error.to_string())?;
-    if theme.theme_api != cac_render::THEME_API_VERSION {
-        return Err(format!(
-            "theme `{}` uses unsupported theme API {}; expected {}",
-            theme.name,
-            theme.theme_api,
-            cac_render::THEME_API_VERSION
-        ));
-    }
     if theme.description.trim().is_empty()
         || theme.author.trim().is_empty()
         || theme.author.contains(['\n', '\r'])
@@ -122,12 +113,11 @@ pub(super) fn readme(theme: &ThemeMetadata, width: u32, height: u32) -> String {
         )
     });
     format!(
-        "# {title}\n\n{}\n\n<img src=\"preview.jpg\" alt=\"Preview of the {} theme\" width=\"{width}\" height=\"{height}\">\n\n## Theme information\n\n| Field | Value |\n|---|---|\n| Name | `{}` |\n| Author | {author} |\n| License | {} |\n| Theme API | {} |\n| Entrypoint | `theme.typ` |\n",
+        "# {title}\n\n{}\n\n<img src=\"preview.jpg\" alt=\"Preview of the {} theme\" width=\"{width}\" height=\"{height}\">\n\n## Theme information\n\n| Field | Value |\n|---|---|\n| Name | `{}` |\n| Author | {author} |\n| License | {} |\n| Entrypoint | `theme.typ` |\n",
         escape_markdown(&theme.description),
         escape_html(&title),
         theme.name,
-        escape_markdown(&theme.license),
-        theme.theme_api
+        escape_markdown(&theme.license)
     )
 }
 
@@ -189,7 +179,6 @@ mod tests {
             author: "Ada | Team".into(),
             author_url,
             license: "MIT".into(),
-            theme_api: cac_render::THEME_API_VERSION,
             preview: Some("preview.jpg".into()),
             files: Vec::new(),
         }

@@ -155,7 +155,6 @@ fn scaffold(name: &str, author: &str, author_url: Option<url::Url>) -> Result<()
         author: author.into(),
         author_url,
         license: "MIT".into(),
-        theme_api: cac_render::THEME_API_VERSION,
         preview: Some("preview.jpg".into()),
         files: Vec::new(),
     };

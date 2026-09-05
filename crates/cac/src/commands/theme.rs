@@ -32,7 +32,7 @@ enum Command {
     /// Create a theme-development project
     Init(init::Args),
     /// Validate and generate the current theme project
-    Test,
+    Test(test::Args),
     /// Test and package the current theme project
     Pack,
     /// List embedded and installed themes
@@ -92,7 +92,7 @@ struct ThemeSummary {
 pub fn run(args: Args) -> Result<()> {
     match args.command {
         Command::Init(args) => init::run(args),
-        Command::Test => test::run(),
+        Command::Test(args) => test::run(args),
         Command::Pack => pack::run(),
         Command::List => list(),
         Command::Search(args) => search(args),
@@ -161,7 +161,6 @@ fn info(args: ThemeArgs) -> Result<()> {
         println!("AUTHOR URL {author_url}");
     }
     println!("LICENSE {}", theme.license);
-    println!("THEME API {}", theme.theme_api);
     if let Some(preview) = theme.preview {
         println!("PREVIEW {preview}");
     }

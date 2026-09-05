@@ -10,6 +10,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 * Enriched the default CV used by `cac init` and `cac theme init` with full contacts, a summary, multiple roles, and detailed project, publication, skill, and advisory examples
 
+* Added a shared theme contract with complete CV fields, structured linked contacts, reusable flow/table/label helpers, and shared classic composition at `/.cac/base.typ`
+* Added `cac theme test --shared` with content, order, and link checks across a bundled reusable-theme corpus
 * Added optional Markdown section annotations for explicit IDs and semantic kinds, including semantic export and line diagnostics
 
 * Added `cac theme init`, `cac theme test`, and `cac theme pack` for scaffolding, validating, previewing, hashing, and reproducibly packaging project-local themes
@@ -21,6 +23,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+* Limit classic theme date columns to entry titles so descriptions and highlights use the full width below
+
+* Preserve locations and standalone project/publication URLs in PDFs, and use complete fallback for mixed table sections
+* Allow oversized shared entries to continue across pages
+
 * Reject unsafe theme paths, symlinked development directories, and manifests that hash themselves
 * Escape theme README metadata as literal text and verify the complete packaged file inventory
 * Validate theme initialization arguments before prompting and protect dangling targets from writes
@@ -28,6 +35,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 * Require a selected theme in the settings schema when `themeProject` is present
 
 ### Changed
+
+* Remove theme version declarations and checks; themes use the shared CV data and styling contract, with defaults for omitted override dictionaries
 
 * Limit cargo-dist release binaries to Linux (x64 and ARM64) and Windows (x64); use Homebrew for macOS installation
 * Renamed the `cac themes` command to `cac theme`

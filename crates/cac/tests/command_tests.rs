@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::Path;
 use std::path::PathBuf;
 
 use assert_cmd::Command;
@@ -888,8 +889,7 @@ fn themes_search_info_install_and_build_from_a_registry() {
         .stdout(predicates::str::contains("NAME classic-blue\n"))
         .stdout(predicates::str::contains(
             "AUTHOR URL https://github.com/voxvanhieu/code-a-cv/graphs/contributors\n",
-        ))
-        .stdout(predicates::str::contains("THEME API 1\n"));
+        ));
 
     Command::cargo_bin("cac")
         .unwrap()
@@ -983,14 +983,17 @@ fn themes_install_rejects_a_download_with_the_wrong_checksum() {
         include_str!("../../../themes/index.json"),
     )
     .unwrap();
-    let manifest = include_str!("../../../themes/classic-blue/theme.json").replace(
-        "32a12bccc99e93c7756995325358fd5e3cf09c552380fa13b915a416777681b9",
-        "0000000000000000000000000000000000000000000000000000000000000000",
-    );
-    fs::write(theme.join("theme.json"), manifest).unwrap();
+    let mut manifest: serde_json::Value =
+        serde_json::from_str(include_str!("../../../themes/classic-blue/theme.json")).unwrap();
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../themes/classic-blue");
+    for file in manifest["files"].as_array().unwrap() {
+        let path = file["path"].as_str().unwrap();
+        fs::copy(source.join(path), theme.join(path)).unwrap();
+    }
+    manifest["files"][0]["sha256"] = "0".repeat(64).into();
     fs::write(
-        theme.join("theme.typ"),
-        include_str!("../../../themes/classic-blue/theme.typ"),
+        theme.join("theme.json"),
+        serde_json::to_vec(&manifest).unwrap(),
     )
     .unwrap();
 

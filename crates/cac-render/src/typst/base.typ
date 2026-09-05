@@ -1,4 +1,3 @@
-#let api_version = 1
 
 #let default-tokens = (
   fonts: (
@@ -102,13 +101,6 @@
   resolved
 }
 
-#let header(ctx) = align(ctx.styles.header.alignment, stack(
-  dir: ttb,
-  spacing: ctx.styles.heading_1.space_after,
-  [#(ctx.components.styled_text)(ctx, ctx.styles.heading_1, [#ctx.cv.profile.name])],
-  [#ctx.cv.profile.contacts.join(", ")],
-))
-
 #let summary(ctx) = if ctx.cv.profile.summary != none [
   #(ctx.components.rich)(ctx, ctx.cv.profile.summary)
 ]
@@ -120,31 +112,6 @@
   for item in items [
     - #(ctx.components.rich)(ctx, item)
   ]
-}
-
-#let entry(ctx, entry) = {
-  block(above: 0pt, below: 0pt, breakable: ctx.styles.entry.allow_page_break)[
-    #if entry.kind == "text" {
-      let items = (entry.primary,) + entry.highlights
-      (ctx.components.highlight_list)(ctx, items)
-    } else {
-      (ctx.components.heading)(ctx, 3, (ctx.components.rich)(ctx, entry.primary))
-      if entry.secondary != none [
-        #(ctx.components.rich)(ctx, entry.secondary)
-      ]
-      if entry.period != none [#entry.period]
-      (ctx.components.highlight_list)(ctx, entry.highlights)
-    }
-  ]
-}
-
-#let section(ctx, section) = {
-  (ctx.components.section_heading)(ctx, section)
-  if section.entries.len() > 0 { v(ctx.styles.section.space_after_heading) }
-  for (index, entry) in section.entries.enumerate() {
-    (ctx.components.entry)(ctx, entry)
-    if index + 1 < section.entries.len() { v(ctx.styles.entry.space_after) }
-  }
 }
 
 #let footer(ctx) = align(center, text(
@@ -179,13 +146,167 @@
   }
 }
 
+#let contacts(ctx, separator: " | ") = ctx.cv.profile.contacts.map(contact => {
+  if contact.href == none { contact.label } else { link(contact.href, contact.label) }
+}).join(separator)
+
+#let header(ctx) = align(ctx.styles.header.alignment)[
+  #(ctx.components.heading)(ctx, 1, [#ctx.cv.profile.name])
+  #contacts(ctx)
+]
+
+// Measure against a full page, so short entries move together and oversized
+// entries can continue. The caller supplies the actual column width.
+#let can-break(ctx, body, width, reserve: 0pt) = {
+  let margins = page.margin
+  let side(name) = {
+    let value = if type(margins) == dictionary { margins.at(name, default: auto) } else { margins }
+    if value == auto { calc.min(page.width, page.height) * 2.5 / 21 }
+    else if type(value) == relative { value.length.to-absolute() + value.ratio * page.height }
+    else { value.to-absolute() }
+  }
+  let available = page.height - side("top") - side("bottom") - reserve.to-absolute()
+  ctx.styles.entry.allow_page_break or measure(body, width: width).height > available
+}
+
+#let keep-entry(ctx, body) = context layout(size => {
+  block(above: 0pt, below: 0pt, breakable: can-break(ctx, body, size.width), body)
+})
+
+#let entry_details(ctx, entry) = {
+  (ctx.components.heading)(ctx, 3, (ctx.components.rich)(ctx, entry.primary))
+  if entry.secondary != none { block(above: 0pt, below: ctx.styles.body.line_spacing, (ctx.components.rich)(ctx, entry.secondary)) }
+  for item in entry.metadata { block(above: 0pt, below: ctx.styles.body.line_spacing, (ctx.components.rich)(ctx, item.body)) }
+  (ctx.components.highlight_list)(ctx, entry.highlights)
+}
+
+#let entry_flow(ctx, entry) = keep-entry(ctx, {
+  if entry.kind == "text" {
+    (ctx.components.highlight_list)(ctx, (entry.primary,) + entry.highlights)
+    if entry.secondary != none { (ctx.components.rich)(ctx, entry.secondary) }
+    if entry.period != none { block(entry.period) }
+    for item in entry.metadata { block((ctx.components.rich)(ctx, item.body)) }
+  } else {
+    (ctx.components.entry_details)(ctx, entry)
+    if entry.period != none { block(above: ctx.styles.body.line_spacing, below: 0pt, entry.period) }
+  }
+})
+
+#let section_start(ctx, section) = block(above: 0pt, below: 0pt, sticky: section.entries.len() > 0, (ctx.components.section_heading)(ctx, section))
+
+#let section_flow(ctx, section) = {
+  section_start(ctx, section)
+  if section.entries.len() > 0 { v(ctx.styles.section.space_after_heading) }
+  for (index, entry) in section.entries.enumerate() {
+    (ctx.components.entry)(ctx, entry)
+    if index + 1 < section.entries.len() { v(ctx.styles.entry.space_after) }
+  }
+}
+
+#let table_kind(section) = {
+  if section.entries.len() == 0 { return none }
+  let kind = section.entries.first().kind
+  if not ("experience", "education", "project", "publication", "skill-group").contains(kind) { return none }
+  if not section.entries.all(entry => entry.kind == kind) { return none }
+  if kind == "skill-group" and not section.entries.all(entry => entry.secondary == none and entry.period == none and entry.metadata.len() == 0) { return none }
+  kind
+}
+
+#let section_table(ctx, section, headers: none, date_width: 30mm, details_first: auto) = {
+  let kind = table_kind(section)
+  if kind == none or kind == "skill-group" { return section_flow(ctx, section) }
+  let first = if details_first == auto { ("project", "publication").contains(kind) } else { details_first }
+  let dated = section.entries.any(entry => entry.period != none)
+  section_start(ctx, section)
+  v(ctx.styles.section.space_after_heading)
+  context layout(size => {
+    let detail_width = if dated { size.width - date_width - 8pt } else { size.width }
+    let head = if headers == none { () } else {
+      let labels = if not dated { (headers.details,) } else if first { (headers.details, headers.period) } else { (headers.period, headers.details) }
+      (table.header(..labels.map(label => (ctx.components.styled_text)(ctx, ctx.styles.heading_3, label))),)
+    }
+    let columns = if not dated { (1fr,) } else if first { (1fr, date_width) } else { (date_width, 1fr) }
+    let header_height = if headers == none { 0pt } else {
+      measure(table(columns: columns, column-gutter: 8pt, inset: 0pt, stroke: none, ..head), width: size.width).height + ctx.styles.entry.space_after
+    }
+    let cells = ()
+    for entry in section.entries {
+      let details = (ctx.components.entry_details)(ctx, entry)
+      let breakable = can-break(ctx, details, detail_width, reserve: header_height)
+      let detail_cell = table.cell(breakable: breakable, details)
+      let date_cell = table.cell(breakable: breakable, if entry.period == none { [] } else { entry.period })
+      cells += if not dated { (detail_cell,) } else if first { (detail_cell, date_cell) } else { (date_cell, detail_cell) }
+    }
+    table(
+      columns: columns,
+      column-gutter: 8pt,
+      row-gutter: ctx.styles.entry.space_after,
+      inset: 0pt,
+      stroke: none,
+      ..head, ..cells,
+    )
+  })
+}
+
+#let section_labels(ctx, section, label_width: 36mm) = {
+  if table_kind(section) != "skill-group" or section.entries.all(entry => entry.highlights.len() == 0) { return section_flow(ctx, section) }
+  section_start(ctx, section)
+  v(ctx.styles.section.space_after_heading)
+  context layout(size => {
+    let cells = ()
+    for entry in section.entries {
+      let label = (ctx.components.heading)(ctx, 3, (ctx.components.rich)(ctx, entry.primary))
+      let values = (ctx.components.highlight_list)(ctx, entry.highlights)
+      let breakable = can-break(ctx, values, size.width - label_width - 8pt) or can-break(ctx, label, label_width)
+      cells.push(table.cell(breakable: breakable, label))
+      cells.push(table.cell(breakable: breakable, values))
+    }
+    table(columns: (label_width, 1fr), column-gutter: 8pt, row-gutter: ctx.styles.entry.space_after, inset: 0pt, stroke: none, ..cells)
+  })
+}
+
+#let classic_components(header_rule: false, entry_indent: 0.15in) = (
+  header: ctx => {
+    header(ctx)
+    if header_rule { line(length: 100%, stroke: 0.5pt + ctx.tokens.colors.accent) }
+  },
+  section_heading: (ctx, section) => {
+    (ctx.components.heading)(ctx, 2, [#section.title])
+    line(length: 100%, stroke: 0.5pt + ctx.tokens.colors.accent)
+  },
+  entry_details: (ctx, entry) => entry_details(ctx, (
+    ..entry,
+    secondary: if entry.secondary == none { none } else { ((kind: "emph", body: entry.secondary),) },
+  )),
+  entry: (ctx, entry) => pad(left: entry_indent, if entry.kind == "text" {
+    entry_flow(ctx, entry)
+  } else {
+    let heading = ctx.components.heading
+    let details_ctx = (
+      ..ctx,
+      components: merge(ctx.components, (
+        heading: (ctx, level, body) => if level == 3 and entry.period != none {
+          block(above: 0pt, below: ctx.styles.heading_3.space_after, grid(
+            columns: (1fr, auto), column-gutter: 1em,
+            heading(ctx, level, body),
+            entry.period,
+          ))
+        } else { heading(ctx, level, body) },
+      )),
+    )
+    keep-entry(ctx, (ctx.components.entry_details)(details_ctx, entry))
+  }),
+)
+
+
 #let components = (
   document: document-component,
   header: header,
   summary: summary,
-  section: section,
+  section: section_flow,
   section_heading: section-heading,
-  entry: entry,
+  entry: entry_flow,
+  entry_details: entry_details,
   highlight_list: highlight-list,
   footer: footer,
   heading: heading,
@@ -194,7 +315,6 @@
 )
 
 #let extend(tokens: (:), styles: (:), page: (:), components: (:)) = (
-  api_version: api_version,
   tokens: tokens,
   styles: styles,
   page: page,
@@ -255,12 +375,16 @@
 }
 
 #let render(cv, theme, settings) = {
-  let tokens = merge(default-tokens, theme.tokens)
-  let styles = merge(default-styles, theme.styles)
-  let page = merge(default-page, theme.page)
+  assert(type(theme) == dictionary, message: "theme must be a dictionary; export theme = base.extend(...)")
+  for field in ("tokens", "styles", "page", "components") {
+    assert(type(theme.at(field, default: (:))) == dictionary, message: "theme." + field + " must be a dictionary")
+  }
+  let tokens = merge(default-tokens, theme.at("tokens", default: (:)))
+  let styles = merge(default-styles, theme.at("styles", default: (:)))
+  let page = merge(default-page, theme.at("page", default: (:)))
   let resolved = apply-settings(tokens, styles, page, settings)
   let resolved-styles = resolve-styles(resolved.styles)
-  let resolved-components = merge(components, theme.components)
+  let resolved-components = merge(components, theme.at("components", default: (:)))
   let ctx = (
     cv: cv,
     tokens: resolved.tokens,

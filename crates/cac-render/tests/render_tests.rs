@@ -309,30 +309,23 @@ fn project_theme_wins_and_settings_override_theme_defaults() {
 }
 
 #[test]
-fn theme_api_version_is_checked() {
+fn theme_contract_accepts_partial_overrides_without_a_version() {
     let directory = tempdir().unwrap();
-    write_theme(
-        directory.path(),
-        "future",
-        "#let theme = (api_version: 99, tokens: (:), styles: (:), page: (:), components: (:))",
-    );
+    write_theme(directory.path(), "custom", "#let theme = (tokens: (:))");
     let cv = parse(STARTER_MARKDOWN, InputFormat::Markdown).unwrap();
-    let error = render_pdf_with_options(
+    let rendered = render_pdf_with_options(
         &cv,
         &RenderOptions {
             project_dir: Some(directory.path().into()),
             settings: Settings {
-                theme: Some("future".into()),
+                theme: Some("custom".into()),
                 ..Settings::default()
             },
             ..RenderOptions::default()
         },
     )
-    .unwrap_err();
-
-    let message = error.to_string();
-    assert!(message.contains("unsupported theme API version 99"));
-    assert!(message.contains("cac supports version 1"));
+    .unwrap();
+    assert!(rendered.bytes.starts_with(b"%PDF-"));
 }
 
 #[test]
@@ -363,7 +356,7 @@ fn user_theme_is_used_when_project_theme_is_absent() {
 }
 
 #[test]
-fn missing_theme_and_missing_api_version_have_actionable_errors() {
+fn missing_theme_and_invalid_contract_have_actionable_errors() {
     let directory = tempdir().unwrap();
     let cv = parse(STARTER_MARKDOWN, InputFormat::Markdown).unwrap();
     let missing = render_pdf_with_options(
@@ -380,24 +373,24 @@ fn missing_theme_and_missing_api_version_have_actionable_errors() {
     .unwrap_err();
     assert!(missing.to_string().contains("was not found"));
 
-    write_theme(
-        directory.path(),
-        "unversioned",
-        "#let theme = (tokens: (:), styles: (:), page: (:), components: (:))",
-    );
-    let unversioned = render_pdf_with_options(
+    write_theme(directory.path(), "invalid", "#let theme = (styles: 42,)");
+    let invalid = render_pdf_with_options(
         &cv,
         &RenderOptions {
             project_dir: Some(directory.path().into()),
             settings: Settings {
-                theme: Some("unversioned".into()),
+                theme: Some("invalid".into()),
                 ..Settings::default()
             },
             ..RenderOptions::default()
         },
     )
     .unwrap_err();
-    assert!(unversioned.to_string().contains("base.extend"));
+    assert!(
+        invalid
+            .to_string()
+            .contains("theme.styles must be a dictionary")
+    );
 }
 
 #[cfg(unix)]

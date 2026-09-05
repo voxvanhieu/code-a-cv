@@ -1,12 +1,14 @@
 mod html;
 mod pdf;
 mod settings;
+mod shared;
+mod view;
 
 use cac_core::DatePoint;
 
 pub use html::render_html;
 pub use pdf::{
-    EMBEDDED_THEME_NAMES, RenderError, RenderOptions, RenderedPdf, THEME_API_VERSION, ThemeSource,
+    EMBEDDED_THEME_NAMES, RenderError, RenderOptions, RenderedPdf, ThemeSource,
     embedded_theme_source, render_pdf, render_pdf_and_preview_with_options,
     render_pdf_with_options,
 };
@@ -14,6 +16,8 @@ pub use settings::{
     DEFAULT_THEME, PageMargins, PageSettings, PaginationSettings, Settings, SettingsError,
     SpacingSettings, StyleSettings, TypographySettings, settings_schema, validate_theme_name,
 };
+
+pub use shared::{SharedThemeArtifact, SharedThemeError, test_shared_theme};
 
 pub fn format_date(value: &DatePoint) -> String {
     const MONTHS: [&str; 12] = [
