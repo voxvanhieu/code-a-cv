@@ -128,7 +128,7 @@ fn table_selection_checks_every_row_and_preserves_child_style_overrides() {
 }
 #let theme = base.extend(components: (section: section, styled_text: styled))
 "#).unwrap();
-    let cv = serde_json::from_str(include_str!("../src/fixtures/shared/complete.json")).unwrap();
+    let cv = serde_json::from_str(include_str!("../fixtures/shared/complete.json")).unwrap();
     let settings = serde_json::from_value(serde_json::json!({
         "theme": "checked",
         "typography": {"font": "Libertinus Serif"},

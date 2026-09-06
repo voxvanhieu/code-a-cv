@@ -130,6 +130,10 @@ outputs visually when changing widths, fonts, headers, or pagination.
 
 ## Acceptance workflow
 
+The bundled CV corpus lives in `crates/cac-render/fixtures/shared/` and is embedded
+for CLI use. Test-only modules live in each crate's `tests/unit/` directory and
+are loaded through `#[cfg(test)]` declarations so they can test private helpers.
+
 Run `cac theme test --shared` in a theme-development project. It runs the normal
 preview plus bundled fixtures and stages artifacts only after all checks pass.
 Fixture PDFs are `offering/<theme>-shared-<fixture>.pdf`; they do not replace the
