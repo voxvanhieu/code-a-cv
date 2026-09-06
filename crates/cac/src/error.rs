@@ -11,6 +11,8 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("{0}")]
     Parse(#[from] ParseError),
+    #[error("{path}: {error}")]
+    SourceParse { path: PathBuf, error: ParseError },
     #[error("{0}")]
     Render(#[from] cac_render::RenderError),
     #[error("{0}")]

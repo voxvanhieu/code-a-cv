@@ -1,0 +1,28 @@
+{
+  "profile": {
+    "name": "CACProfileZZZ",
+    "contacts": [
+      {"label": "CACGithubZZZ", "href": "https://example.com/CACGithubTargetZZZ"},
+      {"label": "CACWorkEmailZZZ", "href": "mailto:work@example.com"}
+    ],
+    "summary": "CACSummaryFirstZZZ\n\nCACSummarySecondZZZ"
+  },
+  "sections": [
+    {
+      "id": "career",
+      "title": "CACSectionCareerZZZ",
+      "kind": "experience",
+      "entries": [
+        {"type": "prose", "body": "CACIntroductionZZZ"},
+        {
+          "type": "experience",
+          "role": "CACDirectorZZZ, Data",
+          "period": {"start": "2022"},
+          "content": "CACContextZZZ\n\n- CACParentZZZ\n  - CACChildZZZ\n\n3. CACNumberedZZZ\n4. CACSecondItemZZZ\n\nCACConclusionZZZ"
+        },
+        {"type": "project", "name": "CACProjectZZZ", "date": "2024", "url": "https://example.com/CACProjectUrlZZZ"},
+        {"type": "education", "qualification": "CACStudyZZZ", "period": {"end": "2021"}}
+      ]
+    }
+  ]
+}

@@ -70,6 +70,14 @@
     else if node.kind == "emph" { emph((ctx.components.rich)(ctx, node.body)) }
     else if node.kind == "strong" { strong((ctx.components.rich)(ctx, node.body)) }
     else if node.kind == "link" { link(node.href, (ctx.components.rich)(ctx, node.body)) }
+    else if node.kind == "paragraph" { parbreak(); (ctx.components.rich)(ctx, node.body); parbreak() }
+    else if node.kind == "break" { linebreak() }
+    else if node.kind == "list" {
+      parbreak()
+      if node.start == none { (ctx.components.highlight_list)(ctx, node.items) }
+      else { enum(start: node.start, spacing: ctx.styles.list.item_spacing, ..node.items.map(item => (ctx.components.rich)(ctx, item))) }
+      parbreak()
+    }
   }
 }
 
@@ -181,7 +189,9 @@
 }
 
 #let entry_flow(ctx, entry) = keep-entry(ctx, {
-  if entry.kind == "text" {
+  if entry.kind == "prose" {
+    (ctx.components.rich)(ctx, entry.primary)
+  } else if entry.kind == "text" {
     (ctx.components.highlight_list)(ctx, (entry.primary,) + entry.highlights)
     if entry.secondary != none { (ctx.components.rich)(ctx, entry.secondary) }
     if entry.period != none { block(entry.period) }
@@ -278,7 +288,7 @@
     ..entry,
     secondary: if entry.secondary == none { none } else { ((kind: "emph", body: entry.secondary),) },
   )),
-  entry: (ctx, entry) => pad(left: entry_indent, if entry.kind == "text" {
+  entry: (ctx, entry) => pad(left: entry_indent, if entry.kind in ("text", "prose") {
     entry_flow(ctx, entry)
   } else {
     let heading = ctx.components.heading

@@ -172,3 +172,31 @@ fn missing_dates_collapse_columns_and_partial_dates_keep_alignment() {
         }
     }
 }
+
+#[test]
+fn rich_paragraphs_and_lists_do_not_overlap_neighboring_content() {
+    let cv = serde_json::from_str(include_str!("../../fixtures/shared/flexible.json")).unwrap();
+    let (_, document) = render_pdf_document(&cv, &RenderOptions::default()).unwrap();
+    let mut lines = Vec::new();
+    for page in document.pages() {
+        positions(&page.frame, Transform::identity(), &mut lines);
+    }
+    let y = |marker: &str| {
+        lines
+            .iter()
+            .find(|(text, _)| text.contains(marker))
+            .unwrap()
+            .1
+            .y
+    };
+    for (upper, lower) in [
+        ("CACWorkEmailZZZ", "CACSummaryFirstZZZ"),
+        ("CACSummaryFirstZZZ", "CACSummarySecondZZZ"),
+        ("CACSecondItemZZZ", "CACConclusionZZZ"),
+    ] {
+        assert!(
+            y(lower) - y(upper) >= Abs::pt(10.0),
+            "{upper} overlaps {lower}"
+        );
+    }
+}

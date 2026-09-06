@@ -1031,3 +1031,40 @@ fn convert_replaces_an_existing_output_file() {
 
     assert_ne!(fs::read_to_string(output).unwrap(), "old");
 }
+
+#[test]
+fn check_explains_fields_and_accepts_contact_free_drafts() {
+    Command::cargo_bin("cac")
+        .unwrap()
+        .args(["check", "-", "--explain"])
+        .write_stdin("# Anonymous\n\n## Experience\n\n### Director, Data\nOrganization: Acme\n")
+        .assert()
+        .success()
+        .stdout(
+            predicates::str::contains("\"role\": \"Director, Data\"")
+                .and(predicates::str::contains("CAC101 Warning"))
+                .and(predicates::str::contains("PASS")),
+        );
+    Command::cargo_bin("cac")
+        .unwrap()
+        .args(["check", "-", "--strict"])
+        .write_stdin("# Anonymous")
+        .assert()
+        .failure();
+}
+
+#[test]
+fn conversion_failure_preserves_the_existing_destination() {
+    let directory = tempdir().unwrap();
+    let path = directory.path().join("resume.json");
+    fs::write(&path, "existing content").unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .args(["convert", "-", "--to", "jsonresume", "-o"])
+        .arg(&path)
+        .write_stdin("# A\n\n## Projects\n\n### Tool\n")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("cannot preserve"));
+    assert_eq!(fs::read_to_string(&path).unwrap(), "existing content");
+}

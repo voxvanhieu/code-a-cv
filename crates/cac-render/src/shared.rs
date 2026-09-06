@@ -33,6 +33,7 @@ const FIXTURES: &[(&str, &str)] = &[
         "long-labels",
         include_str!("../fixtures/shared/long-labels.json"),
     ),
+    ("flexible", include_str!("../fixtures/shared/flexible.json")),
     ("long", include_str!("../fixtures/shared/long.json")),
 ];
 

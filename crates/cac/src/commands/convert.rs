@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use cac_io::{export_json_resume, to_markdown};
+use cac_io::{export_json_resume_checked, to_markdown_checked};
 use clap::Args as ClapArgs;
 
 use crate::cli::CvFormat;
@@ -41,11 +41,11 @@ pub struct Args {
 pub fn run(args: Args) -> Result<()> {
     let cv = read_cv(&args.input, args.input_format)?;
     let content = match args.to {
-        CvFormat::Markdown => to_markdown(&cv),
+        CvFormat::Markdown => to_markdown_checked(&cv)?,
         CvFormat::Yaml => serde_yaml_ng::to_string(&cv)?,
         CvFormat::Json => serde_json::to_string_pretty(&cv)?,
         CvFormat::Toml => toml::to_string_pretty(&cv)?,
-        CvFormat::Jsonresume => serde_json::to_string_pretty(&export_json_resume(&cv))?,
+        CvFormat::Jsonresume => serde_json::to_string_pretty(&export_json_resume_checked(&cv)?)?,
     };
     if let Some(path) = args.output.filter(|path| !is_stdio(path)) {
         fs::write(&path, content)?;

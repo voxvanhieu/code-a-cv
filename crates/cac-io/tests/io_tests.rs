@@ -72,9 +72,9 @@ fn markdown_round_trip_preserves_visible_content() {
 }
 
 #[test]
-fn ambiguous_markdown_reports_the_line() {
+fn unsupported_markdown_reports_the_line() {
     let error = parse(
-        "# Ada\n\n## Experience\nunknown text\n",
+        "# Ada\n\n## Experience\n#### Unsupported heading\n",
         InputFormat::Markdown,
     )
     .unwrap_err();

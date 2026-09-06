@@ -677,3 +677,77 @@ fn theme_project_schema_requires_a_selected_theme_and_runtime_checks_equality() 
         "sample"
     );
 }
+
+#[test]
+fn html_preserves_complete_metadata_and_prose_list_structure() {
+    let cv = parse(
+        include_str!("../../cac-io/tests/fixtures/flexible.md"),
+        InputFormat::Markdown,
+    )
+    .unwrap();
+    let html = render_html(&cv);
+    for visible in [
+        "Director, Data and AI",
+        "Acme, Inc.",
+        "Remote",
+        "Example Press",
+        "2023-05",
+        "2022–",
+        "–2021",
+        "A paragraph after the list.",
+        "Second line.",
+    ] {
+        assert!(html.contains(visible), "missing {visible}");
+    }
+    assert!(html.contains("<ol start=\"3\">"));
+    assert!(html.contains("href=\"mailto:work@example.com\""));
+    assert!(html.contains("href=\"https://example.com/paper\""));
+    assert!(html.contains("<div class=\"prose\">An introduction before the jobs.</div>"));
+    assert!(html.contains("&lt;tags&gt;"));
+    assert!(html.contains("<br>"));
+    let pdf = render_pdf(&cv).unwrap();
+    assert!(pdf.bytes.starts_with(b"%PDF-"));
+}
+
+#[test]
+fn themes_receive_open_section_kinds_and_ids_and_can_choose_layouts() {
+    let cv = parse(
+        "# An Nguyễn\n\n## Credentials\nKind: certifications\nId: credentials\n\n### Cloud Engineer\nDate: 2024\n\n- Passed the exam.\n\n## Community\nKind: community-awards\nId: local\n\n### Volunteer recognition\n",
+        InputFormat::Markdown,
+    ).unwrap();
+    let directory = tempdir().unwrap();
+    write_theme(
+        directory.path(),
+        "open-kinds",
+        r#"
+#import "/.cac/base.typ" as base
+#let section(ctx, section) = {
+  if section.id == "credentials" {
+    assert.eq(section.kind, "certifications")
+    assert.eq(section.entries.first().kind, "custom")
+    base.section_table(ctx, section)
+  } else {
+    assert.eq(section.kind, "community-awards")
+    base.section_flow(ctx, section)
+  }
+}
+#let theme = base.extend(components: (section: section))
+"#,
+    );
+    render_pdf_with_options(
+        &cv,
+        &RenderOptions {
+            project_dir: Some(directory.path().into()),
+            settings: Settings {
+                theme: Some("open-kinds".into()),
+                ..Settings::default()
+            },
+            ..RenderOptions::default()
+        },
+    )
+    .unwrap();
+    render_pdf(&cv).unwrap();
+    let html = render_html(&cv);
+    assert!(html.contains("Cloud Engineer"));
+    assert!(html.contains("Volunteer recognition"));
+}

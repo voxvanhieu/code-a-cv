@@ -16,7 +16,7 @@ fn complete_projection_covers_visible_fields() {
         assert_eq!(complete["sections"][index]["id"], section.id);
         assert_eq!(
             complete["sections"][index]["kind"],
-            serde_json::to_value(section.kind).unwrap()
+            serde_json::to_value(&section.kind).unwrap()
         );
     }
     let sections = &complete["sections"];

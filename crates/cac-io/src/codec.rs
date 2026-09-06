@@ -1,16 +1,9 @@
 use std::collections::BTreeSet;
-use std::fmt::Write as _;
-
-use cac_core::{
-    CustomEntry, CvDocument, DatePoint, EducationEntry, Entry, EntryKind, ExperienceEntry, Origin,
-    Period, Profile, ProjectEntry, PublicationEntry, RichText, Section, SectionKind,
-    SkillGroupEntry, TagSet, TextEntry,
-};
-use chrono::NaiveDate;
-use thiserror::Error;
-use url::Url;
 
 use crate::json_resume::import_json_resume;
+use crate::markdown::parse_markdown;
+use cac_core::{CvDocument, DatePoint, EntryKind, Inline, RichText, supported_link};
+use thiserror::Error;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum InputFormat {
@@ -48,13 +41,14 @@ pub enum ParseError {
 }
 
 pub fn parse(source: &str, format: InputFormat) -> Result<CvDocument, ParseError> {
-    let cv = match format {
+    let mut cv = match format {
         InputFormat::Markdown => parse_markdown(source)?,
         InputFormat::Yaml => parse_yaml(source)?,
         InputFormat::Json => parse_json(source)?,
         InputFormat::Toml => toml::from_str(source)?,
         InputFormat::JsonResume => import_json_resume(source)?,
     };
+    normalize(&mut cv);
     validate(&cv)?;
     Ok(cv)
 }
@@ -81,8 +75,49 @@ pub fn validate(cv: &CvDocument) -> Result<(), ParseError> {
             "profile.name must not be empty".into(),
         ));
     }
+    if cv.profile.name.contains(['\n', '\r']) {
+        return Err(ParseError::Validation(
+            "profile.name must be a single line".into(),
+        ));
+    }
+    for (index, contact) in cv.profile.contacts.iter().enumerate() {
+        if contact.label.trim().is_empty() || contact.label.contains(['\n', '\r']) {
+            return Err(ParseError::Validation(format!(
+                "profile.contacts[{index}].label must contain a single nonempty line"
+            )));
+        }
+        if contact
+            .href
+            .as_ref()
+            .is_some_and(|url| !supported_link(url))
+        {
+            return Err(ParseError::Validation(format!(
+                "profile.contacts[{index}].href has an unsupported URL scheme"
+            )));
+        }
+    }
+    if cv
+        .profile
+        .website
+        .as_ref()
+        .is_some_and(|url| !supported_link(url))
+    {
+        return Err(ParseError::Validation(
+            "profile.website has an unsupported URL scheme".into(),
+        ));
+    }
     let mut ids = BTreeSet::new();
     for (section_index, section) in cv.sections.iter().enumerate() {
+        if !section.kind.is_valid() {
+            return Err(ParseError::Validation(format!(
+                "sections[{section_index}].kind must be a nonempty identifier containing letters, numbers, hyphens, underscores, or dots"
+            )));
+        }
+        if section.title.trim().is_empty() || section.title.contains(['\n', '\r']) {
+            return Err(ParseError::Validation(format!(
+                "sections[{section_index}].title must contain a single nonempty line"
+            )));
+        }
         if section.id.trim().is_empty() {
             return Err(ParseError::Validation(format!(
                 "sections[{section_index}].id must not be empty"
@@ -95,12 +130,55 @@ pub fn validate(cv: &CvDocument) -> Result<(), ParseError> {
             )));
         }
         for (entry_index, entry) in section.entries.iter().enumerate() {
+            let path = format!("sections[{section_index}].entries[{entry_index}]");
+            if entry.kind.date() == Some(&DatePoint::Present) {
+                return Err(ParseError::Validation(format!(
+                    "{path}.date cannot be Present; use a period for ongoing work"
+                )));
+            }
+            if entry.kind.date().is_some() && entry.kind.period().is_some() {
+                return Err(ParseError::Validation(format!(
+                    "{path}: date and period conflict"
+                )));
+            }
+            if entry.content.is_some()
+                && (!entry.kind.highlights().is_empty()
+                    || matches!(entry.kind, EntryKind::Text(_) | EntryKind::Prose(_)))
+            {
+                return Err(ParseError::Validation(format!(
+                    "{path}: use either content or highlights/skills/body; put ordered prose and lists together in content"
+                )));
+            }
+            if !matches!(entry.kind, EntryKind::Text(_) | EntryKind::Prose(_))
+                && !entry.kind.heading().0.is_inline()
+            {
+                return Err(ParseError::Validation(format!(
+                    "{path}: heading must use inline formatting; put paragraphs and lists in content"
+                )));
+            }
+            let url = match &entry.kind {
+                EntryKind::Project(value) => &value.url,
+                EntryKind::Publication(value) => &value.url,
+                _ => &None,
+            };
+            if url.as_ref().is_some_and(|url| !supported_link(url)) {
+                return Err(ParseError::Validation(format!(
+                    "{path}.url has an unsupported URL scheme"
+                )));
+            }
             if let Some(period) = entry.kind.period()
                 && !period.is_valid()
             {
                 return Err(ParseError::Validation(format!(
-                    "sections[{section_index}].entries[{entry_index}].period starts after it ends"
+                    "sections[{section_index}].entries[{entry_index}].period is invalid: provide a known endpoint, use Present only as the end, and do not start after the end"
                 )));
+            }
+            for (index, highlight) in entry.kind.highlights().iter().enumerate() {
+                if highlight.is_empty() {
+                    return Err(ParseError::Validation(format!(
+                        "{path}: highlight/skill {index} must contain visible text; remove empty items"
+                    )));
+                }
             }
             if entry.kind.heading().0.is_empty() {
                 return Err(ParseError::Validation(format!(
@@ -112,526 +190,57 @@ pub fn validate(cv: &CvDocument) -> Result<(), ParseError> {
     Ok(())
 }
 
-pub fn parse_markdown(source: &str) -> Result<CvDocument, ParseError> {
-    let mut profile = Profile::default();
-    let mut sections = Vec::new();
-    let mut section: Option<Section> = None;
-    let mut entry: Option<EntryBuilder> = None;
-    let mut last_direct_entry: Option<usize> = None;
-    let mut saw_name = false;
-    let mut before_sections = true;
-    let mut annotation_allowed = false;
-
-    for (index, raw_line) in source.lines().enumerate() {
-        let line_number = index + 1;
-        let line = raw_line.trim();
-        if line.is_empty() {
-            continue;
+pub(crate) fn normalize(cv: &mut CvDocument) {
+    for field in [
+        &mut cv.profile.email,
+        &mut cv.profile.phone,
+        &mut cv.profile.location,
+    ] {
+        if field.as_ref().is_some_and(|value| value.trim().is_empty()) {
+            *field = None;
         }
-        if line.starts_with("<!-- cac:section") {
-            if !annotation_allowed {
-                return markdown_error(
-                    line_number,
-                    "section annotation must immediately follow a section heading and may appear only once",
-                );
-            }
-            let current = section.as_mut().expect("annotation follows section");
-            parse_section_annotation(line, line_number, current)?;
-            annotation_allowed = false;
-            continue;
+    }
+    if cv.profile.summary.as_ref().is_some_and(RichText::is_empty) {
+        cv.profile.summary = None;
+    }
+    for entry in cv
+        .sections
+        .iter_mut()
+        .flat_map(|section| &mut section.entries)
+    {
+        if entry.content.as_ref().is_some_and(RichText::is_empty) {
+            entry.content = None;
         }
-        annotation_allowed = false;
-        if let Some(value) = line.strip_prefix("# ") {
-            if saw_name || section.is_some() {
-                return markdown_error(
-                    line_number,
-                    "the document must contain exactly one level-one name heading",
-                );
-            }
-            profile.name = RichText::parse(value).plain();
-            saw_name = true;
-            continue;
-        }
-        if !saw_name {
-            return markdown_error(
-                line_number,
-                "content must start with a level-one name heading",
-            );
-        }
-        if let Some(value) = line.strip_prefix("## ") {
-            finish_entry(&mut section, &mut entry);
-            if let Some(previous) = section.take() {
-                sections.push(previous);
-            }
-            let title = RichText::parse(value).plain();
-            section = Some(Section {
-                id: slugify(&title),
-                kind: section_kind(&title),
-                title,
-                entries: Vec::new(),
-                tags: TagSet::new(),
-            });
-            last_direct_entry = None;
-            before_sections = false;
-            annotation_allowed = true;
-            continue;
-        }
-        if let Some(value) = line.strip_prefix("### ") {
-            let current = section.as_mut().ok_or_else(|| ParseError::Markdown {
-                line: line_number,
-                message: "an entry heading must be inside a level-two section".into(),
-            })?;
-            finish_entry_for(current, &mut entry);
-            entry = Some(EntryBuilder::new(value, line_number));
-            last_direct_entry = None;
-            continue;
-        }
-        if let Some(tags) = parse_tags(line) {
-            if let Some(current) = entry.as_mut() {
-                current.tags.extend(tags);
-            } else if let Some(current) = section.as_mut() {
-                if let Some(index) = last_direct_entry {
-                    current.entries[index].tags.extend(tags);
-                } else {
-                    current.tags.extend(tags);
-                }
-            } else {
-                return markdown_error(line_number, "tags must follow a section or entry heading");
-            }
-            continue;
-        }
-        if before_sections {
-            parse_profile_line(&mut profile, line);
-            continue;
-        }
-        if let Some(value) = line.strip_prefix("- ").or_else(|| line.strip_prefix("* ")) {
-            if let Some(current) = entry.as_mut() {
-                current.highlights.push(RichText::parse(value));
-            } else {
-                let current = section
-                    .as_mut()
-                    .expect("a section exists after before_sections");
-                let kind = if current.kind == SectionKind::Skills {
-                    EntryKind::SkillGroup(SkillGroupEntry {
-                        name: RichText::parse(value),
-                        skills: Vec::new(),
-                    })
-                } else {
-                    EntryKind::Text(TextEntry {
-                        body: RichText::parse(value),
-                    })
-                };
-                current.entries.push(Entry {
-                    kind,
-                    tags: TagSet::new(),
-                    origin: Origin {
-                        path: format!("line {line_number}"),
-                    },
-                });
-                last_direct_entry = Some(current.entries.len() - 1);
-            }
-            continue;
-        }
-        if let Some(current) = entry.as_mut()
-            && current.period.is_none()
-            && let Some(period) = parse_period(line)
+        if let EntryKind::Experience(value) = &mut entry.kind
+            && value
+                .location
+                .as_ref()
+                .is_some_and(|value| value.trim().is_empty())
         {
-            current.period = Some(period.map_err(|message| ParseError::Markdown {
-                line: line_number,
-                message,
-            })?);
-            continue;
+            value.location = None;
         }
-        if section
-            .as_ref()
-            .is_some_and(|value| value.kind == SectionKind::Publications)
-            && let Some(current) = entry.as_mut()
-            && current.date.is_none()
-            && let Some(date) = parse_date_point(line)
+        if let EntryKind::Publication(value) = &mut entry.kind
+            && value.publisher.as_ref().is_some_and(RichText::is_empty)
         {
-            current.date = Some(date);
-            continue;
+            value.publisher = None;
         }
-        return markdown_error(
-            line_number,
-            "expected a heading, date range, bullet, or tags comment",
-        );
-    }
-    finish_entry(&mut section, &mut entry);
-    if let Some(previous) = section {
-        sections.push(previous);
-    }
-    if !saw_name {
-        return markdown_error(1, "the document is missing a level-one name heading");
-    }
-    Ok(CvDocument { profile, sections })
-}
-
-fn markdown_error<T>(line: usize, message: &str) -> Result<T, ParseError> {
-    Err(ParseError::Markdown {
-        line,
-        message: message.into(),
-    })
-}
-
-// IDs use percent-encoded UTF-8 so spaces and comment delimiters round-trip.
-fn encode_section_id(id: &str) -> String {
-    let mut result = String::new();
-    for byte in id.bytes() {
-        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.') {
-            result.push(char::from(byte));
-        } else {
-            let _ = write!(result, "%{byte:02X}");
-        }
-    }
-    result
-}
-
-fn decode_section_id(value: &str) -> Option<String> {
-    let mut bytes = Vec::new();
-    let mut input = value.bytes();
-    while let Some(byte) = input.next() {
-        bytes.push(if byte == b'%' {
-            let high = char::from(input.next()?).to_digit(16)?;
-            let low = char::from(input.next()?).to_digit(16)?;
-            (high * 16 + low) as u8
-        } else {
-            byte
-        });
-    }
-    String::from_utf8(bytes)
-        .ok()
-        .filter(|id| !id.trim().is_empty())
-}
-
-fn parse_section_annotation(
-    line: &str,
-    number: usize,
-    section: &mut Section,
-) -> Result<(), ParseError> {
-    let Some(body) = line
-        .strip_prefix("<!-- cac:section ")
-        .and_then(|v| v.strip_suffix("-->"))
-    else {
-        return markdown_error(
-            number,
-            "invalid section annotation; expected <!-- cac:section id=... kind=... -->",
-        );
-    };
-    let mut keys = BTreeSet::new();
-    for field in body.split_whitespace() {
-        let Some((key, value)) = field.split_once('=') else {
-            return markdown_error(number, "expected key=value in section annotation");
-        };
-        if !keys.insert(key) {
-            return markdown_error(number, "duplicate section annotation field");
-        }
-        match key {
-            "id" => {
-                section.id = decode_section_id(value).ok_or_else(|| ParseError::Markdown {
-                    line: number,
-                    message: "invalid or empty section id".into(),
-                })?
-            }
-            "kind" => {
-                section.kind = serde_json::from_value(serde_json::Value::String(value.into()))
-                    .map_err(|_| ParseError::Markdown {
-                        line: number,
-                        message: format!("invalid section kind `{value}`"),
-                    })?
-            }
-            _ => {
-                return markdown_error(
-                    number,
-                    "unknown section annotation field; expected id or kind",
-                );
-            }
-        }
-    }
-    if keys.is_empty() {
-        return markdown_error(number, "section annotation must specify id or kind");
-    }
-    Ok(())
-}
-
-fn parse_profile_line(profile: &mut Profile, line: &str) {
-    let parts: Vec<&str> = line
-        .split('·')
-        .map(str::trim)
-        .filter(|part| !part.is_empty())
-        .collect();
-    let looks_like_contacts = parts
-        .iter()
-        .any(|part| part.contains('@') || part.starts_with('+') || Url::parse(part).is_ok());
-    if !looks_like_contacts {
-        profile.summary = Some(RichText::parse(line));
-        return;
-    }
-    for part in parts {
-        if part.contains('@') && profile.email.is_none() {
-            profile.email = Some(part.trim_start_matches("mailto:").to_owned());
-        } else if let Ok(url) = Url::parse(part) {
-            profile.website = Some(url);
-        } else if part.starts_with('+')
-            || part
-                .chars()
-                .filter(|character| character.is_ascii_digit())
-                .count()
-                >= 7
+        if let Some(content) = &entry.content
+            && let [Inline::List { start: None, items }] = content.0.as_slice()
+            && entry.kind.highlights().is_empty()
         {
-            profile.phone = Some(part.to_owned());
-        } else if profile.location.is_none() {
-            profile.location = Some(part.to_owned());
+            let highlights = match &mut entry.kind {
+                EntryKind::Experience(value) => Some(&mut value.highlights),
+                EntryKind::Education(value) => Some(&mut value.highlights),
+                EntryKind::Project(value) => Some(&mut value.highlights),
+                EntryKind::Publication(value) => Some(&mut value.highlights),
+                EntryKind::Custom(value) => Some(&mut value.highlights),
+                EntryKind::SkillGroup(value) => Some(&mut value.skills),
+                _ => None,
+            };
+            if let Some(highlights) = highlights {
+                *highlights = items.clone();
+                entry.content = None;
+            }
         }
-    }
-}
-
-struct EntryBuilder {
-    heading: String,
-    period: Option<Period>,
-    date: Option<DatePoint>,
-    highlights: Vec<RichText>,
-    tags: TagSet,
-    line: usize,
-}
-
-impl EntryBuilder {
-    fn new(heading: &str, line: usize) -> Self {
-        Self {
-            heading: heading.into(),
-            period: None,
-            date: None,
-            highlights: Vec::new(),
-            tags: TagSet::new(),
-            line,
-        }
-    }
-
-    fn build(self, section_kind: SectionKind) -> Vec<Entry> {
-        let origin = Origin {
-            path: format!("line {}", self.line),
-        };
-        let tags = self.tags;
-        let kind = match section_kind {
-            SectionKind::Experience => {
-                let (first, second) = split_entry_heading(&self.heading);
-                EntryKind::Experience(ExperienceEntry {
-                    role: first,
-                    organization: second,
-                    location: None,
-                    period: self.period,
-                    highlights: self.highlights,
-                })
-            }
-            SectionKind::Education => {
-                let (first, second) = split_entry_heading(&self.heading);
-                EntryKind::Education(EducationEntry {
-                    qualification: first,
-                    institution: second,
-                    period: self.period,
-                    highlights: self.highlights,
-                })
-            }
-            SectionKind::Skills => EntryKind::SkillGroup(SkillGroupEntry {
-                name: RichText::parse(&self.heading),
-                skills: self.highlights,
-            }),
-            SectionKind::Projects => EntryKind::Project(ProjectEntry {
-                name: RichText::parse(&self.heading),
-                url: None,
-                period: self.period,
-                highlights: self.highlights,
-            }),
-            SectionKind::Publications => EntryKind::Publication(PublicationEntry {
-                title: RichText::parse(&self.heading),
-                publisher: None,
-                date: self.date.or_else(|| self.period.map(|period| period.start)),
-                url: None,
-                highlights: self.highlights,
-            }),
-            SectionKind::Custom => EntryKind::Custom(CustomEntry {
-                heading: RichText::parse(&self.heading),
-                period: self.period,
-                highlights: self.highlights,
-            }),
-        };
-        vec![Entry { kind, tags, origin }]
-    }
-}
-
-fn split_entry_heading(heading: &str) -> (RichText, RichText) {
-    let (first, second) = heading.split_once(", ").unwrap_or((heading, ""));
-    (RichText::parse(first), RichText::parse(second))
-}
-
-fn finish_entry(section: &mut Option<Section>, entry: &mut Option<EntryBuilder>) {
-    if let Some(current) = section.as_mut() {
-        finish_entry_for(current, entry);
-    }
-}
-
-fn finish_entry_for(section: &mut Section, entry: &mut Option<EntryBuilder>) {
-    if let Some(value) = entry.take() {
-        section.entries.extend(value.build(section.kind));
-    }
-}
-
-fn section_kind(title: &str) -> SectionKind {
-    let lower = title.to_ascii_lowercase();
-    if lower.contains("education") {
-        SectionKind::Education
-    } else if lower.contains("experience") || lower.contains("employment") {
-        SectionKind::Experience
-    } else if lower.contains("project") {
-        SectionKind::Projects
-    } else if lower.contains("publication") {
-        SectionKind::Publications
-    } else if lower.contains("skill") {
-        SectionKind::Skills
-    } else {
-        SectionKind::Custom
-    }
-}
-
-pub fn slugify(value: &str) -> String {
-    let mut output = String::new();
-    let mut separator = false;
-    for character in value.chars().flat_map(char::to_lowercase) {
-        if character.is_alphanumeric() {
-            if separator && !output.is_empty() {
-                output.push('-');
-            }
-            output.push(character);
-            separator = false;
-        } else {
-            separator = true;
-        }
-    }
-    output
-}
-
-fn parse_tags(line: &str) -> Option<TagSet> {
-    let body = line.strip_prefix("<!--")?.strip_suffix("-->")?.trim();
-    let values = body.strip_prefix("tags:")?;
-    Some(
-        values
-            .split(',')
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(str::to_owned)
-            .collect(),
-    )
-}
-
-fn parse_period(value: &str) -> Option<Result<Period, String>> {
-    let pair = value.split_once('–').or_else(|| value.split_once(" - "))?;
-    let start = parse_date_point(pair.0.trim())
-        .ok_or_else(|| format!("invalid start date `{}`", pair.0.trim()));
-    let end = parse_date_point(pair.1.trim())
-        .ok_or_else(|| format!("invalid end date `{}`", pair.1.trim()));
-    Some(start.and_then(|start| {
-        end.and_then(|end| Period::new(start, end).map_err(|error| error.to_string()))
-    }))
-}
-
-pub fn parse_date_point(value: &str) -> Option<DatePoint> {
-    if value.eq_ignore_ascii_case("present") || value.eq_ignore_ascii_case("current") {
-        return Some(DatePoint::Present);
-    }
-    if let Ok(date) = NaiveDate::parse_from_str(value, "%Y-%m-%d") {
-        return Some(DatePoint::Full(date));
-    }
-    if value.len() == 7 {
-        let (year, month) = value.split_once('-')?;
-        return DatePoint::year_month(year.parse().ok()?, month.parse().ok()?);
-    }
-    if let Ok(year) = value.parse() {
-        return Some(DatePoint::Year(year));
-    }
-    for format in ["%b %Y", "%B %Y"] {
-        if let Ok(date) = NaiveDate::parse_from_str(&format!("1 {value}"), &format!("%d {format}"))
-        {
-            return DatePoint::year_month(
-                date.format("%Y").to_string().parse().ok()?,
-                date.format("%m").to_string().parse().ok()?,
-            );
-        }
-    }
-    None
-}
-
-pub const STARTER_MARKDOWN: &str = include_str!("starter.md");
-
-pub fn to_markdown(cv: &CvDocument) -> String {
-    let mut output = format!("# {}\n\n", cv.profile.name);
-    let contacts: Vec<String> = [
-        cv.profile.email.clone(),
-        cv.profile.phone.clone(),
-        cv.profile.location.clone(),
-        cv.profile.website.as_ref().map(ToString::to_string),
-    ]
-    .into_iter()
-    .flatten()
-    .collect();
-    if !contacts.is_empty() {
-        let _ = writeln!(output, "{}\n", contacts.join(" · "));
-    }
-    if let Some(summary) = &cv.profile.summary {
-        let _ = writeln!(output, "{}\n", summary.to_markdown());
-    }
-    for section in &cv.sections {
-        let _ = writeln!(output, "## {}", section.title);
-        let kind = serde_json::to_value(section.kind).expect("section kind serializes");
-        let id = encode_section_id(&section.id);
-        let _ = writeln!(
-            output,
-            "<!-- cac:section id={id} kind={} -->\n",
-            kind.as_str().expect("section kind is a string")
-        );
-        write_tags(&section.tags, &mut output);
-        for entry in &section.entries {
-            let (primary, secondary) = entry.kind.heading();
-            if matches!(entry.kind, EntryKind::Text(_)) {
-                let _ = writeln!(output, "- {}\n", primary.to_markdown());
-                write_tags(&entry.tags, &mut output);
-                continue;
-            }
-            if let EntryKind::SkillGroup(value) = &entry.kind
-                && value.skills.is_empty()
-            {
-                let _ = writeln!(output, "- {}\n", value.name.to_markdown());
-                write_tags(&entry.tags, &mut output);
-                continue;
-            }
-            let heading = secondary
-                .filter(|value| !value.is_empty())
-                .map(|value| format!("{}, {}", primary.to_markdown(), value.to_markdown()))
-                .unwrap_or_else(|| primary.to_markdown());
-            let _ = writeln!(output, "### {heading}");
-            if let Some(period) = entry.kind.period() {
-                let _ = writeln!(output, "{}–{}", period.start, period.end);
-            } else if let Some(date) = entry.kind.date() {
-                let _ = writeln!(output, "{date}");
-            }
-            write_tags(&entry.tags, &mut output);
-            if !entry.kind.highlights().is_empty() {
-                output.push('\n');
-                for highlight in entry.kind.highlights() {
-                    let _ = writeln!(output, "- {}", highlight.to_markdown());
-                }
-            }
-            output.push('\n');
-        }
-    }
-    output
-}
-
-fn write_tags(tags: &TagSet, output: &mut String) {
-    if !tags.is_empty() {
-        let _ = writeln!(
-            output,
-            "<!-- tags: {} -->",
-            tags.iter().cloned().collect::<Vec<_>>().join(", ")
-        );
     }
 }

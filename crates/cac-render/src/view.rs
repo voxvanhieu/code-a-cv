@@ -32,17 +32,44 @@ struct EntryView {
 #[derive(Serialize)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
 enum InlineView {
-    Text { text: String },
-    Emph { body: Vec<InlineView> },
-    Strong { body: Vec<InlineView> },
-    Code { text: String },
-    Link { href: String, body: Vec<InlineView> },
+    Text {
+        text: String,
+    },
+    Emph {
+        body: Vec<InlineView>,
+    },
+    Strong {
+        body: Vec<InlineView>,
+    },
+    Code {
+        text: String,
+    },
+    Link {
+        href: String,
+        body: Vec<InlineView>,
+    },
+    Paragraph {
+        body: Vec<InlineView>,
+    },
+    Break,
+    List {
+        start: Option<u64>,
+        items: Vec<Vec<InlineView>>,
+    },
 }
 
 fn inline_view(nodes: &[Inline]) -> Vec<InlineView> {
     nodes
         .iter()
         .map(|node| match node {
+            Inline::Paragraph(body) => InlineView::Paragraph {
+                body: inline_view(body),
+            },
+            Inline::Break => InlineView::Break,
+            Inline::List { start, items } => InlineView::List {
+                start: *start,
+                items: items.iter().map(rich_view).collect(),
+            },
             Inline::Text(text) => InlineView::Text { text: text.clone() },
             Inline::Emph(body) => InlineView::Emph {
                 body: inline_view(body),
@@ -72,6 +99,7 @@ fn entry_kind_name(kind: &EntryKind) -> &'static str {
         EntryKind::SkillGroup(_) => "skill-group",
         EntryKind::Custom(_) => "custom",
         EntryKind::Text(_) => "text",
+        EntryKind::Prose(_) => "prose",
     }
 }
 
@@ -87,12 +115,21 @@ fn entry_view(entry: &Entry) -> EntryView {
             .map(|period| {
                 format!(
                     "{} – {}",
-                    format_date(&period.start),
-                    format_date(&period.end)
+                    period.start.as_ref().map(format_date).unwrap_or_default(),
+                    period.end.as_ref().map(format_date).unwrap_or_default()
                 )
             })
             .or_else(|| entry.kind.date().map(format_date)),
-        metadata: metadata_view(&entry.kind),
+        metadata: {
+            let mut metadata = metadata_view(&entry.kind);
+            if let Some(body) = &entry.content {
+                metadata.push(MetadataView {
+                    role: "description",
+                    body: rich_view(body),
+                });
+            }
+            metadata
+        },
         highlights: entry.kind.highlights().iter().map(rich_view).collect(),
     }
 }
@@ -114,7 +151,7 @@ fn entry_views(entries: &[Entry]) -> Vec<EntryView> {
 
 impl From<&CvDocument> for RenderView {
     fn from(cv: &CvDocument) -> Self {
-        let contacts = [
+        let mut contacts: Vec<_> = [
             (
                 "email",
                 cv.profile.email.clone(),
@@ -135,6 +172,20 @@ impl From<&CvDocument> for RenderView {
         .into_iter()
         .filter_map(|(kind, label, href)| label.map(|label| ContactView { kind, label, href }))
         .collect();
+        contacts.extend(cv.profile.contacts.iter().map(|contact| {
+            ContactView {
+                kind: contact
+                    .href
+                    .as_ref()
+                    .map_or("custom", |url| match url.scheme() {
+                        "mailto" => "email",
+                        "tel" => "phone",
+                        _ => "website",
+                    }),
+                label: contact.label.clone(),
+                href: contact.href.as_ref().map(ToString::to_string),
+            }
+        }));
         Self {
             profile: ProfileView {
                 name: cv.profile.name.clone(),
@@ -146,7 +197,7 @@ impl From<&CvDocument> for RenderView {
                 .iter()
                 .map(|section| SectionView {
                     id: section.id.clone(),
-                    kind: section.kind,
+                    kind: section.kind.clone(),
                     title: section.title.clone(),
                     entries: entry_views(&section.entries),
                 })
