@@ -172,10 +172,17 @@ On Windows, run `target\release\cac.exe --version` for the smoke test.
 
 Push the branch and open a pull request against `main`. Describe the user-visible result, compatibility impact, and commands used for verification.
 
+PRs that change files under `themes/` must contain only files in that directory.
+CI rejects mixed theme and other changes on PRs; pushes to `main` bypass this
+classification check. Theme-only PRs still run the quality checks and builds.
+The contribution check validates PR scope; the existing Rust workspace tests
+cover theme installation and rendering, including the shared fixture corpus
+for every registered theme.
+
 For code changes, CI performs these checks:
 
 * Formatting, workspace tests, and Clippy on Linux
-* Release builds and version smoke tests on Linux x64, Linux ARM64, macOS x64, macOS ARM64, and Windows x64
+* Release builds and version smoke tests on Linux x64, Linux ARM64, macOS ARM64, and Windows x64
 * A `cargo-dist` release plan
 
 Wait for the aggregate `CI complete` job before merging.
