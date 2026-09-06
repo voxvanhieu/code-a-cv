@@ -18,7 +18,7 @@ flowchart LR
     H --> I[brew upgrade code-a-cv]
 ```
 
-Pushing a tag such as `v0.3.0` starts `.github/workflows/release.yml`. `cargo-dist` builds archives and installers, creates checksums and attestations, and publishes the GitHub release.
+Pushing a tag such as `v0.3.0` starts `.github/workflows/release.yml`. `cargo-dist` builds archives and installers for Linux (x64 and ARM64) and Windows (x64), creates checksums and attestations, and publishes the GitHub release. macOS users install through Homebrew; cargo-dist does not publish macOS binaries.
 
 The GitHub release must finish before Homebrew publication starts. The `Publish Homebrew tap formula` workflow downloads `source.tar.gz`, calculates its checksum, generates `Formula/code-a-cv.rb`, validates it on Linux and macOS, and opens a pull request in `voxvanhieu/homebrew-tap`.
 

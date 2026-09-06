@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::Path;
 use std::path::PathBuf;
 
 use assert_cmd::Command;
@@ -18,8 +19,21 @@ fn help_screens_match_snapshots() {
         (&["build"][..], include_str!("snapshots/build-help.txt")),
         (&["check"][..], include_str!("snapshots/check-help.txt")),
         (&["convert"][..], include_str!("snapshots/convert-help.txt")),
+        (&["fmt"][..], include_str!("snapshots/fmt-help.txt")),
         (&["schema"][..], include_str!("snapshots/schema-help.txt")),
         (&["theme"][..], include_str!("snapshots/theme-help.txt")),
+        (
+            &["theme", "init"][..],
+            include_str!("snapshots/theme-init-help.txt"),
+        ),
+        (
+            &["theme", "test"][..],
+            include_str!("snapshots/theme-test-help.txt"),
+        ),
+        (
+            &["theme", "pack"][..],
+            include_str!("snapshots/theme-pack-help.txt"),
+        ),
     ];
 
     for (arguments, snapshot) in snapshots {
@@ -34,6 +48,188 @@ fn help_screens_match_snapshots() {
         assert_eq!(String::from_utf8(output.stdout).unwrap(), snapshot);
         assert!(output.stderr.is_empty());
     }
+}
+
+#[test]
+fn theme_init_creates_a_development_project_from_arguments() {
+    let directory = tempdir().unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args([
+            "theme",
+            "init",
+            "portfolio",
+            "--author",
+            "Ada Lovelace",
+            "--author-url",
+            "https://example.com/ada",
+        ])
+        .assert()
+        .success();
+
+    let settings: serde_json::Value =
+        serde_json::from_slice(&fs::read(directory.path().join("settings.json")).unwrap()).unwrap();
+    assert_eq!(settings["theme"], "portfolio");
+    assert_eq!(settings["themeProject"], "portfolio");
+    assert!(
+        directory
+            .path()
+            .join(".cac/themes/portfolio/theme.typ")
+            .is_file()
+    );
+    let schema: serde_json::Value = serde_json::from_slice(
+        &fs::read(directory.path().join(".cac/settings.schema.json")).unwrap(),
+    )
+    .unwrap();
+    assert!(schema["properties"]["themeProject"].is_object());
+}
+
+#[test]
+fn theme_init_prompts_and_retries_without_leaving_partial_files() {
+    let directory = tempdir().unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["theme", "init"])
+        .write_stdin("classic\nmy-theme\n\nGrace Hopper\nmailto:grace@example.com\n\n")
+        .assert()
+        .success()
+        .stderr(
+            predicates::str::contains("Invalid Theme name")
+                .and(predicates::str::contains("Invalid Author")),
+        );
+    let manifest: serde_json::Value = serde_json::from_slice(
+        &fs::read(directory.path().join(".cac/themes/my-theme/theme.json")).unwrap(),
+    )
+    .unwrap();
+    assert!(manifest.get("author_url").is_none());
+
+    let interrupted = tempdir().unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(interrupted.path())
+        .args(["theme", "init"])
+        .write_stdin("unfinished\n")
+        .assert()
+        .failure();
+    assert!(!interrupted.path().join("cv.md").exists());
+}
+
+#[test]
+fn theme_test_and_pack_generate_verified_reproducible_artifacts() {
+    let directory = tempdir().unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args([
+            "theme",
+            "init",
+            "portfolio",
+            "--author",
+            "Ada Lovelace",
+            "--author-url",
+            "https://example.com/ada",
+        ])
+        .assert()
+        .success();
+    let manifest_path = directory.path().join(".cac/themes/portfolio/theme.json");
+    let mut manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+    manifest["description"] = "A representative theme".into();
+    fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&manifest).unwrap(),
+    )
+    .unwrap();
+    fs::create_dir_all(directory.path().join(".cac/themes/portfolio/assets/nested")).unwrap();
+    fs::write(
+        directory
+            .path()
+            .join(".cac/themes/portfolio/assets/nested/icon.txt"),
+        "asset",
+    )
+    .unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["theme", "test"])
+        .assert()
+        .success();
+    assert!(directory.path().join("offering/portfolio.pdf").is_file());
+    assert!(
+        directory
+            .path()
+            .join(".cac/themes/portfolio/preview.jpg")
+            .is_file()
+    );
+    let manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+    assert!(
+        manifest["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|file| file["path"] == "assets/nested/icon.txt")
+    );
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["theme", "pack"])
+        .assert()
+        .success();
+    let first = fs::read(directory.path().join("portfolio.zip")).unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["theme", "pack"])
+        .assert()
+        .success();
+    assert_eq!(
+        first,
+        fs::read(directory.path().join("portfolio.zip")).unwrap()
+    );
+    let reader = std::io::Cursor::new(first);
+    let archive = zip::ZipArchive::new(reader).unwrap();
+    let names = archive.file_names().map(str::to_owned).collect::<Vec<_>>();
+    assert!(names.contains(&"portfolio/theme.json".into()));
+    assert!(names.contains(&"portfolio/preview.jpg".into()));
+    assert!(!names.iter().any(|name| name.ends_with(".pdf")));
+}
+
+#[test]
+fn theme_project_restricts_install_and_selected_removal() {
+    let directory = tempdir().unwrap();
+    fs::write(
+        directory.path().join("settings.json"),
+        r#"{"theme":"developing","themeProject":"developing"}"#,
+    )
+    .unwrap();
+    fs::create_dir_all(directory.path().join(".cac/themes/developing")).unwrap();
+    fs::write(
+        directory.path().join(".cac/themes/developing/theme.typ"),
+        "",
+    )
+    .unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["theme", "install", "anything", "--local"])
+        .env("CAC_THEME_REGISTRY", "file:///definitely-unavailable")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "cannot be installed inside a theme project",
+        ));
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["theme", "remove", "developing", "--local"])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("cannot be removed"));
 }
 
 #[test]
@@ -692,7 +888,9 @@ fn themes_search_info_install_and_build_from_a_registry() {
         .assert()
         .success()
         .stdout(predicates::str::contains("NAME classic-blue\n"))
-        .stdout(predicates::str::contains("THEME API 1\n"));
+        .stdout(predicates::str::contains(
+            "AUTHOR URL https://github.com/voxvanhieu/code-a-cv/graphs/contributors\n",
+        ));
 
     Command::cargo_bin("cac")
         .unwrap()
@@ -747,6 +945,35 @@ fn themes_search_info_install_and_build_from_a_registry() {
 }
 
 #[test]
+fn themes_reject_non_web_author_urls() {
+    let registry = tempdir().unwrap();
+    let theme = registry.path().join("classic-blue");
+    fs::create_dir(&theme).unwrap();
+    fs::write(
+        registry.path().join("index.json"),
+        include_str!("../../../themes/index.json"),
+    )
+    .unwrap();
+    let manifest = include_str!("../../../themes/classic-blue/theme.json").replace(
+        "https://github.com/voxvanhieu/code-a-cv/graphs/contributors",
+        "mailto:themes@example.com",
+    );
+    fs::write(theme.join("theme.json"), manifest).unwrap();
+
+    Command::cargo_bin("cac")
+        .unwrap()
+        .env(
+            "CAC_THEME_REGISTRY",
+            format!("file://{}", registry.path().display()),
+        )
+        .args(["theme", "info", "classic-blue"])
+        .assert()
+        .code(1)
+        .stdout("")
+        .stderr(predicates::str::contains("invalid author URL"));
+}
+
+#[test]
 fn themes_install_rejects_a_download_with_the_wrong_checksum() {
     let directory = tempdir().unwrap();
     let registry = tempdir().unwrap();
@@ -757,14 +984,17 @@ fn themes_install_rejects_a_download_with_the_wrong_checksum() {
         include_str!("../../../themes/index.json"),
     )
     .unwrap();
-    let manifest = include_str!("../../../themes/classic-blue/theme.json").replace(
-        "32a12bccc99e93c7756995325358fd5e3cf09c552380fa13b915a416777681b9",
-        "0000000000000000000000000000000000000000000000000000000000000000",
-    );
-    fs::write(theme.join("theme.json"), manifest).unwrap();
+    let mut manifest: serde_json::Value =
+        serde_json::from_str(include_str!("../../../themes/classic-blue/theme.json")).unwrap();
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../themes/classic-blue");
+    for file in manifest["files"].as_array().unwrap() {
+        let path = file["path"].as_str().unwrap();
+        fs::copy(source.join(path), theme.join(path)).unwrap();
+    }
+    manifest["files"][0]["sha256"] = "0".repeat(64).into();
     fs::write(
-        theme.join("theme.typ"),
-        include_str!("../../../themes/classic-blue/theme.typ"),
+        theme.join("theme.json"),
+        serde_json::to_vec(&manifest).unwrap(),
     )
     .unwrap();
 
@@ -801,4 +1031,142 @@ fn convert_replaces_an_existing_output_file() {
         .success();
 
     assert_ne!(fs::read_to_string(output).unwrap(), "old");
+}
+
+#[test]
+fn check_explains_fields_and_accepts_contact_free_drafts() {
+    Command::cargo_bin("cac")
+        .unwrap()
+        .args(["check", "-", "--explain"])
+        .write_stdin("# Anonymous\n\n## Experience\n\n### Director, Data\nOrganization: Acme\n")
+        .assert()
+        .success()
+        .stdout(
+            predicates::str::contains("\"role\": \"Director, Data\"")
+                .and(predicates::str::contains("CAC101 Warning"))
+                .and(predicates::str::contains("PASS")),
+        );
+    Command::cargo_bin("cac")
+        .unwrap()
+        .args(["check", "-", "--strict"])
+        .write_stdin("# Anonymous")
+        .assert()
+        .failure();
+}
+
+#[test]
+fn formatting_is_idempotent_and_checks_before_replacing_files() {
+    let directory = tempdir().unwrap();
+    let path = directory.path().join("cv.md");
+    fs::write(
+        &path,
+        format!(
+            "{}\n\n",
+            include_str!("../../cac-io/tests/fixtures/flexible.md")
+        ),
+    )
+    .unwrap();
+    let original = fs::read_to_string(&path).unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .arg("fmt")
+        .arg(&path)
+        .arg("--dry-run")
+        .assert()
+        .failure();
+    assert_eq!(fs::read_to_string(&path).unwrap(), original);
+    Command::cargo_bin("cac")
+        .unwrap()
+        .arg("fmt")
+        .arg(&path)
+        .assert()
+        .success();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .arg("fmt")
+        .arg(&path)
+        .arg("--dry-run")
+        .assert()
+        .success();
+    let formatted = fs::read_to_string(&path).unwrap();
+    assert!(formatted.contains("Organization: Acme"));
+    assert!(formatted.contains("Kind: project"));
+    fs::write(
+        &path,
+        "# A\n\n## E\n\n### X\nKind: skill-group\nPeriod: 2020–2024",
+    )
+    .unwrap();
+    let invalid = fs::read_to_string(&path).unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .arg("fmt")
+        .arg(&path)
+        .assert()
+        .failure();
+    assert_eq!(fs::read_to_string(&path).unwrap(), invalid);
+}
+
+#[test]
+fn conversion_failure_preserves_the_existing_destination() {
+    let directory = tempdir().unwrap();
+    let path = directory.path().join("resume.json");
+    fs::write(&path, "existing content").unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .args(["convert", "-", "--to", "jsonresume", "-o"])
+        .arg(&path)
+        .write_stdin("# A\n\n## Projects\n\n### Tool\n")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("cannot preserve"));
+    assert_eq!(fs::read_to_string(&path).unwrap(), "existing content");
+}
+
+#[test]
+fn formatter_preserves_bare_markdown_and_uses_project_source_format() {
+    let directory = tempdir().unwrap();
+    let path = directory.path().join("cv.md");
+    fs::write(&path, format!("{CLEAN_MARKDOWN}\n\n")).unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .arg("fmt")
+        .arg(&path)
+        .assert()
+        .success();
+    assert_eq!(fs::read_to_string(&path).unwrap(), CLEAN_MARKDOWN);
+    for (filename, source) in [
+        ("cv.json", "{\"profile\":{\"name\":\"Анна\"}}"),
+        ("cv.yaml", "profile: {name: Анна}"),
+        ("cv.toml", "[profile]\nname=\"Анна\""),
+    ] {
+        fs::write(directory.path().join(filename), source).unwrap();
+        fs::write(
+            directory.path().join("settings.json"),
+            format!("{{\"root\":\"{filename}\"}}"),
+        )
+        .unwrap();
+        Command::cargo_bin("cac")
+            .unwrap()
+            .current_dir(directory.path())
+            .args(["fmt"])
+            .assert()
+            .success();
+        Command::cargo_bin("cac")
+            .unwrap()
+            .current_dir(directory.path())
+            .args(["fmt", "--dry-run"])
+            .assert()
+            .success();
+        let result = fs::read_to_string(directory.path().join(filename)).unwrap();
+        assert!(result.contains("Анна"));
+        assert!(!result.contains("Kind:"));
+        assert!(!result.contains("sections"));
+    }
+    Command::cargo_bin("cac")
+        .unwrap()
+        .args(["fmt", "-", "--input-format", "json"])
+        .write_stdin("{\"profile\":{\"name\":\"A\"}}")
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\n  \"profile\":"));
 }
