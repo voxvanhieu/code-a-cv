@@ -19,6 +19,7 @@ fn help_screens_match_snapshots() {
         (&["build"][..], include_str!("snapshots/build-help.txt")),
         (&["check"][..], include_str!("snapshots/check-help.txt")),
         (&["convert"][..], include_str!("snapshots/convert-help.txt")),
+        (&["fmt"][..], include_str!("snapshots/fmt-help.txt")),
         (&["schema"][..], include_str!("snapshots/schema-help.txt")),
         (&["theme"][..], include_str!("snapshots/theme-help.txt")),
         (
@@ -1054,6 +1055,58 @@ fn check_explains_fields_and_accepts_contact_free_drafts() {
 }
 
 #[test]
+fn formatting_is_idempotent_and_checks_before_replacing_files() {
+    let directory = tempdir().unwrap();
+    let path = directory.path().join("cv.md");
+    fs::write(
+        &path,
+        format!(
+            "{}\n\n",
+            include_str!("../../cac-io/tests/fixtures/flexible.md")
+        ),
+    )
+    .unwrap();
+    let original = fs::read_to_string(&path).unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .arg("fmt")
+        .arg(&path)
+        .arg("--dry-run")
+        .assert()
+        .failure();
+    assert_eq!(fs::read_to_string(&path).unwrap(), original);
+    Command::cargo_bin("cac")
+        .unwrap()
+        .arg("fmt")
+        .arg(&path)
+        .assert()
+        .success();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .arg("fmt")
+        .arg(&path)
+        .arg("--dry-run")
+        .assert()
+        .success();
+    let formatted = fs::read_to_string(&path).unwrap();
+    assert!(formatted.contains("Organization: Acme"));
+    assert!(formatted.contains("Kind: project"));
+    fs::write(
+        &path,
+        "# A\n\n## E\n\n### X\nKind: skill-group\nPeriod: 2020–2024",
+    )
+    .unwrap();
+    let invalid = fs::read_to_string(&path).unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .arg("fmt")
+        .arg(&path)
+        .assert()
+        .failure();
+    assert_eq!(fs::read_to_string(&path).unwrap(), invalid);
+}
+
+#[test]
 fn conversion_failure_preserves_the_existing_destination() {
     let directory = tempdir().unwrap();
     let path = directory.path().join("resume.json");
@@ -1067,4 +1120,53 @@ fn conversion_failure_preserves_the_existing_destination() {
         .failure()
         .stderr(predicates::str::contains("cannot preserve"));
     assert_eq!(fs::read_to_string(&path).unwrap(), "existing content");
+}
+
+#[test]
+fn formatter_preserves_bare_markdown_and_uses_project_source_format() {
+    let directory = tempdir().unwrap();
+    let path = directory.path().join("cv.md");
+    fs::write(&path, format!("{CLEAN_MARKDOWN}\n\n")).unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .arg("fmt")
+        .arg(&path)
+        .assert()
+        .success();
+    assert_eq!(fs::read_to_string(&path).unwrap(), CLEAN_MARKDOWN);
+    for (filename, source) in [
+        ("cv.json", "{\"profile\":{\"name\":\"Анна\"}}"),
+        ("cv.yaml", "profile: {name: Анна}"),
+        ("cv.toml", "[profile]\nname=\"Анна\""),
+    ] {
+        fs::write(directory.path().join(filename), source).unwrap();
+        fs::write(
+            directory.path().join("settings.json"),
+            format!("{{\"root\":\"{filename}\"}}"),
+        )
+        .unwrap();
+        Command::cargo_bin("cac")
+            .unwrap()
+            .current_dir(directory.path())
+            .args(["fmt"])
+            .assert()
+            .success();
+        Command::cargo_bin("cac")
+            .unwrap()
+            .current_dir(directory.path())
+            .args(["fmt", "--dry-run"])
+            .assert()
+            .success();
+        let result = fs::read_to_string(directory.path().join(filename)).unwrap();
+        assert!(result.contains("Анна"));
+        assert!(!result.contains("Kind:"));
+        assert!(!result.contains("sections"));
+    }
+    Command::cargo_bin("cac")
+        .unwrap()
+        .args(["fmt", "-", "--input-format", "json"])
+        .write_stdin("{\"profile\":{\"name\":\"A\"}}")
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("\n  \"profile\":"));
 }

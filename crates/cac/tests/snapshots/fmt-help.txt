@@ -1,0 +1,17 @@
+Format a CV in its existing source format
+
+Usage: cac fmt [OPTIONS] [INPUT]
+
+Arguments:
+  [INPUT]  Read a CV source; defaults to settings.json root, then cv.md; use - for stdin
+
+Options:
+      --input-format <INPUT_FORMAT>  Set the input format; stdin defaults to markdown [possible values: markdown, yaml, json, toml, jsonresume]
+      --dry-run                      Report whether formatting is needed without writing; fail if changes are needed
+  -h, --help                         Print help
+
+Examples:
+  cac fmt cv.md
+  cac fmt cv.json
+  cac fmt cv.md --dry-run
+  cat cv.md | cac fmt -
