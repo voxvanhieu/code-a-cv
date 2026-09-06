@@ -4,20 +4,19 @@
   "author": "Code a CV contributors",
   "author_url": "https://github.com/voxvanhieu/code-a-cv/graphs/contributors",
   "license": "MIT",
-  "theme_api": 1,
   "preview": "preview.jpg",
   "files": [
     {
-      "path": "theme.typ",
-      "sha256": "32a12bccc99e93c7756995325358fd5e3cf09c552380fa13b915a416777681b9"
-    },
-    {
       "path": "README.md",
-      "sha256": "bd008772a391c20904aea50da161ae6e69cedd7cc88ed24f9bcbeb3914f654b3"
+      "sha256": "9bc7a7c739794ad647a659a29604e11f63bdca3df0361fa260209239ff196372"
     },
     {
       "path": "preview.jpg",
-      "sha256": "c0ab68d2c87a2e253d840f2dcbcdc1f7fe835ab676a8a80241020c835855ecfb"
+      "sha256": "2b587007e6bb04bde90a813d3a1a1c101b9f36b060a81a341862a2d85e17eaf9"
+    },
+    {
+      "path": "theme.typ",
+      "sha256": "1c8cc401ac5c87457af2d64fa2333cfff6ad155b91a46a5266119357fe5aee74"
     }
   ]
 }

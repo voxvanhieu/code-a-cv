@@ -18,11 +18,19 @@ pub struct Diagnostic {
 
 pub fn check_content(cv: &CvDocument) -> Vec<Diagnostic> {
     let mut output = Vec::new();
-    if cv.profile.email.is_none() && cv.profile.phone.is_none() {
+    if cv.profile.email.is_none()
+        && cv.profile.phone.is_none()
+        && cv.profile.website.is_none()
+        && !cv
+            .profile
+            .contacts
+            .iter()
+            .any(|contact| contact.href.is_some())
+    {
         output.push(diagnostic(
             "CAC101",
-            Severity::Error,
-            "add an email address or phone number",
+            Severity::Warning,
+            "no contact method is present; add one if readers should be able to reach you",
             "profile",
         ));
     }
@@ -42,12 +50,16 @@ pub fn check_content(cv: &CvDocument) -> Vec<Diagnostic> {
                 EntryKind::Education(value) => value.highlights.as_slice(),
                 EntryKind::Project(value) => value.highlights.as_slice(),
                 EntryKind::Publication(value) => value.highlights.as_slice(),
-                EntryKind::SkillGroup(_) | EntryKind::Custom(_) | EntryKind::Text(_) => &[],
+                EntryKind::SkillGroup(_)
+                | EntryKind::Custom(_)
+                | EntryKind::Text(_)
+                | EntryKind::Prose(_) => &[],
             };
             if matches!(
                 entry.kind,
                 EntryKind::Experience(_) | EntryKind::Education(_) | EntryKind::Project(_)
             ) && highlights.is_empty()
+                && entry.content.is_none()
             {
                 output.push(diagnostic(
                     "CAC204",
@@ -99,6 +111,7 @@ pub fn check_content(cv: &CvDocument) -> Vec<Diagnostic> {
         .flat_map(|section| &section.entries)
         .filter_map(|entry| entry.kind.period())
         .flat_map(|period| [&period.start, &period.end])
+        .flatten()
         .map(|point| point.granularity())
         .filter(|value| *value != 0)
         .collect();

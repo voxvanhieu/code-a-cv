@@ -26,6 +26,7 @@ serde_yaml_ng = "0.10"
 thiserror = "2"
 toml = "1"
 url = { version = "2", features = ["serde"] }
+image = { version = "0.25", default-features = false, features = ["jpeg"] }
 
 [profile.release]
 strip = true

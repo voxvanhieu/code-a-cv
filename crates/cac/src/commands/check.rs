@@ -28,10 +28,15 @@ pub struct Args {
     input_format: Option<CvFormat>,
     #[arg(long, help = "Fail when any diagnostic is reported")]
     strict: bool,
+    #[arg(long, help = "Show the parsed CV fields before content diagnostics")]
+    explain: bool,
 }
 
 pub fn run(args: Args) -> Result<()> {
     let cv = read_cv(&args.input, args.input_format)?;
+    if args.explain {
+        println!("{}", serde_json::to_string_pretty(&cv)?);
+    }
     let diagnostics = check_content(&cv);
     for diagnostic in &diagnostics {
         println!(

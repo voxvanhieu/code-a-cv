@@ -309,30 +309,23 @@ fn project_theme_wins_and_settings_override_theme_defaults() {
 }
 
 #[test]
-fn theme_api_version_is_checked() {
+fn theme_contract_accepts_partial_overrides_without_a_version() {
     let directory = tempdir().unwrap();
-    write_theme(
-        directory.path(),
-        "future",
-        "#let theme = (api_version: 99, tokens: (:), styles: (:), page: (:), components: (:))",
-    );
+    write_theme(directory.path(), "custom", "#let theme = (tokens: (:))");
     let cv = parse(STARTER_MARKDOWN, InputFormat::Markdown).unwrap();
-    let error = render_pdf_with_options(
+    let rendered = render_pdf_with_options(
         &cv,
         &RenderOptions {
             project_dir: Some(directory.path().into()),
             settings: Settings {
-                theme: Some("future".into()),
+                theme: Some("custom".into()),
                 ..Settings::default()
             },
             ..RenderOptions::default()
         },
     )
-    .unwrap_err();
-
-    let message = error.to_string();
-    assert!(message.contains("unsupported theme API version 99"));
-    assert!(message.contains("cac supports version 1"));
+    .unwrap();
+    assert!(rendered.bytes.starts_with(b"%PDF-"));
 }
 
 #[test]
@@ -363,7 +356,7 @@ fn user_theme_is_used_when_project_theme_is_absent() {
 }
 
 #[test]
-fn missing_theme_and_missing_api_version_have_actionable_errors() {
+fn missing_theme_and_invalid_contract_have_actionable_errors() {
     let directory = tempdir().unwrap();
     let cv = parse(STARTER_MARKDOWN, InputFormat::Markdown).unwrap();
     let missing = render_pdf_with_options(
@@ -380,24 +373,24 @@ fn missing_theme_and_missing_api_version_have_actionable_errors() {
     .unwrap_err();
     assert!(missing.to_string().contains("was not found"));
 
-    write_theme(
-        directory.path(),
-        "unversioned",
-        "#let theme = (tokens: (:), styles: (:), page: (:), components: (:))",
-    );
-    let unversioned = render_pdf_with_options(
+    write_theme(directory.path(), "invalid", "#let theme = (styles: 42,)");
+    let invalid = render_pdf_with_options(
         &cv,
         &RenderOptions {
             project_dir: Some(directory.path().into()),
             settings: Settings {
-                theme: Some("unversioned".into()),
+                theme: Some("invalid".into()),
                 ..Settings::default()
             },
             ..RenderOptions::default()
         },
     )
     .unwrap_err();
-    assert!(unversioned.to_string().contains("base.extend"));
+    assert!(
+        invalid
+            .to_string()
+            .contains("theme.styles must be a dictionary")
+    );
 }
 
 #[cfg(unix)]
@@ -620,4 +613,141 @@ fn base_spacing_properties_resolve_independently() {
     .unwrap();
 
     assert!(rendered.bytes.starts_with(b"%PDF-"));
+}
+
+#[test]
+fn preview_is_a_decodable_jpeg_with_intrinsic_dimensions_and_white_background() {
+    let cv = parse(STARTER_MARKDOWN, InputFormat::Markdown).unwrap();
+    for (paper, dimensions) in [("us-letter", (612, 792)), ("a4", (595, 842))] {
+        let options = RenderOptions {
+            settings: Settings {
+                page: Some(PageSettings {
+                    paper: Some(paper.into()),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let (pdf, jpeg, width, height) =
+            cac_render::render_pdf_and_preview_with_options(&cv, &options).unwrap();
+        assert_eq!((width, height), dimensions);
+        assert!(pdf.bytes.starts_with(b"%PDF-"));
+        let decoded = image::load_from_memory_with_format(&jpeg, image::ImageFormat::Jpeg)
+            .unwrap()
+            .to_rgb8();
+        assert_eq!(decoded.dimensions(), dimensions);
+        assert!(
+            decoded
+                .get_pixel(0, 0)
+                .0
+                .iter()
+                .all(|channel| *channel >= 250)
+        );
+        assert!(
+            decoded
+                .pixels()
+                .any(|pixel| pixel.0.iter().any(|channel| *channel < 128))
+        );
+    }
+}
+
+#[test]
+fn theme_project_schema_requires_a_selected_theme_and_runtime_checks_equality() {
+    let schema = cac_render::settings_schema();
+    assert_eq!(
+        schema["dependentRequired"]["themeProject"],
+        serde_json::json!(["theme"])
+    );
+    for value in [
+        serde_json::json!({"themeProject": "sample"}),
+        serde_json::json!({"themeProject": "sample", "theme": "other"}),
+        serde_json::json!({"themeProject": "../sample", "theme": "../sample"}),
+    ] {
+        let settings = serde_json::from_value(value).unwrap();
+        assert!(Settings::validate(settings).is_err());
+    }
+    let settings = Settings::validate(
+        serde_json::from_value(serde_json::json!({"themeProject": "sample", "theme": "sample"}))
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        serde_json::to_value(settings).unwrap()["themeProject"],
+        "sample"
+    );
+}
+
+#[test]
+fn html_preserves_complete_metadata_and_prose_list_structure() {
+    let cv = parse(
+        include_str!("../../cac-io/tests/fixtures/flexible.md"),
+        InputFormat::Markdown,
+    )
+    .unwrap();
+    let html = render_html(&cv);
+    for visible in [
+        "Director, Data and AI",
+        "Acme, Inc.",
+        "Remote",
+        "Example Press",
+        "2023-05",
+        "2022–",
+        "–2021",
+        "A paragraph after the list.",
+        "Second line.",
+    ] {
+        assert!(html.contains(visible), "missing {visible}");
+    }
+    assert!(html.contains("<ol start=\"3\">"));
+    assert!(html.contains("href=\"mailto:work@example.com\""));
+    assert!(html.contains("href=\"https://example.com/paper\""));
+    assert!(html.contains("<div class=\"prose\">An introduction before the jobs.</div>"));
+    assert!(html.contains("&lt;tags&gt;"));
+    assert!(html.contains("<br>"));
+    let pdf = render_pdf(&cv).unwrap();
+    assert!(pdf.bytes.starts_with(b"%PDF-"));
+}
+
+#[test]
+fn themes_receive_open_section_kinds_and_ids_and_can_choose_layouts() {
+    let cv = parse(
+        "# An Nguyễn\n\n## Credentials\nKind: certifications\nId: credentials\n\n### Cloud Engineer\nDate: 2024\n\n- Passed the exam.\n\n## Community\nKind: community-awards\nId: local\n\n### Volunteer recognition\n",
+        InputFormat::Markdown,
+    ).unwrap();
+    let directory = tempdir().unwrap();
+    write_theme(
+        directory.path(),
+        "open-kinds",
+        r#"
+#import "/.cac/base.typ" as base
+#let section(ctx, section) = {
+  if section.id == "credentials" {
+    assert.eq(section.kind, "certifications")
+    assert.eq(section.entries.first().kind, "custom")
+    base.section_table(ctx, section)
+  } else {
+    assert.eq(section.kind, "community-awards")
+    base.section_flow(ctx, section)
+  }
+}
+#let theme = base.extend(components: (section: section))
+"#,
+    );
+    render_pdf_with_options(
+        &cv,
+        &RenderOptions {
+            project_dir: Some(directory.path().into()),
+            settings: Settings {
+                theme: Some("open-kinds".into()),
+                ..Settings::default()
+            },
+            ..RenderOptions::default()
+        },
+    )
+    .unwrap();
+    render_pdf(&cv).unwrap();
+    let html = render_html(&cv);
+    assert!(html.contains("Cloud Engineer"));
+    assert!(html.contains("Volunteer recognition"));
 }

@@ -43,11 +43,27 @@ pub fn render_html(cv: &CvDocument) -> String {
             html_escape::encode_text(website.as_str())
         );
     }
+    for contact in &cv.profile.contacts {
+        if let Some(href) = &contact.href {
+            let _ = write!(
+                output,
+                "<a href=\"{}\">{}</a>",
+                html_escape::encode_double_quoted_attribute(href.as_str()),
+                html_escape::encode_text(&contact.label)
+            );
+        } else {
+            let _ = write!(
+                output,
+                "<span>{}</span>",
+                html_escape::encode_text(&contact.label)
+            );
+        }
+    }
     output.push_str("</div></header>");
     if let Some(summary) = &cv.profile.summary {
-        output.push_str("<p>");
+        output.push_str("<div class=\"summary\">");
         render_rich_html(summary, &mut output);
-        output.push_str("</p>");
+        output.push_str("</div>");
     }
     for section in &cv.sections {
         let _ = write!(
@@ -58,6 +74,12 @@ pub fn render_html(cv: &CvDocument) -> String {
         );
         let mut entries = section.entries.iter().peekable();
         while let Some(entry) = entries.next() {
+            if let EntryKind::Prose(value) = &entry.kind {
+                output.push_str("<div class=\"prose\">");
+                render_rich_html(&value.body, &mut output);
+                output.push_str("</div>");
+                continue;
+            }
             if let EntryKind::Text(value) = &entry.kind {
                 output.push_str("<ul class=\"text-entries\"><li>");
                 render_rich_html(&value.body, &mut output);
@@ -86,13 +108,39 @@ pub fn render_html(cv: &CvDocument) -> String {
             }
             output.push_str("</div>");
             if let Some(period) = entry.kind.period() {
-                let _ = write!(
-                    output,
-                    "<time class=\"period\">{}–{}</time>",
-                    period.start, period.end
-                );
+                let _ = write!(output, "<time class=\"period\">{period}</time>");
+            }
+            if let Some(date) = entry.kind.date() {
+                let _ = write!(output, "<time class=\"period\">{date}</time>");
             }
             output.push_str("</div>");
+            if let EntryKind::Experience(value) = &entry.kind
+                && let Some(location) = &value.location
+            {
+                let _ = write!(
+                    output,
+                    "<div class=\"location\">{}</div>",
+                    html_escape::encode_text(location)
+                );
+            }
+            let url = match &entry.kind {
+                EntryKind::Project(value) => value.url.as_ref(),
+                EntryKind::Publication(value) => value.url.as_ref(),
+                _ => None,
+            };
+            if let Some(url) = url {
+                let _ = write!(
+                    output,
+                    "<div><a href=\"{}\">{}</a></div>",
+                    html_escape::encode_double_quoted_attribute(url.as_str()),
+                    html_escape::encode_text(url.as_str())
+                );
+            }
+            if let Some(body) = &entry.content {
+                output.push_str("<div class=\"content\">");
+                render_rich_html(body, &mut output);
+                output.push_str("</div>");
+            }
             if !entry.kind.highlights().is_empty() {
                 output.push_str("<ul>");
                 for highlight in entry.kind.highlights() {
@@ -114,6 +162,25 @@ fn render_rich_html(value: &RichText, output: &mut String) {
     fn render(nodes: &[Inline], output: &mut String) {
         for node in nodes {
             match node {
+                Inline::Paragraph(body) => {
+                    output.push_str("<p>");
+                    render(body, output);
+                    output.push_str("</p>");
+                }
+                Inline::Break => output.push_str("<br>"),
+                Inline::List { start, items } => {
+                    if let Some(start) = start {
+                        let _ = write!(output, "<ol start=\"{start}\">");
+                    } else {
+                        output.push_str("<ul>");
+                    }
+                    for item in items {
+                        output.push_str("<li>");
+                        render(&item.0, output);
+                        output.push_str("</li>");
+                    }
+                    output.push_str(if start.is_some() { "</ol>" } else { "</ul>" });
+                }
                 Inline::Text(value) => output.push_str(&html_escape::encode_text(value)),
                 Inline::Code(value) => {
                     output.push_str("<code>");

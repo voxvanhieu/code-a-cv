@@ -8,29 +8,57 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Period {
-    pub start: DatePoint,
-    pub end: DatePoint,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start: Option<DatePoint>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end: Option<DatePoint>,
 }
 
 impl Period {
     pub fn new(start: DatePoint, end: DatePoint) -> Result<Self, PeriodError> {
-        if end != DatePoint::Present && start.sort_key() > end.sort_key() {
-            return Err(PeriodError { start, end });
+        Self::partial(Some(start), Some(end))
+    }
+
+    pub fn partial(start: Option<DatePoint>, end: Option<DatePoint>) -> Result<Self, PeriodError> {
+        let period = Self { start, end };
+        if period.is_valid() {
+            Ok(period)
+        } else {
+            Err(PeriodError)
         }
-        Ok(Self { start, end })
     }
 
     pub fn is_valid(&self) -> bool {
-        self.end == DatePoint::Present || self.start.sort_key() <= self.end.sort_key()
+        if self.start == Some(DatePoint::Present) || (self.start.is_none() && self.end.is_none()) {
+            return false;
+        }
+        match (&self.start, &self.end) {
+            (Some(start), Some(end)) => {
+                end == &DatePoint::Present || start.sort_key() <= end.last_key()
+            }
+            _ => true,
+        }
+    }
+}
+
+impl Display for Period {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        if let Some(start) = &self.start {
+            write!(formatter, "{start}")?;
+        }
+        formatter.write_str("–")?;
+        if let Some(end) = &self.end {
+            write!(formatter, "{end}")?;
+        }
+        Ok(())
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
-#[error("period starts at {start} after it ends at {end}")]
-pub struct PeriodError {
-    pub start: DatePoint,
-    pub end: DatePoint,
-}
+#[error(
+    "invalid period: provide at least one date, use Present only as the end, and do not start after the end"
+)]
+pub struct PeriodError;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DatePoint {
@@ -53,6 +81,14 @@ impl DatePoint {
             Self::YearMonth(_, _) => 2,
             Self::Full(_) => 3,
             Self::Present => 0,
+        }
+    }
+
+    fn last_key(&self) -> (i32, u32, u32) {
+        match self {
+            Self::Year(year) => (*year, 12, 31),
+            Self::YearMonth(year, month) => (*year, u32::from(*month), 31),
+            _ => self.sort_key(),
         }
     }
 

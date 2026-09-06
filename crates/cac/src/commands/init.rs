@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use cac_io::{InputFormat, parse, to_markdown};
+use cac_io::{InputFormat, parse, to_markdown_checked};
 use clap::{Args as ClapArgs, ValueEnum};
 
 use crate::commands::schema;
@@ -111,7 +111,7 @@ pub fn run(args: Args) -> Result<()> {
         parse(cac_io::STARTER_MARKDOWN, InputFormat::Markdown)?
     };
     let content = match args.format {
-        Format::Markdown => to_markdown(&cv),
+        Format::Markdown => to_markdown_checked(&cv)?,
         Format::Yaml => serde_yaml_ng::to_string(&cv)?,
         Format::Json => serde_json::to_string_pretty(&cv)?,
         Format::Toml => toml::to_string_pretty(&cv)?,

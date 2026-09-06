@@ -1,0 +1,49 @@
+{
+  "CV profile": {
+    "scope": "markdown",
+    "prefix": "cac-profile",
+    "body": [
+      "# ${1:Your name}",
+      "Email: ${2:you@example.com}",
+      "",
+      "$0"
+    ],
+    "description": "Name and optional email; omit Email if not wanted"
+  },
+  "CV section": {
+    "scope": "markdown",
+    "prefix": "cac-section",
+    "body": [
+      "## ${1:Section title}",
+      "Kind: ${2:custom}",
+      "Id: ${3:section-id}",
+      "",
+      "$0"
+    ],
+    "description": "A section with an explicit semantic kind"
+  },
+  "CV experience": {
+    "scope": "markdown",
+    "prefix": "cac-experience",
+    "body": [
+      "### ${1:Role}",
+      "Kind: experience",
+      "Organization: ${2:Organization}",
+      "",
+      "- $0"
+    ],
+    "description": "Experience entry; organization, dates, and highlights are optional"
+  },
+  "CV project": {
+    "scope": "markdown",
+    "prefix": "cac-project",
+    "body": [
+      "### ${1:Project name}",
+      "Kind: project",
+      "URL: ${2:https://example.com}",
+      "",
+      "- $0"
+    ],
+    "description": "Project entry with an optional URL"
+  }
+}

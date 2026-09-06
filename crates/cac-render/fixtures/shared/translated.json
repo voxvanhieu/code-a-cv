@@ -1,0 +1,128 @@
+{
+  "profile": {
+    "name": "CACProfileZZZ Nguyễn Анна <&>",
+    "email": "CACEmailZZZ@example.com",
+    "phone": "+12025550123",
+    "location": "CACHomeZZZ",
+    "website": "https://example.com/CACWebsiteZZZ",
+    "summary": "CACSummaryZZZ **CACStrongZZZ** *CACEmphasisZZZ* `CACCodeZZZ` [CACLinkZZZ](https://example.com/CACLinkTargetZZZ) #literal <>&"
+  },
+  "sections": [
+    {
+      "id": "s0",
+      "title": "CACTranslated0ZZZ Kinh nghiệm Опыт",
+      "kind": "experience",
+      "entries": [
+        {
+          "type": "experience",
+          "role": "CACRoleZZZ",
+          "organization": "CACOrganizationZZZ",
+          "location": "CACLocationZZZ",
+          "period": {
+            "start": "2022",
+            "end": "present"
+          },
+          "highlights": [
+            "CACExperienceHighlightZZZ"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s1",
+      "title": "CACTranslated1ZZZ Kinh nghiệm Опыт",
+      "kind": "education",
+      "entries": [
+        {
+          "type": "education",
+          "qualification": "CACQualificationZZZ",
+          "institution": "CACInstitutionZZZ",
+          "period": {
+            "start": "2022",
+            "end": "present"
+          },
+          "highlights": [
+            "CACEducationHighlightZZZ"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s2",
+      "title": "CACTranslated2ZZZ Kinh nghiệm Опыт",
+      "kind": "projects",
+      "entries": [
+        {
+          "type": "project",
+          "name": "CACProjectZZZ",
+          "url": "https://example.com/CACProjectURLZZZ",
+          "period": {
+            "start": "2022",
+            "end": "present"
+          },
+          "highlights": [
+            "CACProjectHighlightZZZ"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s3",
+      "title": "CACTranslated3ZZZ Kinh nghiệm Опыт",
+      "kind": "publications",
+      "entries": [
+        {
+          "type": "publication",
+          "title": "CACPublicationZZZ",
+          "publisher": "CACPublisherZZZ",
+          "date": "2023",
+          "url": "https://example.com/CACPublicationURLZZZ",
+          "highlights": [
+            "CACPublicationHighlightZZZ"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s4",
+      "title": "CACTranslated4ZZZ Kinh nghiệm Опыт",
+      "kind": "skills",
+      "entries": [
+        {
+          "type": "skill-group",
+          "name": "CACSkillsZZZ",
+          "skills": [
+            "CACSkillOneZZZ",
+            "CACSkillTwoZZZ"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s5",
+      "title": "CACTranslated5ZZZ Kinh nghiệm Опыт",
+      "kind": "custom",
+      "entries": [
+        {
+          "type": "custom",
+          "heading": "CACCustomZZZ",
+          "period": {
+            "start": "2017",
+            "end": "2019"
+          },
+          "highlights": [
+            "CACCustomHighlightZZZ"
+          ]
+        },
+        {
+          "type": "text",
+          "body": "CACTextOneZZZ"
+        },
+        {
+          "type": "text",
+          "body": "CACTextTwoZZZ"
+        }
+      ]
+    }
+  ]
+}

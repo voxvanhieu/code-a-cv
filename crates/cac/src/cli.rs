@@ -1,7 +1,7 @@
 use cac_io::InputFormat;
 use clap::{ArgAction, Parser, Subcommand, ValueEnum};
 
-use crate::commands::{build, check, convert, init, schema, theme};
+use crate::commands::{build, check, convert, fmt, init, schema, theme};
 use crate::error::Result;
 
 #[derive(Parser)]
@@ -29,6 +29,8 @@ enum Command {
     Check(check::Args),
     #[command(about = convert::ABOUT, after_help = convert::AFTER_HELP)]
     Convert(convert::Args),
+    #[command(about = fmt::ABOUT, after_help = fmt::AFTER_HELP)]
+    Fmt(fmt::Args),
     #[command(about = schema::ABOUT, after_help = schema::AFTER_HELP)]
     Schema,
     #[command(about = theme::ABOUT, after_help = theme::AFTER_HELP)]
@@ -42,6 +44,7 @@ impl Cli {
             Command::Build(args) => build::run(args),
             Command::Check(args) => check::run(args),
             Command::Convert(args) => convert::run(args),
+            Command::Fmt(args) => fmt::run(args),
             Command::Schema => schema::run(),
             Command::Theme(args) => theme::run(args),
         }

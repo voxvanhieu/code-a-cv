@@ -1,0 +1,33 @@
+{
+  "profile": {
+    "name": "CACMixedZZZ"
+  },
+  "sections": [
+    {
+      "id": "mixed",
+      "title": "CACMixedSectionZZZ",
+      "kind": "skills",
+      "entries": [
+        {
+          "type": "custom",
+          "heading": "CACCustomZZZ",
+          "period": {
+            "start": "2017",
+            "end": "2019"
+          },
+          "highlights": [
+            "CACCustomHighlightZZZ"
+          ]
+        },
+        {
+          "type": "skill-group",
+          "name": "CACSkillsZZZ",
+          "skills": [
+            "CACSkillOneZZZ",
+            "CACSkillTwoZZZ"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "profile": {
+    "name": "CACProfileZZZ Nguyễn Анна <&>",
+    "email": "CACEmailZZZ@example.com",
+    "phone": "+12025550123",
+    "location": "CACHomeZZZ",
+    "website": "https://example.com/CACWebsiteZZZ",
+    "summary": "CACSummaryZZZ **CACStrongZZZ** *CACEmphasisZZZ* `CACCodeZZZ` [CACLinkZZZ](https://example.com/CACLinkTargetZZZ) #literal <>&"
+  },
+  "sections": [
+    {
+      "id": "s0",
+      "title": "CACSection0ZZZ",
+      "kind": "experience",
+      "entries": [
+        {
+          "type": "experience",
+          "role": "CACRoleZZZ",
+          "organization": "CACOrganizationZZZ"
+        }
+      ]
+    },
+    {
+      "id": "s1",
+      "title": "CACSection1ZZZ",
+      "kind": "education",
+      "entries": [
+        {
+          "type": "education",
+          "qualification": "CACQualificationZZZ",
+          "institution": "CACInstitutionZZZ"
+        }
+      ]
+    },
+    {
+      "id": "s2",
+      "title": "CACSection2ZZZ",
+      "kind": "projects",
+      "entries": [
+        {
+          "type": "project",
+          "name": "CACProjectZZZ"
+        }
+      ]
+    },
+    {
+      "id": "s3",
+      "title": "CACSection3ZZZ",
+      "kind": "publications",
+      "entries": [
+        {
+          "type": "publication",
+          "title": "CACPublicationZZZ",
+          "publisher": "CACPublisherZZZ"
+        }
+      ]
+    },
+    {
+      "id": "s4",
+      "title": "CACSection4ZZZ",
+      "kind": "skills",
+      "entries": [
+        {
+          "type": "skill-group",
+          "name": "CACSkillsZZZ"
+        }
+      ]
+    },
+    {
+      "id": "s5",
+      "title": "CACSection5ZZZ",
+      "kind": "custom",
+      "entries": [
+        {
+          "type": "custom",
+          "heading": "CACCustomZZZ"
+        },
+        {
+          "type": "text",
+          "body": "CACTextOneZZZ"
+        },
+        {
+          "type": "text",
+          "body": "CACTextTwoZZZ"
+        }
+      ]
+    }
+  ]
+}

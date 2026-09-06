@@ -9,18 +9,15 @@
 
 Still naming it like `CV_ElonMusk_Facebook_final_v2.pdf`? Just focus on your work experiences, mark it down, and let `cac` do the rest. That’s the idea behind CV as Code.
 
-Code a CV turns structured files like Markdown into polished CVs, making it easy to manage versions, customize content for different roles, and export consistently without manual reformatting.
+Write your CV as code and render it as PDF or HTML. Keep your content in version
+control, choose a theme, and rebuild consistently.
+
+- Author in Markdown, or use JSON, YAML, and TOML.
+- Import and export the supported [JSON Resume subset](docs/authoring/conversion.md).
+- Check content and format source files without an LLM.
+- Customize PDF layouts with reusable themes.
 
 > ⭐ Your [star](https://github.com/voxvanhieu/code-a-cv) can help make Code a CV better
-
-## What it supports
-
-* Write your CV in Markdown, YAML, JSON, TOML, or [JSON Resume](https://jsonresume.org/)
-* Export your CV as PDF or HTML
-* CV variants based on the job requirements
-* Auto format with theme
-* Check for missing contact details, empty sections, weak highlights, first-person wording, and inconsistent dates *(no LLM)*
-* Rebuild the same PDF consistently
 
 ## Quick start
 
@@ -61,50 +58,38 @@ cd my-cv
 cac init
 ```
 
-This creates `cv.md` and `settings.json`. Edit `cv.md`, then build it:
+Edit the generated `cv.md`, then build your PDF:
 
 ```sh
 cac build
 ```
 
-The finished PDF is `offering/cv.pdf`—your carefully prepared offering to the hiring gods.
+Open `offering/cv.pdf`. This is your carefully prepared offering to the hiring gods.
+Continue with the **[usage guide](docs/authoring/README.md)**
+for authoring, settings, and output options.
 
-## Common commands
+## Write and maintain your CV
 
-| Command | Description |
-|---|---|
-| `cac init [--format FORMAT] [--from resume.json]` | Create a starter CV or import JSON Resume data |
-| `cac build [FILE]` | Validate and render a CV as PDF or HTML |
-| `cac check [FILE] [--strict]` | Check source content |
-| `cac convert <FILE> --to <FORMAT>` | Convert supported input formats |
+| Task                       | Command                       | Guide                                                                                    |
+| -------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------- |
+| Start or import a CV       | `cac init`                    | [Getting started](docs/authoring/getting-started.md)                                     |
+| Check content              | `cac check cv.md`             | [Content checks](docs/authoring/checking-and-formatting.md#check-content)                |
+| Format the source in place | `cac fmt`                     | [Formatting](docs/authoring/checking-and-formatting.md#format-source-files) |
+| Render PDF or HTML         | `cac build`                   | [Building and settings](docs/authoring/building.md)                                      |
+| Convert source formats     | `cac convert cv.md --to json` | [Conversion](docs/authoring/conversion.md)                                               |
 
-The `root` property in `settings.json` selects the CV source used by `cac build` when no file is provided. This avoids ambiguity when a directory contains several supported CV files. By default, build artifacts use the source file name. Set `naming` to an explicit artifact name such as `Ada_Lovelace_Engineering`; `cac build` then produces `Ada_Lovelace_Engineering.pdf`. Put common PDF formatting overrides in the same file. Internally, `cac init` and `cac build` keep the project-local settings schema current for editor completion and validation.
+See [FieldMark syntax](docs/authoring/fieldmark.md) for headings and optional fields,
+and [example projects](docs/examples/README.md) for complete CVs and rendered results.
 
-## Use a theme
+## Choose or create a theme
 
-`classic` is included by default. Find and install another theme with:
+The `classic` theme is included. Follow [using themes](docs/authoring/themes.md)
+to find, install, and select another design.
 
-```sh
-cac theme list
-cac theme search blue
-cac theme install classic-blue
-cac theme install classic-blue --local
-```
-
-The first install is available to all projects. `--local` installs it only for the current project. Select it in `settings.json`, then run `cac build`:
-
-```json
-{
-  "theme": "classic-blue"
-}
-```
-
-> Created a great theme? Read the [theme contribution guide](themes/README.md) and share it with the community.
-
-## Examples
-
-See the runnable [`docs/examples/`](docs/examples/) projects for Markdown, structured formats,
-and JSON Resume import workflows.
+To create your own, use `cac theme init`, `cac theme test`, and `cac theme pack`.
+The [theme contribution guide](themes/README.md) explains the workflow;
+the [shared theme contract](docs/development/shared-theme-contract.md) defines the
+rendering requirements.
 
 ## Development
 
@@ -112,21 +97,16 @@ and JSON Resume import workflows.
 
 See the [development guide](docs/development/README.md) for setup, architecture, testing, pull requests, and releases.
 
-## Todo list
+## Roadmap
 
-* [x] Markdown and structured data input
-* [x] PDF and HTML output
-* [x] JSON Resume import and export
-* [x] CV content checks
-* [x] Cross-platform releases
-* [ ] More themes
-* [ ] Rebuild automatically when files change
-* [ ] Create job-specific CV versions with tags
-* [ ] Fit a CV to a page limit
-* [ ] Check the rendered PDF for missing content
-* [ ] WebAssembly support
-* [ ] Stunning local Web UI with Tauri
-* [ ] VS Code extension
+- [ ] More themes
+- [ ] Rebuild automatically when files change
+- [ ] Create job-specific CV versions with tags
+- [ ] Fit a CV to a page limit
+- [ ] Check the rendered PDF for missing content
+- [ ] WebAssembly support
+- [ ] Stunning local Web UI with Tauri
+- [ ] VS Code extension
 
 ## License
 
