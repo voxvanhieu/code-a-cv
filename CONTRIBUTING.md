@@ -65,3 +65,5 @@ Use a specific imperative title. Do not combine unrelated refactors with a behav
 ## Security
 
 Report suspected security issues privately to the maintainers. Do not file public issues for problems involving CV data, theme isolation, PDF output, dependencies, or release artifacts.
+
+Shared themes must follow the [theme author contract](docs/development/shared-theme-contract.md) and pass `cac theme test --shared` plus visual and source review. Keep Markdown section semantics explicit when headings are translated or renamed.

@@ -23,11 +23,13 @@ serde.workspace = true
 serde_json.workspace = true
 serde_yaml_ng.workspace = true
 sha2 = "0.10"
+tempfile = "3"
 thiserror.workspace = true
 toml.workspace = true
 ureq = "3"
+url.workspace = true
+zip = { version = "7", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]
 assert_cmd = "2"
 predicates = "3"
-tempfile = "3"

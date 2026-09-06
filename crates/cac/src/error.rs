@@ -11,6 +11,8 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("{0}")]
     Parse(#[from] ParseError),
+    #[error("{path}: {error}")]
+    SourceParse { path: PathBuf, error: ParseError },
     #[error("{0}")]
     Render(#[from] cac_render::RenderError),
     #[error("{0}")]
@@ -47,4 +49,6 @@ pub enum Error {
     ThemeChecksum { theme: String, path: String },
     #[error("theme `{0}` is not installed in the selected location")]
     ThemeNotInstalled(String),
+    #[error("theme project error: {0}")]
+    ThemeProject(String),
 }

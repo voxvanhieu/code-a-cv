@@ -1,93 +1,18 @@
 #import "/.cac/base.typ" as base
 
-#let entry-details(ctx, entry) = [
-  #strong((ctx.components.rich)(ctx, entry.primary))
-  #if entry.secondary != none [
-    #linebreak()
-    #emph((ctx.components.rich)(ctx, entry.secondary))
-  ]
-  #(ctx.components.highlight_list)(ctx, entry.highlights)
-]
-
-#let dated-table(ctx, entries, first-title, second-title, date-width: 30mm) = {
-  let cells = ()
-  for entry in entries {
-    cells.push(if entry.period != none { [#entry.period] } else { [] })
-    cells.push(entry-details(ctx, entry))
-  }
-  table(
-    columns: (date-width, 1fr),
-    column-gutter: 8pt,
-    inset: (x: 5pt, y: 4pt),
-    stroke: (x, y) => if y == 0 { (bottom: 0.6pt + ctx.tokens.colors.accent) } else { none },
-    table.header(
-      [#strong(first-title)],
-      [#strong(second-title)],
-    ),
-    ..cells,
-  )
-}
-
-#let details-first-table(ctx, entries, first-title, second-title) = {
-  let cells = ()
-  for entry in entries {
-    cells.push(entry-details(ctx, entry))
-    cells.push(if entry.period != none { [#entry.period] } else { [] })
-  }
-  table(
-    columns: (1fr, auto),
-    column-gutter: 8pt,
-    inset: (x: 5pt, y: 4pt),
-    stroke: (x, y) => if y == 0 { (bottom: 0.6pt + ctx.tokens.colors.accent) } else { none },
-    table.header(
-      [#strong(first-title)],
-      [#strong(second-title)],
-    ),
-    ..cells,
-  )
-}
-
-#let skills-table(ctx, entries) = {
-  let cells = ()
-  for entry in entries {
-    cells.push([#strong((ctx.components.rich)(ctx, entry.primary))])
-    cells.push((ctx.components.highlight_list)(ctx, entry.highlights))
-  }
-  table(
-    columns: (36mm, 1fr),
-    column-gutter: 8pt,
-    inset: (x: 5pt, y: 4pt),
-    stroke: none,
-    ..cells,
-  )
-}
-
-#let fallback-entries(ctx, entries) = {
-  for (index, entry) in entries.enumerate() {
-    (ctx.components.entry)(ctx, entry)
-    if index + 1 < entries.len() { v(ctx.styles.entry.space_after) }
-  }
-}
+// English presentation labels; section titles never select a layout.
+#let labels = (
+  experience: (period: "Period", details: "Role and organization"),
+  education: (period: "Period", details: "Qualification and institution"),
+  project: (period: "Period", details: "Project"),
+  publication: (period: "Date", details: "Publication"),
+)
 
 #let section(ctx, section) = {
-  (ctx.components.section_heading)(ctx, section)
-  if section.entries.len() > 0 {
-    v(ctx.styles.section.space_after_heading)
-    let kind = section.entries.first().kind
-    if kind == "experience" {
-      dated-table(ctx, section.entries, "Period", "Role and organization")
-    } else if kind == "education" {
-      dated-table(ctx, section.entries, "Period", "Qualification and institution")
-    } else if kind == "project" {
-      details-first-table(ctx, section.entries, "Project", "Period")
-    } else if kind == "publication" {
-      details-first-table(ctx, section.entries, "Publication", "Date")
-    } else if kind == "skill-group" {
-      skills-table(ctx, section.entries)
-    } else {
-      fallback-entries(ctx, section.entries)
-    }
-  }
+  let kind = base.table_kind(section)
+  if kind == "skill-group" { base.section_labels(ctx, section) }
+  else if kind != none { base.section_table(ctx, section, headers: labels.at(kind)) }
+  else { base.section_flow(ctx, section) }
 }
 
 #let section-heading(ctx, section) = {

@@ -1,0 +1,11 @@
+Create a theme-development project
+
+Usage: cac theme init [OPTIONS] [THEME_NAME]
+
+Arguments:
+  [THEME_NAME]  Name the theme with lowercase letters, numbers, hyphens, or underscores
+
+Options:
+      --author <AUTHOR>   Set the theme author
+      --author-url <URL>  Set the optional HTTP or HTTPS author URL
+  -h, --help              Print help

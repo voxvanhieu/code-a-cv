@@ -104,9 +104,38 @@ fn assert_all_entry_kinds(cv: &CvDocument) {
             EntryKind::Publication(_) => 3,
             EntryKind::SkillGroup(_) => 4,
             EntryKind::Custom(_) => 5,
-            EntryKind::Text(_) => 6,
+            EntryKind::Text(_) | EntryKind::Prose(_) => 6,
         };
         present[index] = true;
     }
     assert!(present.into_iter().all(|value| value));
+}
+
+#[test]
+fn theme_defined_section_example_parses_without_a_theme() {
+    let cv = parse(
+        include_str!("../../../docs/examples/theme-defined-sections/cv.md"),
+        InputFormat::Markdown,
+    )
+    .unwrap();
+    assert_eq!(cv.sections.len(), 10);
+    assert_all_entry_kinds(&cv);
+    let credentials = cv
+        .sections
+        .iter()
+        .find(|section| section.id == "credentials")
+        .unwrap();
+    assert_eq!(credentials.kind.as_str(), "certifications");
+    let consulting = cv
+        .sections
+        .iter()
+        .find(|section| section.id == "independent-work")
+        .unwrap();
+    assert_eq!(consulting.kind.as_str(), "consulting");
+    assert!(matches!(
+        consulting.entries[0].kind,
+        EntryKind::Experience(_)
+    ));
+    let markdown = cac_io::to_markdown_checked(&cv).unwrap();
+    assert_eq!(parse(&markdown, InputFormat::Markdown).unwrap(), cv);
 }

@@ -1,6 +1,6 @@
 use cac_core::{
-    CvDocument, DatePoint, EducationEntry, Entry, EntryKind, ExperienceEntry, Origin, Period,
-    Profile, RichText, Section, SectionKind, SkillGroupEntry, TagSet,
+    CvDocument, EducationEntry, Entry, EntryKind, ExperienceEntry, Origin, Period, Profile,
+    RichText, Section, SectionKind, SkillGroupEntry, TagSet,
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -9,8 +9,10 @@ use url::Url;
 use crate::{ParseError, parse_date_point};
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct JsonResume {
+    #[serde(rename = "$schema")]
+    _schema: Option<String>,
     #[serde(default)]
     basics: JsonBasics,
     #[serde(default)]
@@ -22,6 +24,7 @@ struct JsonResume {
 }
 
 #[derive(Default, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct JsonBasics {
     #[serde(default)]
     name: String,
@@ -33,7 +36,7 @@ struct JsonBasics {
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct JsonLocation {
     city: Option<String>,
     region: Option<String>,
@@ -41,7 +44,7 @@ struct JsonLocation {
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct JsonWork {
     name: String,
     position: String,
@@ -52,7 +55,7 @@ struct JsonWork {
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct JsonEducation {
     institution: String,
     #[serde(default)]
@@ -66,6 +69,7 @@ struct JsonEducation {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct JsonSkill {
     name: String,
     #[serde(default)]
@@ -91,7 +95,8 @@ pub fn import_json_resume(source: &str) -> Result<CvDocument, ParseError> {
         phone: resume.basics.phone,
         location,
         website: resume.basics.url,
-        summary: resume.basics.summary.as_deref().map(RichText::parse),
+        summary: resume.basics.summary.as_deref().map(RichText::literal),
+        contacts: Vec::new(),
     };
     let mut sections = Vec::new();
     if !resume.work.is_empty() {
@@ -103,22 +108,26 @@ pub fn import_json_resume(source: &str) -> Result<CvDocument, ParseError> {
             entries: resume
                 .work
                 .into_iter()
-                .map(|value| Entry {
-                    kind: EntryKind::Experience(ExperienceEntry {
-                        role: RichText::parse(&value.position),
-                        organization: RichText::parse(&value.name),
-                        location: None,
-                        period: json_period(value.start_date, value.end_date),
-                        highlights: value
-                            .highlights
-                            .iter()
-                            .map(|value| RichText::parse(value))
-                            .collect(),
-                    }),
-                    tags: TagSet::new(),
-                    origin: Origin::default(),
+                .map(|value| -> Result<Entry, ParseError> {
+                    Ok(Entry {
+                        kind: EntryKind::Experience(ExperienceEntry {
+                            role: RichText::literal(&value.position),
+                            organization: RichText::literal(&value.name),
+                            location: None,
+                            period: json_period(value.start_date, value.end_date)?,
+                            date: None,
+                            highlights: value
+                                .highlights
+                                .iter()
+                                .map(|value| RichText::literal(value))
+                                .collect(),
+                        }),
+                        tags: TagSet::new(),
+                        content: None,
+                        origin: Origin::default(),
+                    })
                 })
-                .collect(),
+                .collect::<Result<Vec<_>, _>>()?,
         });
     }
     if !resume.education.is_empty() {
@@ -130,28 +139,30 @@ pub fn import_json_resume(source: &str) -> Result<CvDocument, ParseError> {
             entries: resume
                 .education
                 .into_iter()
-                .map(|value| {
+                .map(|value| -> Result<Entry, ParseError> {
                     let qualification = [value.study_type, value.area]
                         .into_iter()
                         .filter(|value| !value.is_empty())
                         .collect::<Vec<_>>()
                         .join(" in ");
-                    Entry {
+                    Ok(Entry {
                         kind: EntryKind::Education(EducationEntry {
-                            qualification: RichText::parse(&qualification),
-                            institution: RichText::parse(&value.institution),
-                            period: json_period(value.start_date, value.end_date),
+                            qualification: RichText::literal(&qualification),
+                            institution: RichText::literal(&value.institution),
+                            period: json_period(value.start_date, value.end_date)?,
+                            date: None,
                             highlights: value
                                 .courses
                                 .iter()
-                                .map(|value| RichText::parse(value))
+                                .map(|value| RichText::literal(value))
                                 .collect(),
                         }),
                         tags: TagSet::new(),
+                        content: None,
                         origin: Origin::default(),
-                    }
+                    })
                 })
-                .collect(),
+                .collect::<Result<Vec<_>, _>>()?,
         });
     }
     if !resume.skills.is_empty() {
@@ -165,14 +176,15 @@ pub fn import_json_resume(source: &str) -> Result<CvDocument, ParseError> {
                 .into_iter()
                 .map(|value| Entry {
                     kind: EntryKind::SkillGroup(SkillGroupEntry {
-                        name: RichText::parse(&value.name),
+                        name: RichText::literal(&value.name),
                         skills: value
                             .keywords
                             .iter()
-                            .map(|value| RichText::parse(value))
+                            .map(|value| RichText::literal(value))
                             .collect(),
                     }),
                     tags: TagSet::new(),
+                    content: None,
                     origin: Origin::default(),
                 })
                 .collect(),
@@ -181,13 +193,25 @@ pub fn import_json_resume(source: &str) -> Result<CvDocument, ParseError> {
     Ok(CvDocument { profile, sections })
 }
 
-fn json_period(start: Option<String>, end: Option<String>) -> Option<Period> {
-    let start = start.as_deref().and_then(parse_date_point)?;
-    let end = end
-        .as_deref()
-        .and_then(parse_date_point)
-        .unwrap_or(DatePoint::Present);
-    Period::new(start, end).ok()
+fn json_period(start: Option<String>, end: Option<String>) -> Result<Option<Period>, ParseError> {
+    let point = |value: Option<String>, field: &str| {
+        value
+            .filter(|value| !value.trim().is_empty())
+            .map(|value| {
+                parse_date_point(&value).ok_or_else(|| {
+                    ParseError::Validation(format!("invalid JSON Resume {field} `{value}`"))
+                })
+            })
+            .transpose()
+    };
+    let start = point(start, "startDate")?;
+    let end = point(end, "endDate")?;
+    if start.is_none() && end.is_none() {
+        return Ok(None);
+    }
+    Period::partial(start, end)
+        .map(Some)
+        .map_err(|error| ParseError::Validation(error.to_string()))
 }
 
 pub fn export_json_resume(cv: &CvDocument) -> serde_json::Value {
@@ -198,8 +222,8 @@ pub fn export_json_resume(cv: &CvDocument) -> serde_json::Value {
         .filter_map(|entry| match &entry.kind {
             EntryKind::Experience(value) => Some(json!({
                 "name": value.organization.plain(), "position": value.role.plain(),
-                "startDate": value.period.as_ref().map(|period| period.start.to_string()),
-                "endDate": value.period.as_ref().map(|period| period.end.to_string()),
+                "startDate": value.period.as_ref().map(|period| period.start.as_ref().map(ToString::to_string)),
+                "endDate": value.period.as_ref().map(|period| period.end.as_ref().map(ToString::to_string)),
                 "highlights": value.highlights.iter().map(RichText::plain).collect::<Vec<_>>()
             })),
             _ => None,
@@ -212,8 +236,8 @@ pub fn export_json_resume(cv: &CvDocument) -> serde_json::Value {
         .filter_map(|entry| match &entry.kind {
             EntryKind::Education(value) => Some(json!({
                 "institution": value.institution.plain(), "studyType": value.qualification.plain(),
-                "startDate": value.period.as_ref().map(|period| period.start.to_string()),
-                "endDate": value.period.as_ref().map(|period| period.end.to_string()),
+                "startDate": value.period.as_ref().map(|period| period.start.as_ref().map(ToString::to_string)),
+                "endDate": value.period.as_ref().map(|period| period.end.as_ref().map(ToString::to_string)),
                 "courses": value.highlights.iter().map(RichText::plain).collect::<Vec<_>>()
             })),
             _ => None,
@@ -232,4 +256,21 @@ pub fn export_json_resume(cv: &CvDocument) -> serde_json::Value {
         },
         "work": work, "education": education, "skills": skills
     })
+}
+
+pub fn export_json_resume_checked(cv: &CvDocument) -> Result<serde_json::Value, ParseError> {
+    crate::validate(cv)?;
+    let output = export_json_resume(cv);
+    let reparsed = crate::parse(&output.to_string(), crate::InputFormat::JsonResume)?;
+    if &reparsed != cv {
+        return Err(ParseError::Validation(format!(
+            "JSON Resume conversion cannot preserve {}; use Markdown, JSON, YAML, or TOML instead",
+            crate::markdown::difference(
+                &serde_json::to_value(cv).unwrap(),
+                &serde_json::to_value(reparsed).unwrap(),
+                "cv"
+            )
+        )));
+    }
+    Ok(output)
 }

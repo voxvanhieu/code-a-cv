@@ -8,6 +8,7 @@ Arguments:
 Options:
       --input-format <FORMAT>  Set the input format; stdin defaults to markdown [possible values: markdown, yaml, json, toml, jsonresume]
       --strict                 Fail when any diagnostic is reported
+      --explain                Show the parsed CV fields before content diagnostics
   -h, --help                   Print help
 
 Examples:

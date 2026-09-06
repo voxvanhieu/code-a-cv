@@ -21,7 +21,10 @@ pub fn read_cv(path: &Path, input_format: Option<CvFormat>) -> Result<CvDocument
             .ok_or_else(|| Error::Unsupported(path.into()))?;
         InputFormat::from_extension(extension).ok_or_else(|| Error::Unsupported(path.into()))?
     };
-    Ok(parse(&source, format)?)
+    parse(&source, format).map_err(|error| Error::SourceParse {
+        path: path.to_path_buf(),
+        error,
+    })
 }
 
 pub fn read_source(path: &Path) -> Result<String> {
