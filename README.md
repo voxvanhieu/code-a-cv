@@ -64,7 +64,8 @@ Edit the generated `cv.md`, then build your PDF:
 cac build
 ```
 
-Open `offering/cv.pdf`. Continue with the **[usage guide](docs/authoring/README.md)**
+Open `offering/cv.pdf`. This is your carefully prepared offering to the hiring gods.
+Continue with the **[usage guide](docs/authoring/README.md)**
 for authoring, settings, and output options.
 
 ## Write and maintain your CV
@@ -73,7 +74,7 @@ for authoring, settings, and output options.
 | -------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------- |
 | Start or import a CV       | `cac init`                    | [Getting started](docs/authoring/getting-started.md)                                     |
 | Check content              | `cac check cv.md`             | [Content checks](docs/authoring/checking-and-formatting.md#check-content)                |
-| Format the source in place | `cac fmt`                     | [Formatting and dry runs](docs/authoring/checking-and-formatting.md#format-source-files) |
+| Format the source in place | `cac fmt`                     | [Formatting](docs/authoring/checking-and-formatting.md#format-source-files) |
 | Render PDF or HTML         | `cac build`                   | [Building and settings](docs/authoring/building.md)                                      |
 | Convert source formats     | `cac convert cv.md --to json` | [Conversion](docs/authoring/conversion.md)                                               |
 
