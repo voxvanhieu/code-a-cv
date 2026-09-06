@@ -7,6 +7,8 @@
 [![Homebrew](https://img.shields.io/badge/Homebrew-voxvanhieu%2Ftap-yellow?logo=homebrew)](https://github.com/voxvanhieu/homebrew-tap)
 [![License](https://img.shields.io/github/license/voxvanhieu/code-a-cv)](LICENSE)
 
+Still naming it like `CV_ElonMusk_Facebook_final_v2.pdf`? Just focus on your work experiences, mark it down, and let `cac` do the rest. That’s the idea behind CV as Code.
+
 Write your CV as code and render it as PDF or HTML. Keep your content in version
 control, choose a theme, and rebuild consistently.
 
@@ -14,6 +16,8 @@ control, choose a theme, and rebuild consistently.
 - Import and export the supported [JSON Resume subset](docs/authoring/conversion.md).
 - Check content and format source files without an LLM.
 - Customize PDF layouts with reusable themes.
+
+> ⭐ Your [star](https://github.com/voxvanhieu/code-a-cv) can help make Code a CV better
 
 ## Quick start
 
