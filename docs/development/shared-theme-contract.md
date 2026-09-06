@@ -1,6 +1,9 @@
 # Shared theme contract
 
 Themes consume one complete CV data schema and follow one styling contract.
+The [FieldMark authoring contract](../authoring/fieldmark.md) defines how user input maps to
+that schema. Optional source fields may be omitted; the complete view below
+always supplies keys, not fabricated values.
 Import `/.cac/base.typ` and export `theme = base.extend(...)`, or export a
 plain dictionary containing the overrides you need. `tokens`, `styles`, `page`,
 and `components` are optional dictionaries; omitted values inherit the shared
@@ -55,10 +58,13 @@ data, never evaluated as Typst source. Tags are intentionally absent.
 Contacts are ordered email, phone, location, website, omitting absent values.
 Email and phone targets use `mailto:` and `tel:`; websites retain their URL;
 locations have no target. Each label displays the corresponding source value.
+Additional `profile.contacts` follow these legacy contacts in source order, keeping
+their labels and optional targets. Their view kinds are derived from the target
+(email for `mailto:`, phone for `tel:`, website for web links, custom without a target).
 
-Section kinds are `experience`, `education`, `projects`, `publications`, `skills`,
-and `custom`. Entry kinds use `experience`, `education`, `project`, `publication`,
-`skill-group`, `custom`, and `text`. These vocabularies are distinct.
+Built-in section kinds are `experience`, `education`, `projects`, `publications`,
+`skills`, and `custom`; additional theme-defined identifiers are preserved. Entry kinds use `experience`, `education`, `project`, `publication`,
+`skill-group`, `custom`, `text`, and `prose`. These vocabularies are distinct.
 
 | Entry kind | Primary | Secondary | Period | Metadata | Highlights |
 |---|---|---|---|---|---|
@@ -69,16 +75,27 @@ and `custom`. Entry kinds use `experience`, `education`, `project`, `publication
 | skill-group | name | none | none | empty | skills |
 | custom | heading | none | date range | empty | highlights |
 | text | first body | none | none | empty | subsequent adjacent text bodies |
+| prose | complete rich body | none | none | empty | empty |
 
 Empty secondary rich text becomes `none`. Dates use the existing English display
-formatter; ranges use `start – end`. Metadata roles are `location` and `url`.
+formatter; ranges use `start – end`. Unknown endpoints remain empty, distinct from
+`Present`. Experience, education, project, and custom entries may supply a single
+date instead of a range. Metadata roles are `location`, `url`, and `description`.
+An entry's optional ordered rich `content` becomes a final `description` metadata
+item, following location/URL. It is an alternative to highlights/skills, so prose
+and lists retain their source order without duplication.
 URL bodies contain a link node whose visible label and target are the source URL.
 Adjacent text entries retain their existing grouping as a single list; a custom
 heading with highlights remains a heading followed by a list.
 
 Rich text is an ordered array of tagged nodes: `text` and `code` have `text`;
-`emph` and `strong` have rich `body`; `link` has `href` and rich `body`. Use
-`ctx.components.rich` to retain literal characters and links. New recognized
+`emph`, `strong`, and `paragraph` have rich `body`; `link` has `href` and rich
+`body`; `break` represents an explicit line break; `list` has `start: integer or
+none` and `items: array of rich`. An absent list start means unordered; an integer
+preserves ordered-list numbering. Nested list items are rich content. Use
+`ctx.components.rich` to retain literal characters and links. Paragraph and list nodes must retain their block structure and use resolved
+body/list spacing and bullets. Prose entries use body typography without an
+artificial heading or bullet. New recognized
 entry types must populate generic slots; older parsers still reject unknown
 source enum variants.
 
@@ -114,7 +131,7 @@ redispatch to an overridden section and infinite recursion.
 
 Table eligibility checks every entry. Homogeneous experience and education use
 date-first rows; project and publication use details-first rows. Skill rows also
-require absent secondary, period, and metadata. Skill groups with no values use generic flow. Mixed, custom, text, empty, and
+require absent secondary, period, and metadata. Skill groups with no values use generic flow. Mixed, custom, text, prose, empty, and
 unrecognized kinds use generic flow. All rows without dates collapse to one
 details column; partial dates retain empty cells. Headers are optional dictionaries
 with `details` and `period` labels. The example centralizes English labels; titles
@@ -142,7 +159,8 @@ retain the project-specific workflow.
 
 The corpus covers minimal and complete content, translated headings, empty and
 reordered sections, repeated kinds, both mixed-entry orders, absent and partial
-dates, rich text, links, Unicode, literal markup, long titles/URLs, oversized
+dates, unknown endpoints, single event dates, multiple labeled contacts, paragraphs,
+nested and numbered lists, rich text, links, Unicode, literal markup, long titles/URLs, oversized
 entries, and common settings. It checks distinct markers, dates, phone values,
 entry/section order, and link destinations in the laid-out document used to export
 the PDF. Renderer tests also exercise unknown kinds at the view boundary and
@@ -158,3 +176,32 @@ date-column positions are also checked from rendered text coordinates. Exported
 complete-fixture PDFs were inspected for the email, project, publication, and
 inline link annotations. The corpus remains a finite acceptance aid; new theme
 compositions still need source and visual review.
+
+
+## Theme-defined section categories
+
+Section `kind` is an open string identifier, and `id` is user-defined identity.
+The built-in kinds supply authoring defaults; additional kinds require no Rust
+changes or theme manifest registration. All native source formats preserve them.
+Themes may dispatch on either value while keeping a complete generic fallback:
+
+```typst
+#import "/.cac/base.typ" as base
+
+#let section(ctx, section) = {
+  if section.kind == "certifications" or section.id == "credentials" {
+    base.section_table(ctx, section)
+  } else {
+    base.section_flow(ctx, section)
+  }
+}
+#let theme = base.extend(components: (section: section))
+```
+
+Markdown authors write `Kind: certifications` and `Id: credentials` immediately
+below a level-two heading. Kind identifiers are case-sensitive letters, numbers,
+hyphens, underscores, or dots. IDs retain their literal text and must be unique.
+Unknown section kinds default to custom entries; entry-level `Kind: experience`,
+for example, can override that structural default. The entry and rich-text
+schemas remain defined by the core model. Themes determine presentation, not
+whether a CV can be parsed or converted.

@@ -84,7 +84,8 @@ A command follows this data flow:
 | `crates/cac-core/src/document.rs` | CV, section, and entry types |
 | `crates/cac-core/src/date.rs` | Dates, periods, ordering, and serialization |
 | `crates/cac-core/src/rich_text.rs` | Inline Markdown AST and rendering helpers |
-| `crates/cac-io/src/codec.rs` | Native format dispatch and Markdown conversion |
+| `crates/cac-io/src/codec.rs` | Native format dispatch, normalization, and validation |
+| `crates/cac-io/src/markdown/` | Markdown authoring grammar, explicit fields, and verified canonical export |
 | `crates/cac-io/src/json_resume.rs` | JSON Resume import and export |
 | `crates/cac-render/src/html.rs` | Escaped HTML output |
 | `crates/cac-render/src/pdf.rs` | Typst world, normalized render view, and PDF output |
@@ -116,7 +117,7 @@ Use this map to find the first place to edit:
 | Add or change a command | `crates/cac/src/commands/` and `crates/cac/src/cli.rs` |
 | Change the CV data model | `crates/cac-core/src/document.rs` |
 | Change date handling | `crates/cac-core/src/date.rs` |
-| Change Markdown parsing or output | `crates/cac-io/src/codec.rs` |
+| Change Markdown parsing or output | `crates/cac-io/src/markdown/`, [`docs/authoring/fieldmark.md`](../authoring/fieldmark.md) |
 | Change JSON Resume conversion | `crates/cac-io/src/json_resume.rs` |
 | Change HTML output | `crates/cac-render/src/html.rs` |
 | Change PDF layout | `crates/cac-render/src/typst/` and `crates/cac-render/src/pdf.rs` |

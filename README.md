@@ -61,7 +61,7 @@ cd my-cv
 cac init
 ```
 
-This creates `cv.md` and `settings.json`. Edit `cv.md`, then build it:
+This creates `cv.md` and `settings.json`. Follow the **[usage guide](docs/authoring/README.md)** for FieldMark authoring, checking, formatting, conversion, and rendering. Edit `cv.md`, then build it:
 
 ```sh
 cac build
@@ -75,7 +75,8 @@ The finished PDF is `offering/cv.pdf`—your carefully prepared offering to the 
 |---|---|
 | `cac init [--format FORMAT] [--from resume.json]` | Create a starter CV or import JSON Resume data |
 | `cac build [FILE]` | Validate and render a CV as PDF or HTML |
-| `cac check [FILE] [--strict]` | Check source content |
+| `cac check [FILE] [--strict] [--explain]` | Check content and optionally show parsed fields |
+| `cac fmt [FILE] [--dry-run]` | Format files in place; `--dry-run` checks without writing |
 | `cac convert <FILE> --to <FORMAT>` | Convert supported input formats |
 | `cac theme init [THEME_NAME]` | Create a project-local theme development project |
 | `cac theme test` | Render and validate a theme and generate its artifacts; add `--shared` for reusable-theme checks |

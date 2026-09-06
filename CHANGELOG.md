@@ -6,7 +6,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+- Rename `cac fmt --check` to `--dry-run`; formatting now writes files by default, removing the need for `--write`. Stdin continues to produce stdout.
+
+- Make `cac fmt` preserve the source type and Markdown style, support JSON/YAML/TOML, and resolve the project root from settings. YAML/TOML formatting may remove comments.
+
+### Section metadata and theme extensibility
+
+- Accept `Kind:` and `Id:` below Markdown section headings; Markdown conversion
+  emits these readable fields while continuing to accept legacy annotations.
+- Preserve theme-defined section kinds in Markdown, JSON, YAML, TOML, and the
+  shared theme view. Unrecognized categories use custom entries and generic
+  layouts; themes can specialize by kind or ID without rebuilding the CLI.
+- Rust API: `SectionKind` now includes `Named(String)` and no longer implements
+  `Copy`. Unknown valid section identifiers are accepted rather than rejected.
+
 ### Added
+
+* Add explicit Markdown profile/entry fields, mixed entry kinds, repeated section titles, multiline prose, nested and ordered lists, labeled contacts, single event dates, and unknown date endpoints
+* Add `cac fmt` with content-preserving output, default in-place writing and `--dry-run`, plus `cac check --explain`
+* Document Markdown authoring and provide editor snippets and a richer shared-theme fixture
 
 * Enriched the default CV used by `cac init` and `cac theme init` with full contacts, a summary, multiple roles, and detailed project, publication, skill, and advisory examples
 
@@ -23,6 +41,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Fixed
 
+* Preserve summaries, punctuation, entry metadata, tags, and kinds in Markdown conversion; reject unsupported content and lossy conversions before writing
+* Render locations, project/publication URLs, and publication dates in HTML as well as PDF
+* Reject silently discarded skill dates and publication ranges, and malformed or unsupported JSON Resume input fields
+
 * Limit classic theme date columns to entry titles so descriptions and highlights use the full width below
 
 * Preserve locations and standalone project/publication URLs in PDFs, and use complete fallback for mixed table sections
@@ -35,6 +57,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 * Require a selected theme in the settings schema when `themeProject` is present
 
 ### Changed
+
+* Make missing contact details advisory; allow optional organizations and institutions to be omitted in all native formats
+* Infer Markdown section kinds only from documented conventional titles; use an explicit section annotation for other titles previously matched by English substrings
+* Preserve omitted JSON Resume period endpoints as unknown instead of inferring Present; reject JSON Resume exports that cannot preserve the complete CV
+* Extend shared rich nodes with paragraphs, breaks, and lists, add prose entries, and project ordered entry content into description metadata; shared themes must pass the expanded corpus
 
 * Remove theme version declarations and checks; themes use the shared CV data and styling contract, with defaults for omitted override dictionaries
 
