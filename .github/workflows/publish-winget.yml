@@ -56,7 +56,7 @@ jobs:
           Set-Location smoke
           & $binary init
           if ($LASTEXITCODE -ne 0) { throw 'cac init failed' }
-          & $binary build
+          & $binary build --output offering
           if ($LASTEXITCODE -ne 0) { throw 'cac build failed' }
           if ((Get-Item offering/cv.pdf).Length -eq 0) { throw 'Empty PDF' }
 

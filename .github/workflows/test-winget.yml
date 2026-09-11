@@ -47,7 +47,7 @@ jobs:
           Set-Location "$env:RUNNER_TEMP/cac-winget-smoke"
           cac init
           if ($LASTEXITCODE -ne 0) { throw 'cac init failed' }
-          cac build
+          cac build --output offering
           if ($LASTEXITCODE -ne 0) { throw 'cac build failed' }
           if ((Get-Item offering/cv.pdf).Length -eq 0) { throw 'Empty PDF' }
           winget uninstall --id voxvanhieu.code-a-cv --exact --disable-interactivity
