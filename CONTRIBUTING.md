@@ -1,69 +1,125 @@
 # Contributing to Code a CV
 
-Thank you for contributing to `cac`. The project creates PDF and HTML CVs from structured data without requiring a TeX installation or a runtime dependency.
+Welcome! Help make `cac` a better way to turn CV data into PDF and HTML. Documentation fixes, bug reports, tests, themes, and code improvements all count. You do not need to know the whole codebase to get started.
 
-## Scope
+## 1. Pick a small change
 
-Keep the core workflow simple:
+Browse [open issues](https://github.com/voxvanhieu/code-a-cv/issues) and [pull requests](https://github.com/voxvanhieu/code-a-cv/pulls) to see what is already underway. Good first contributions include clarifying an example, reproducing a bug, or adding a test for an edge case. Comment on an issue if you want to work on it or need help finding the right file.
 
-```console
-$ cac init
-$ cac build
-```
+For a small fix, feel free to open a PR directly. For a new feature or a large change, open an issue first so we can agree on the approach before you invest time. Keep the default `cac init` → `cac build` workflow simple, local, and self-contained, with configuration optional. Discuss additions such as LaTeX output, a theme registry, an LSP, a web playground, or AI writing features first.
 
-The installed tool must work locally without required configuration or external programs. The first usable milestone supports Markdown input by default, plus YAML, JSON, and TOML; PDF and HTML output; JSON Resume conversion; one embedded theme; and source checks. File watching, tagged selections, page fitting, rendered checks, and additional themes remain roadmap work.
+Reporting a bug? Include your OS, `cac --version`, the command you ran, expected and actual results, and a small CV that reproduces the problem. Use fictional personal details in shared CVs. For suspected security vulnerabilities, contact the maintainers privately instead of opening a public issue.
 
-Do not add LaTeX output, a theme registry, an LSP, a web playground, or AI writing features without prior discussion.
+## 2. Get a local checkout
 
-## Development quick start
-
-Install stable Rust with [rustup](https://rustup.rs/), then run:
+For documentation edits, you can work directly in GitHub's editor without installing Rust. For code or theme work, install Git and [Rust 1.92 or newer](https://rustup.rs/), then add the formatter and linter:
 
 ```console
-$ cargo test
-$ cargo fmt --all --check
-$ cargo clippy --all-features --all-targets -- -D warnings
+$ rustup update stable
+$ rustup component add rustfmt clippy --toolchain stable
 ```
 
-See [the development guide](docs/development/README.md) for the full setup and architecture notes.
+Fork [code-a-cv](https://github.com/voxvanhieu/code-a-cv/fork) on GitHub. Replace `YOUR-USERNAME` below with your GitHub username:
 
-## Making changes
+```console
+$ git clone https://github.com/YOUR-USERNAME/code-a-cv.git
+$ cd code-a-cv
+$ git remote add upstream https://github.com/voxvanhieu/code-a-cv.git
+$ rustup override set stable
+$ git fetch upstream
+$ git switch --create docs/improve-quickstart upstream/main
+$ cargo run -p cac -- --help
+```
 
-Keep pull requests focused. Include tests for changed behaviour and describe the user-visible result, compatibility impact, and verification commands.
+Choose a branch name for your own change using the rules below. The first build downloads and compiles dependencies, so allow a few minutes. You do not need a separate Typst or LaTeX installation.
 
-Run the formatter, test suite, and Clippy before opening a pull request:
+### Branch names
+
+Start each contribution from an up-to-date `main` and open its PR against `main`. Use `<prefix>/<short-description>` with a lowercase, hyphen-separated description. Keep one purpose per branch.
+
+| Prefix | Use for | Example |
+| --- | --- | --- |
+| `feat/` | New functionality | `feat/add-export-option` |
+| `fix/` | Bug fixes | `fix/escape-html-links` |
+| `docs/` | Documentation | `docs/improve-quickstart` |
+| `test/` | Tests and fixtures | `test/unicode-dates` |
+| `refactor/` | Code cleanup without behavior changes | `refactor/split-date-parser` |
+| `chore/` | Dependencies, tooling, and CI | `chore/update-ci-cache` |
+| `theme/` | Shared themes under `themes/` | `theme/add-compact-layout` |
+| `release/` | Release preparation | `release/0.2.0` |
+
+An issue number is optional, for example `fix/123-escape-html-links`. These prefixes are a contribution convention, not a CI-enforced naming check.
+
+## 3. Make and try your change
+
+Use this map to find a starting point:
+
+| What you want to change | Where to look |
+| --- | --- |
+| Commands and CLI behavior | `crates/cac/` |
+| CV data types, dates, and rich text | `crates/cac-core/` |
+| Markdown, YAML, JSON, TOML, and JSON Resume | `crates/cac-io/` |
+| HTML and PDF rendering | `crates/cac-render/` |
+| Content diagnostics | `crates/cac-check/` |
+| Guides and sample CVs | `docs/` and `docs/examples/` |
+| Downloadable themes | `themes/` |
+
+Run the affected crate's tests while you work, for example:
+
+```console
+$ cargo test -p cac-io --locked
+```
+
+For an end-to-end preview, run these commands from the repository root in a POSIX shell (such as Bash or Git Bash on Windows):
+
+```console
+$ cargo build -p cac --locked
+$ mkdir -p target/contribution-preview
+$ cd target/contribution-preview
+$ ../debug/cac init
+$ ../debug/cac build
+$ cd ../..
+```
+
+Open `target/contribution-preview/offering/cv.pdf` to inspect the result. On Windows, the executable is `cac.exe`. The scratch directory keeps sample CVs, settings, and generated output out of your contribution.
+
+Add an integration test in the affected crate's `tests/` directory for each behavior change. Include relevant Unicode, special-character, minimal-document, or round-trip cases. Update CLI help snapshots only when the help change is intentional. For changes affecting rendering or checking performance, include a measurement.
+
+Keep rendering safe: escape rich text in each renderer, never interpolate CV strings into Typst source, and never give themes filesystem or shell access. Keep `cac check` read-only and never let `--fit` remove CV content. Preserve explicit Markdown section semantics when headings are translated or renamed.
+
+**Contributing a shared theme?** Follow the [theme author contract](docs/development/shared-theme-contract.md), run `cac theme test --shared` in the theme project, and include a preview for visual review. A PR touching `themes/` must contain only files under `themes/`; CI rejects mixed changes. Put supporting code or documentation changes, including any root changelog update, in a separate PR.
+
+See the [development guide](docs/development/README.md) for architecture, detailed testing, and release workflows. Edit release configuration in `dist-workspace.toml` and regenerate with `dist generate`; do not hand-edit the generated release workflow.
+
+## 4. Check your work
+
+For code or theme changes, run the same quality checks as CI:
 
 ```console
 $ cargo fmt --all
-$ cargo test
-$ cargo clippy --all-features --all-targets -- -D warnings
+$ cargo fmt --all --check
+$ cargo test --workspace --all-features --locked
+$ cargo clippy --workspace --all-features --all-targets --locked -- -D warnings
 ```
 
-Do not commit generated build output. Update `README.md` when commands, formats, workflows, or installation methods change. Add user-visible changes to `CHANGELOG.md` under `Unreleased`.
+For prose-only edits, preview the Markdown and check links and examples. Rust checks are not needed unless you also change code or executable examples. If you cannot run a relevant check, say so in the PR and include any error output; you can still ask for help.
 
-## Testing
+Update the relevant documentation when commands, formats, installation, or workflows change. Add user-visible changes under `Unreleased` in [CHANGELOG.md](CHANGELOG.md). Before committing, review `git diff` and `git status` so generated files and personal CV data stay out of the PR.
 
-Add integration tests and focused fixtures for parsing, conversion, rendering, and checks. Cover minimal and complete CVs, Unicode text, long careers, and special characters such as `C#`, `100%`, paths, and emoji.
+## 5. Open a pull request
 
-Use property tests for format round trips and snapshots for stable text and HTML output. Changes that may affect rendering or checking performance should include a measurement.
+Commit your change with a short imperative message, such as `Clarify the contributor quick start`, then push your branch to your fork:
 
-## Design rules
+```console
+$ git push --set-upstream origin HEAD
+```
 
-* Keep the binary self-contained
-* Keep configuration optional
-* Keep Markdown headings aligned with the visible CV sections
-* Escape rich text in each renderer
-* Do not interpolate CV strings into Typst source
-* Do not let `--fit` remove CV content
-* Keep `cac check` read-only
-* Do not give themes file-system or shell access
+Open a PR against `voxvanhieu/code-a-cv:main`. A useful description includes:
 
-## Pull requests
+- What problem you solved and what users will see afterward.
+- A related issue, if there is one, and any compatibility impact.
+- The verification commands you ran and their results; screenshots or PDF previews for visual changes.
 
-Use a specific imperative title. Do not combine unrelated refactors with a behaviour change. Maintainers may request narrower scope, additional tests, a benchmark, or documentation before merging.
+Draft PRs are welcome when you want feedback or are stuck. Point out the part you need help with. Keep discussion constructive, respond to review comments, and push follow-up commits to the same branch. Wait for review and the `CI complete` check before merging.
 
-## Security
-
-Report suspected security issues privately to the maintainers. Do not file public issues for problems involving CV data, theme isolation, PDF output, dependencies, or release artifacts.
-
-Shared themes must follow the [theme author contract](docs/development/shared-theme-contract.md) and pass `cac theme test --shared` plus visual and source review. Keep Markdown section semantics explicit when headings are translated or renamed.
+Thank you for helping improve `cac`, whether your contribution is a single sentence or a new feature.
