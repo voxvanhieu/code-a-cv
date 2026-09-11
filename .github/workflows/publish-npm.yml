@@ -1,6 +1,9 @@
 name: Publish npm package
 
 on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
   workflow_dispatch:
     inputs:
       tag:
@@ -10,14 +13,26 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: publish-npm
   cancel-in-progress: false
 
 jobs:
+  release:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    uses: ./.github/workflows/resolve-published-release.yml
+    with:
+      tag: ${{ inputs.tag || '' }}
+
   smoke:
-    if: github.ref == 'refs/heads/main'
+    needs: release
+    if: needs.release.outputs.tag != ''
     strategy:
       fail-fast: false
       matrix:
@@ -33,7 +48,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
         run: |
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
           gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease | jq -e '.isDraft == false and .isPrerelease == false'
@@ -51,7 +66,7 @@ jobs:
       - name: Install and run through npm
         shell: bash
         env:
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
         run: |
           mkdir smoke
           cd smoke
@@ -82,7 +97,11 @@ jobs:
         with:
           node-version: '24'
           package-manager-cache: false
+          registry-url: https://registry.npmjs.org/
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: npm-package
-      - run: npm publish ./cac-npm-package.tar.gz --access public --registry https://registry.npmjs.org/
+      - name: Publish with trusted publishing or the initial-publish token
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish ./cac-npm-package.tar.gz --access public --registry https://registry.npmjs.org/

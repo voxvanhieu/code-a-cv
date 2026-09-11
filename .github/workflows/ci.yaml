@@ -93,6 +93,7 @@ jobs:
         with:
           key: quality
       - run: cargo fmt --all --check
+      - run: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
       - run: cargo test --workspace --all-features --locked
       - run: cargo clippy --workspace --all-features --all-targets --locked -- -D warnings
 

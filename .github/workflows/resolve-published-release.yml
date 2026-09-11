@@ -1,0 +1,39 @@
+name: Resolve published release
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        default: ''
+    outputs:
+      tag:
+        description: Stable published tag, or empty for a prerelease
+        value: ${{ jobs.resolve.outputs.tag }}
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  resolve:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Resolve the exact release from the completed run
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_TAG: ${{ inputs.tag }}
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_RUN_ID: ${{ github.event.workflow_run.id }}
+          RELEASE_RUN_EVENT: ${{ github.event.workflow_run.event }}
+          RELEASE_RUN_RESULT: ${{ github.event.workflow_run.conclusion }}
+          RELEASE_RUN_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+        run: bash scripts/resolve-published-release.sh
