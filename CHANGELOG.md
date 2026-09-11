@@ -6,7 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
-- Rewrite the contribution guide as a first-PR quick start and document branch naming prefixes.
+- Rewrite the contribution guide as a first-PR quick start and document branch naming prefixes and issue/PR label usage.
 
 - Restore the PR check requiring contributions under `themes/` to exclude files outside that directory.
 

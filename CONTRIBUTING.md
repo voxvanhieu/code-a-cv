@@ -10,6 +10,29 @@ For a small fix, feel free to open a PR directly. For a new feature or a large c
 
 Reporting a bug? Include your OS, `cac --version`, the command you ran, expected and actual results, and a small CV that reproduces the problem. Use fictional personal details in shared CVs. For suspected security vulnerabilities, contact the maintainers privately instead of opening a public issue.
 
+### Label issues and pull requests
+
+Apply the relevant labels when opening or triaging an issue or PR. Use the **Labels** menu in GitHub's sidebar; if you cannot edit labels, suggest them in the description so a maintainer can apply them. Label a related issue and PR separately, choosing labels that describe each item.
+
+Use the repository's [available labels](https://github.com/voxvanhieu/code-a-cv/labels):
+
+| Label | Apply to | When to use it |
+| --- | --- | --- |
+| `bug` | Issues and PRs | Report broken behavior or submit a fix, such as incorrect HTML escaping. |
+| `documentation` | Issues and PRs | Request or make improvements to guides, examples, or other documentation. |
+| `enhancement` | Issues and PRs | Propose or implement new functionality or an improvement, including a new theme. |
+| `accessibility` | Issues and PRs | Identify or remove a barrier affecting people with disabilities. Combine with `bug` or `enhancement` when appropriate. |
+| `dependencies` | PRs | Update dependency files, such as Cargo manifests and lockfiles. |
+| `github_actions` | PRs | Change GitHub Actions workflows. Combine with `dependencies` for action-version updates. |
+| `question` | Issues and PRs | Ask a usage question or flag that further information is needed to proceed. |
+| `good first issue` | Issues | Maintainers identify a clearly scoped task suitable for newcomers, with enough guidance to start. |
+| `help wanted` | Issues and PRs | Maintainers invite extra help with implementation, reproduction, testing, or review. |
+| `duplicate` | Issues and PRs | Maintainers identify an existing item covering the same work; link to that item. |
+| `invalid` | Issues and PRs | Maintainers determine that an item is not a valid report or request; explain why. |
+| `wontfix` | Issues and PRs | Maintainers decide the work will not be pursued; record the reason. |
+
+Choose all labels that apply, without forcing a match. For example, a guide correction uses `documentation`, while a request to fix inaccessible output may use both `bug` and `accessibility`. Branch prefixes and labels serve different purposes: a `chore/` branch updating an action can use `github_actions` and `dependencies`. Labels are not assigned automatically by branch names.
+
 ## 2. Get a local checkout
 
 For documentation edits, you can work directly in GitHub's editor without installing Rust. For code or theme work, install Git and [Rust 1.92 or newer](https://rustup.rs/), then add the formatter and linter:
@@ -114,7 +137,7 @@ Commit your change with a short imperative message, such as `Clarify the contrib
 $ git push --set-upstream origin HEAD
 ```
 
-Open a PR against `voxvanhieu/code-a-cv:main`. A useful description includes:
+Open a PR against `voxvanhieu/code-a-cv:main` and apply the [relevant labels](#label-issues-and-pull-requests). A useful description includes:
 
 - What problem you solved and what users will see afterward.
 - A related issue, if there is one, and any compatibility impact.
