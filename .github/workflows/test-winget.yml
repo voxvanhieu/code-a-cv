@@ -50,7 +50,10 @@ jobs:
           cac build --output offering
           if ($LASTEXITCODE -ne 0) { throw 'cac build failed' }
           if ((Get-Item offering/cv.pdf).Length -eq 0) { throw 'Empty PDF' }
-          winget uninstall --id voxvanhieu.code-a-cv --exact --source winget --disable-interactivity
+          # This is a local manifest, so it has no community-source identity yet.
+          winget source remove --name msstore
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot remove unused Store source' }
+          winget uninstall --name code-a-cv --exact --disable-interactivity
           if ($LASTEXITCODE -ne 0) { throw 'WinGet uninstall failed' }
           Stop-Transcript
       - name: Collect WinGet logs
