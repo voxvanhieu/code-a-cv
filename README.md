@@ -30,6 +30,21 @@ brew install voxvanhieu/tap/code-a-cv
 <details>
 <summary>Other installations</summary>
 
+### npm / npx (available after the first npm release)
+
+With Node.js 24 or newer and npm installed:
+
+```sh
+npx @voxvanhieu/code-a-cv@latest init
+npx @voxvanhieu/code-a-cv@latest build
+```
+
+Or install globally with `npm install -g @voxvanhieu/code-a-cv` and use `cac`.
+Supports macOS (Apple Silicon and Intel), Linux with glibc (ARM64 and x64),
+and Windows x64. Alpine/musl and 32-bit systems are not supported.
+The npm launcher downloads the matching binary from GitHub Releases; the first
+run needs network access and the system archive tools (`tar`, or PowerShell on Windows).
+
 ### Windows
 
 Winget installation will be available in a future release. For now, download `cac-x86_64-pc-windows-msvc.zip` from the [latest release](https://github.com/voxvanhieu/code-a-cv/releases/latest), extract `cac.exe`, and add its directory to `PATH`.

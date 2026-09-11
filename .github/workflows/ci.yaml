@@ -55,7 +55,7 @@ jobs:
 
               case "${path}" in
                 Cargo.lock | Cargo.toml | dist-workspace.toml | \
-                  crates/* | themes/* | docs/examples/customized-layout/* | scripts/* | .cargo/* | .github/workflows/ci.yaml | rust-toolchain*)
+                  crates/* | themes/* | docs/examples/customized-layout/* | scripts/* | .cargo/* | .github/workflows/* | rust-toolchain*)
                   code=true
                   ;;
               esac
@@ -115,6 +115,9 @@ jobs:
           - target: aarch64-apple-darwin
             runner: macos-14
             binary: cac
+          - target: x86_64-apple-darwin
+            runner: macos-15-intel
+            binary: cac
           - target: x86_64-pc-windows-msvc
             runner: windows-2022
             binary: cac.exe
@@ -134,6 +137,25 @@ jobs:
       - name: Smoke test
         shell: bash
         run: target/${{ matrix.target }}/release/${{ matrix.binary }} --version
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Install cargo-dist (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.32.0/cargo-dist-installer.sh | sh
+      - name: Install cargo-dist (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: irm https://github.com/axodotdev/cargo-dist/releases/download/v0.32.0/cargo-dist-installer.ps1 | iex
+      - run: dist generate --check
+      - run: dist build --artifacts=global
+      - name: Test generated npm launcher
+        shell: bash
+        run: |
+          npm ci --prefix target/distrib/cac-npm-package --omit=dev --ignore-scripts
+          node scripts/test-npm-package.cjs target/distrib/cac-npm-package target/${{ matrix.target }}/release/${{ matrix.binary }}
 
   complete:
     name: CI complete

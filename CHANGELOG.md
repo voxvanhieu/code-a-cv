@@ -6,6 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+- Add npm packaging for `npx @voxvanhieu/code-a-cv`, native macOS release archives
+  for Apple Silicon and Intel, and a cross-platform tested npm publication workflow.
+
 - Restore the PR check requiring contributions under `themes/` to exclude files outside that directory.
 
 - Rename `cac fmt --check` to `--dry-run`; formatting now writes files by default, removing the need for `--write`. Stdin continues to produce stdout.

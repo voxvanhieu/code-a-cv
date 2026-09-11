@@ -1,0 +1,88 @@
+name: Publish npm package
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Published stable GitHub release (for example v0.3.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-npm
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    if: github.ref == 'refs/heads/main'
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-22.04, ubuntu-24.04-arm, macos-14, macos-15-intel, windows-2022]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Download and validate release package
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease | jq -e '.isDraft == false and .isPrerelease == false'
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern cac-npm-package.tar.gz
+          mkdir package
+          tar -xzf cac-npm-package.tar.gz --strip-components=1 -C package
+          node --input-type=commonjs <<'NODE'
+          const assert = require('node:assert/strict');
+          const pkg = require('./package/package.json');
+          assert.equal(pkg.name, '@voxvanhieu/code-a-cv');
+          assert.equal(pkg.version, process.env.RELEASE_TAG.slice(1));
+          assert.deepEqual(pkg.artifactDownloadUrls, [`https://github.com/${process.env.GITHUB_REPOSITORY}/releases/download/${process.env.RELEASE_TAG}`]);
+          assert.deepEqual(Object.keys(pkg.bin), ['cac']);
+          NODE
+      - name: Install and run through npm
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          mkdir smoke
+          cd smoke
+          npm init --yes
+          npm install ../cac-npm-package.tar.gz
+          test "$(npx --no-install cac --version)" = "cac ${RELEASE_TAG#v}"
+          npx --no-install cac init
+          npx --no-install cac build
+          test -s offering/cv.pdf
+      - name: Save tested package for publication
+        if: matrix.runner == 'ubuntu-22.04'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: npm-package
+          path: cac-npm-package.tar.gz
+          retention-days: 7
+
+  publish:
+    needs: smoke
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: npm-package
+      - run: npm publish ./cac-npm-package.tar.gz --access public --registry https://registry.npmjs.org/
