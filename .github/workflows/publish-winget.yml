@@ -1,0 +1,82 @@
+name: Publish WinGet package
+
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published stable release tag to submit to WinGet
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: publish-winget
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: >-
+      vars.WINGET_ENABLED == 'true' &&
+      ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
+    uses: ./.github/workflows/resolve-published-release.yml
+    with:
+      tag: ${{ inputs.tag || '' }}
+
+  smoke:
+    needs: release
+    if: needs.release.outputs.tag != ''
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - name: Download and test Windows release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          gh release download $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --pattern cac-x86_64-pc-windows-msvc.zip
+          if ($LASTEXITCODE -ne 0) { throw 'Release download failed' }
+          Expand-Archive cac-x86_64-pc-windows-msvc.zip -DestinationPath package
+          $binary = (Resolve-Path package/cac.exe).Path
+          $version = & $binary --version
+          if ($LASTEXITCODE -ne 0 -or $version -cne "cac $($env:RELEASE_TAG.Substring(1))") {
+            throw "Unexpected CLI version: $version"
+          }
+          New-Item -ItemType Directory smoke | Out-Null
+          Set-Location smoke
+          & $binary init
+          if ($LASTEXITCODE -ne 0) { throw 'cac init failed' }
+          & $binary build
+          if ($LASTEXITCODE -ne 0) { throw 'cac build failed' }
+          if ((Get-Item offering/cv.pdf).Length -eq 0) { throw 'Empty PDF' }
+
+  publish:
+    needs: [release, smoke]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Check publishing token
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        run: |
+          if [[ -z "$WINGET_TOKEN" ]]; then
+            echo 'Set WINGET_TOKEN before enabling WinGet publication. See docs/development/release.md.' >&2
+            exit 1
+          fi
+      - name: Submit WinGet update pull request
+        uses: vedantmgoyal9/winget-releaser@b3a5dae0047c6180023acba3f548c55fdf6b7193
+        with:
+          identifier: voxvanhieu.code-a-cv
+          release-tag: ${{ needs.release.outputs.tag }}
+          installers-regex: '^cac-x86_64-pc-windows-msvc\.zip$'
+          token: ${{ secrets.WINGET_TOKEN }}

@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+- Add opt-in WinGet update PR automation for `voxvanhieu.code-a-cv`, with Windows release smoke tests and initial submission instructions.
+
 - Automatically start npm publication and Homebrew formula PR creation after stable releases; support the first npm publish in CI with a temporary token.
 
 - Add npm packaging for `npx @voxvanhieu/code-a-cv`, native macOS release archives
