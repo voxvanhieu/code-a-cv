@@ -30,6 +30,14 @@ brew install voxvanhieu/tap/code-a-cv
 <details>
 <summary>Other installations</summary>
 
+### npm
+
+With Node.js 24 or newer, install on macOS, Linux, or Windows:
+
+```sh
+npm install -g @voxvanhieu/code-a-cv@latest
+```
+
 ### Windows
 
 Winget installation will be available in a future release. For now, download `cac-x86_64-pc-windows-msvc.zip` from the [latest release](https://github.com/voxvanhieu/code-a-cv/releases/latest), extract `cac.exe`, and add its directory to `PATH`.
