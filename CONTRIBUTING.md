@@ -121,6 +121,7 @@ For code or theme changes, run the same quality checks as CI:
 ```console
 $ cargo fmt --all
 $ cargo fmt --all --check
+$ bash scripts/tests/test_release_resolution.sh
 $ cargo test --workspace --all-features --locked
 $ cargo clippy --workspace --all-features --all-targets --locked -- -D warnings
 ```

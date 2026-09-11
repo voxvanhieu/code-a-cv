@@ -15,10 +15,11 @@ Use Rust 1.92 or newer with `rustfmt` and Clippy; no separate Typst installation
 - `cargo test -p cac-io --locked`: run an affected crate's tests.
 - `cargo fmt --all`: format Rust code.
 - `cargo fmt --all --check`: verify formatting.
+- `bash scripts/tests/test_release_resolution.sh`: verify release resolution.
 - `cargo test --workspace --all-features --locked`: run the full suite.
 - `cargo clippy --workspace --all-features --all-targets --locked -- -D warnings`: lint with warnings treated as errors.
 
-Run the last three checks before submitting code changes. Prose-only edits require Markdown, link, and example review.
+Run the last four checks before submitting code changes. Prose-only edits require Markdown, link, and example review.
 
 ## Coding Style & Naming Conventions
 
