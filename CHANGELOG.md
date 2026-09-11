@@ -6,6 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+- Test WinGet installation, command discovery, PDF generation, and uninstall on Windows; use an explicit output directory when testing older releases.
+
+- Add opt-in WinGet update PR automation for `voxvanhieu.code-a-cv`, with Windows release smoke tests and initial submission instructions.
 - Rewrite the contribution guide as a first-PR quick start and document branch naming prefixes and issue/PR label usage.
 
 - Automatically start npm publication and Homebrew formula PR creation after stable releases; support the first npm publish in CI with a temporary token.

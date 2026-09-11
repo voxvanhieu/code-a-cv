@@ -1,4 +1,4 @@
-# Release and Homebrew tap guide
+# Release and package publishing guide
 
 This guide explains how releases reach GitHub and the `voxvanhieu/tap` Homebrew tap. It also covers the one-time tap setup and the steps for publishing a new version.
 
@@ -18,11 +18,11 @@ flowchart LR
     H --> I[brew upgrade code-a-cv]
 ```
 
-Pushing a tag such as `v0.3.0` starts `.github/workflows/release.yml`. `cargo-dist` builds archives and installers for Linux (x64 and ARM64), macOS (Intel and Apple Silicon), and Windows (x64), creates checksums and attestations, and publishes the GitHub release. It also generates `cac-npm-package.tar.gz` for npm. After the Release workflow succeeds, npm publication and Homebrew formula PR creation start automatically for stable releases. Homebrew bottle publication still follows the tap review process.
+Pushing a tag such as `v0.3.0` starts `.github/workflows/release.yml`. `cargo-dist` builds archives and installers for Linux (x64 and ARM64), macOS (Intel and Apple Silicon), and Windows (x64), creates checksums and attestations, and publishes the GitHub release. It also generates `cac-npm-package.tar.gz` for npm. After the Release workflow succeeds, npm publication and Homebrew formula PR creation start automatically for stable releases. WinGet update PR creation also starts once its initial package is accepted and `WINGET_ENABLED` is set. With the tap automation installed, Homebrew bottles publish after the formula PR tests pass.
 
 The GitHub release must finish before Homebrew publication starts. The `Publish Homebrew tap formula` workflow downloads `source.tar.gz`, calculates its checksum, generates `Formula/code-a-cv.rb`, validates it on Linux and macOS, and opens a pull request in `voxvanhieu/homebrew-tap`.
 
-The tap pull request runs the `brew test-bot` workflow. This builds and tests bottles on the tap's supported runners. After all checks pass, run the tap's `brew pr-pull` workflow with the pull request number and its reviewed head commit SHA.
+The tap pull request runs the `brew test-bot` workflow. This builds and tests bottles on the tap's supported runners. After all checks pass, the tap's `brew pr-pull` workflow automatically publishes same-repository `code-a-cv-X.Y.Z` PRs authored by `voxvanhieu` that change only `Formula/code-a-cv.rb`. It verifies the tested head SHA before publication. Other PRs and retries use manual dispatch with the PR number and expected head SHA. Install [tap PR #5](https://github.com/voxvanhieu/homebrew-tap/pull/5) to enable this behavior.
 
 `brew pr-pull` applies the formula change directly to the tap's `main` branch, adds the bottle checksums, publishes the bottles, and closes the pull request. GitHub may show the pull request as closed without a merge commit. This is expected because the equivalent formula commit is already on `main`.
 
@@ -146,6 +146,111 @@ $ node scripts/test-npm-package.cjs target/distrib/cac-npm-package target/releas
 On Windows, use `target/release/cac.exe`. The local check supplies the built binary
 without downloading an unpublished release. The publication workflow tests the
 real download and extraction path.
+
+## Set up WinGet publication
+
+The WinGet identifier is `voxvanhieu.code-a-cv`; the command remains `cac`.
+The `Publish WinGet package` workflow tests the published Windows x64 ZIP, then
+opens an update PR in `microsoft/winget-pkgs`. Availability in WinGet follows
+upstream review, merge, and indexing. It does not publish directly to the index.
+
+### 1. Submit the first version
+
+[WinGet Releaser](https://github.com/vedantmgoyal9/winget-releaser#readme)
+requires an existing accepted package. Leave the repository variable
+`WINGET_ENABLED` unset until this first submission is merged.
+
+Fork [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs/fork)
+into `voxvanhieu/winget-pkgs`. On Windows, install Microsoft's manifest creator:
+
+```powershell
+winget install --id Microsoft.WingetCreate --exact --source winget
+wingetcreate new https://github.com/voxvanhieu/code-a-cv/releases/download/v0.2.0/cac-x86_64-pc-windows-msvc.zip
+```
+
+`v0.2.0` is an existing stable release with the required ZIP. You may instead
+use a newer published stable tag. Follow the interactive prompts and review the
+generated manifests before submitting. Use these values:
+
+| Field | Value |
+| --- | --- |
+| PackageIdentifier | `voxvanhieu.code-a-cv` |
+| PackageVersion | Release version without `v`, e.g. `0.2.0` |
+| Publisher | `voxvanhieu` |
+| PackageName | `code-a-cv` |
+| License | `MIT` |
+| PackageUrl | `https://github.com/voxvanhieu/code-a-cv` |
+| InstallerType | `zip` |
+| NestedInstallerType | `portable` |
+| Architecture | `x64` |
+| NestedInstallerFiles / RelativeFilePath | `cac.exe` (at the ZIP root) |
+| NestedInstallerFiles / PortableCommandAlias | `cac` |
+
+The tool calculates `InstallerSha256` from the downloaded ZIP. Keep the URL tied
+to the exact release tag. Validate and test the generated manifest directory on
+Windows before submitting it; see Microsoft's
+[manifest guide](https://learn.microsoft.com/en-us/windows/package-manager/package/manifest)
+and [local testing instructions](https://learn.microsoft.com/en-us/windows/package-manager/package/manifest#validate-your-manifest).
+Run `cac --version`, `cac init`, and `cac build` in a fresh directory after the
+local installation. Submit the manifests using `wingetcreate submit <manifest-directory>`
+and follow the upstream PR checks and reviewer feedback until merged.
+
+### Create the initial manifest on macOS
+
+Install Komac with `brew install komac`, then use the existing GitHub CLI login:
+
+```console
+$ GITHUB_TOKEN="$(gh auth token)" komac new
+```
+
+Enter the identifier and Windows ZIP URL from the table above. Select `cac.exe`
+as the nested portable executable and `cac` as its command alias. Review the
+manifests before choosing submission. Creation and submission work on macOS;
+WinGet installation testing requires a Windows machine or CI runner.
+
+### 2. Configure automation
+
+Create a classic GitHub PAT with **public_repo** scope under the account owning
+`voxvanhieu/winget-pkgs`. The action does not support fine-grained PATs. Store the
+PAT as a repository Actions secret, pasting it at the prompt:
+
+```console
+$ gh secret set WINGET_TOKEN --repo voxvanhieu/code-a-cv
+```
+
+After the initial package PR has merged and this workflow is on `main`, enable it:
+
+```console
+$ gh variable set WINGET_ENABLED --body true --repo voxvanhieu/code-a-cv
+```
+
+Future stable releases automatically submit update PRs after the Release
+workflow succeeds. The workflow resolves the exact tag from that run, ignores
+prereleases and PR runs, and tests `cac --version`, `cac init`, and `cac build`
+from the released ZIP on Windows before submission. Only the Windows x64 ZIP
+matches the installer filter; checksum files and PowerShell installers are excluded.
+
+### 3. Retry and verify
+
+For a version not already submitted or present in WinGet, dispatch from `main`:
+
+```console
+$ gh workflow run publish-winget.yml --repo voxvanhieu/code-a-cv --ref main -f tag=v0.3.0
+$ gh run list --repo voxvanhieu/code-a-cv --workflow publish-winget.yml --limit 1
+$ gh run watch RUN_ID --repo voxvanhieu/code-a-cv
+```
+
+Check for an existing upstream PR before retrying a failed run; submission may
+have succeeded before a later action step failed. Do not resubmit the initial
+version. Once the update is merged and indexed, Windows users can run:
+
+```powershell
+winget source update
+winget install --id voxvanhieu.code-a-cv --exact --source winget
+cac --version
+# For an existing installation:
+winget upgrade --id voxvanhieu.code-a-cv --exact --source winget
+```
 
 ## Set up the Homebrew tap repository
 
