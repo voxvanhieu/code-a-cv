@@ -30,13 +30,19 @@ brew install voxvanhieu/tap/code-a-cv
 <details>
 <summary>Other installations</summary>
 
-### npx
+### npm / npx
 
-With Node.js 24 or newer, run on macOS, Linux, or Windows:
+With Node.js 24 or newer, install on macOS, Linux, or Windows:
+
+```sh
+npm install -g @voxvanhieu/code-a-cv@latest
+cac --help
+```
+
+After installation, use `cac` directly. You can also run without a global installation:
 
 ```sh
 npx @voxvanhieu/code-a-cv@latest init
-npx @voxvanhieu/code-a-cv@latest build
 ```
 
 ### Windows
