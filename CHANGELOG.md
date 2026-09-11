@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+- Rewrite the contribution guide as a first-PR quick start and document branch naming prefixes and issue/PR label usage.
+
 - Automatically start npm publication and Homebrew formula PR creation after stable releases; support the first npm publish in CI with a temporary token.
 
 - Add npm packaging for `npx @voxvanhieu/code-a-cv`, native macOS release archives

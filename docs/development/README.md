@@ -1,7 +1,7 @@
 # Development
 
 This guide covers the path from a new checkout to a published release. See
-[`CONTRIBUTING.md`](../../CONTRIBUTING.md) for project scope, design rules, and pull request expectations.
+[`CONTRIBUTING.md`](../../CONTRIBUTING.md) for the contribution quick start, branch prefixes, and pull request expectations.
 
 ## Prerequisites
 
@@ -108,7 +108,7 @@ Typst dependencies are pinned to `0.15.1` because their Rust API is not stable. 
 
 ## Make a change
 
-Create a focused branch from an up-to-date `main` branch. Keep behavior changes separate from unrelated cleanup.
+Create a focused branch from an up-to-date `main` branch using the [branch prefixes in CONTRIBUTING.md](../../CONTRIBUTING.md#branch-names). Keep behavior changes separate from unrelated cleanup.
 
 Use this map to find the first place to edit:
 
@@ -154,6 +154,7 @@ Before opening a pull request, run the same quality checks as CI:
 
 ```console
 $ cargo fmt --all --check
+$ bash scripts/tests/test_release_resolution.sh
 $ cargo test --workspace --all-features --locked
 $ cargo clippy --workspace --all-features --all-targets --locked -- -D warnings
 ```
