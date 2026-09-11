@@ -50,7 +50,7 @@ jobs:
           cac build --output offering
           if ($LASTEXITCODE -ne 0) { throw 'cac build failed' }
           if ((Get-Item offering/cv.pdf).Length -eq 0) { throw 'Empty PDF' }
-          winget uninstall --id voxvanhieu.code-a-cv --exact --disable-interactivity
+          winget uninstall --id voxvanhieu.code-a-cv --exact --source winget --disable-interactivity
           if ($LASTEXITCODE -ne 0) { throw 'WinGet uninstall failed' }
           Stop-Transcript
       - name: Collect WinGet logs
