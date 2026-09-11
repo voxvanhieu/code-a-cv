@@ -18,11 +18,11 @@ flowchart LR
     H --> I[brew upgrade code-a-cv]
 ```
 
-Pushing a tag such as `v0.3.0` starts `.github/workflows/release.yml`. `cargo-dist` builds archives and installers for Linux (x64 and ARM64), macOS (Intel and Apple Silicon), and Windows (x64), creates checksums and attestations, and publishes the GitHub release. It also generates `cac-npm-package.tar.gz` for npm. After the Release workflow succeeds, npm publication and Homebrew formula PR creation start automatically for stable releases. Homebrew bottle publication still follows the tap review process.
+Pushing a tag such as `v0.3.0` starts `.github/workflows/release.yml`. `cargo-dist` builds archives and installers for Linux (x64 and ARM64), macOS (Intel and Apple Silicon), and Windows (x64), creates checksums and attestations, and publishes the GitHub release. It also generates `cac-npm-package.tar.gz` for npm. After the Release workflow succeeds, npm publication and Homebrew formula PR creation start automatically for stable releases. WinGet update PR creation also starts once its initial package is accepted and `WINGET_ENABLED` is set. With the tap automation installed, Homebrew bottles publish after the formula PR tests pass.
 
 The GitHub release must finish before Homebrew publication starts. The `Publish Homebrew tap formula` workflow downloads `source.tar.gz`, calculates its checksum, generates `Formula/code-a-cv.rb`, validates it on Linux and macOS, and opens a pull request in `voxvanhieu/homebrew-tap`.
 
-The tap pull request runs the `brew test-bot` workflow. This builds and tests bottles on the tap's supported runners. After all checks pass, run the tap's `brew pr-pull` workflow with the pull request number and its reviewed head commit SHA.
+The tap pull request runs the `brew test-bot` workflow. This builds and tests bottles on the tap's supported runners. After all checks pass, the tap's `brew pr-pull` workflow automatically publishes same-repository `code-a-cv-X.Y.Z` PRs authored by `voxvanhieu` that change only `Formula/code-a-cv.rb`. It verifies the tested head SHA before publication. Other PRs and retries use manual dispatch with the PR number and expected head SHA. Install [tap PR #5](https://github.com/voxvanhieu/homebrew-tap/pull/5) to enable this behavior.
 
 `brew pr-pull` applies the formula change directly to the tap's `main` branch, adds the bottle checksums, publishes the bottles, and closes the pull request. GitHub may show the pull request as closed without a merge commit. This is expected because the equivalent formula commit is already on `main`.
 
@@ -194,6 +194,19 @@ and [local testing instructions](https://learn.microsoft.com/en-us/windows/packa
 Run `cac --version`, `cac init`, and `cac build` in a fresh directory after the
 local installation. Submit the manifests using `wingetcreate submit <manifest-directory>`
 and follow the upstream PR checks and reviewer feedback until merged.
+
+### Create the initial manifest on macOS
+
+Install Komac with `brew install komac`, then use the existing GitHub CLI login:
+
+```console
+$ GITHUB_TOKEN="$(gh auth token)" komac new
+```
+
+Enter the identifier and Windows ZIP URL from the table above. Select `cac.exe`
+as the nested portable executable and `cac` as its command alias. Review the
+manifests before choosing submission. Creation and submission work on macOS;
+WinGet installation testing requires a Windows machine or CI runner.
 
 ### 2. Configure automation
 
