@@ -1,6 +1,9 @@
 name: Publish Homebrew tap formula
 
 on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
   workflow_dispatch:
     inputs:
       tag:
@@ -10,24 +13,37 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 env:
   FORMULA_PATH: Formula/code-a-cv.rb
 
 jobs:
+  release:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    uses: ./.github/workflows/resolve-published-release.yml
+    with:
+      tag: ${{ inputs.tag || '' }}
+
   formula:
     name: Generate formula
+    needs: release
+    if: needs.release.outputs.tag != ''
     runs-on: ubuntu-22.04
     steps:
       - name: Check out release sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ needs.release.outputs.tag }}
           persist-credentials: false
       - name: Generate formula
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.tag }}
+          TAG: ${{ needs.release.outputs.tag }}
         shell: bash
         run: |
           set -euo pipefail
@@ -88,6 +104,7 @@ jobs:
   publish:
     name: Open tap pull request
     needs:
+      - release
       - formula
       - validate
     runs-on: ubuntu-22.04
@@ -108,7 +125,7 @@ jobs:
         env:
           ACTOR_ID: ${{ github.actor_id }}
           GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          TAG: ${{ inputs.tag }}
+          TAG: ${{ needs.release.outputs.tag }}
         shell: bash
         run: |
           set -euo pipefail
