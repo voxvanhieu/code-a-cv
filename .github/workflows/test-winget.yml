@@ -1,0 +1,73 @@
+name: Test WinGet installation
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/test-winget.yml
+      - scripts/tests/fixtures/winget/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install WinGet
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Install-Module Microsoft.WinGet.Client -Force -Repository PSGallery -Scope CurrentUser
+          Import-Module Microsoft.WinGet.Client
+          Repair-WinGetPackageManager -AllUsers
+      - name: Validate, install, and run the submitted package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Start-Transcript -Path "$env:RUNNER_TEMP/winget-installation.txt"
+          winget --info
+          if ($LASTEXITCODE -ne 0) { throw 'WinGet unavailable' }
+          winget settings --enable LocalManifestFiles
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot enable local manifests' }
+          winget validate --manifest scripts/tests/fixtures/winget
+          if ($LASTEXITCODE -ne 0) { throw 'Manifest validation failed' }
+          winget install --manifest scripts/tests/fixtures/winget --accept-package-agreements --accept-source-agreements --disable-interactivity
+          if ($LASTEXITCODE -ne 0) { throw 'WinGet installation failed' }
+          # Pick up PATH changes as a newly opened terminal would.
+          $env:PATH = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
+          Get-Command cac -ErrorAction Stop | Format-List Source, CommandType
+          $version = cac --version
+          if ($LASTEXITCODE -ne 0 -or $version -cne 'cac 0.2.0') { throw "Unexpected version: $version" }
+          New-Item -ItemType Directory "$env:RUNNER_TEMP/cac-winget-smoke" | Out-Null
+          Set-Location "$env:RUNNER_TEMP/cac-winget-smoke"
+          cac init
+          if ($LASTEXITCODE -ne 0) { throw 'cac init failed' }
+          cac build --output offering
+          if ($LASTEXITCODE -ne 0) { throw 'cac build failed' }
+          if ((Get-Item offering/cv.pdf).Length -eq 0) { throw 'Empty PDF' }
+          # This is a local manifest, so it has no community-source identity yet.
+          winget source remove --name msstore
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot remove unused Store source' }
+          winget uninstall --name code-a-cv --exact --disable-interactivity
+          if ($LASTEXITCODE -ne 0) { throw 'WinGet uninstall failed' }
+          Stop-Transcript
+      - name: Collect WinGet logs
+        if: always()
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP/winget-logs" | Out-Null
+          Copy-Item "$env:LOCALAPPDATA/Packages/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe/LocalState/DiagOutputDir/*.log" "$env:RUNNER_TEMP/winget-logs" -ErrorAction SilentlyContinue
+      - name: Save installation evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: winget-installation-evidence
+          path: |
+            ${{ runner.temp }}/winget-installation.txt
+            ${{ runner.temp }}/cac-winget-smoke/offering/cv.pdf
+            ${{ runner.temp }}/winget-logs/*.log
