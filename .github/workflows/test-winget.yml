@@ -53,6 +53,12 @@ jobs:
           winget uninstall --id voxvanhieu.code-a-cv --exact --disable-interactivity
           if ($LASTEXITCODE -ne 0) { throw 'WinGet uninstall failed' }
           Stop-Transcript
+      - name: Collect WinGet logs
+        if: always()
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP/winget-logs" | Out-Null
+          Copy-Item "$env:LOCALAPPDATA/Packages/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe/LocalState/DiagOutputDir/*.log" "$env:RUNNER_TEMP/winget-logs" -ErrorAction SilentlyContinue
       - name: Save installation evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -61,4 +67,4 @@ jobs:
           path: |
             ${{ runner.temp }}/winget-installation.txt
             ${{ runner.temp }}/cac-winget-smoke/offering/cv.pdf
-            ~/AppData/Local/Packages/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe/LocalState/DiagOutputDir/*.log
+            ${{ runner.temp }}/winget-logs/*.log
