@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-12
+
 - Test WinGet installation, command discovery, PDF generation, and uninstall on Windows; use an explicit output directory when testing older releases.
 
 - Add opt-in WinGet update PR automation for `voxvanhieu.code-a-cv`, with Windows release smoke tests and initial submission instructions.
@@ -77,7 +79,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 * Remove theme version declarations and checks; themes use the shared CV data and styling contract, with defaults for omitted override dictionaries
 
-* Limit cargo-dist release binaries to Linux (x64 and ARM64) and Windows (x64); use Homebrew for macOS installation
 * Renamed the `cac themes` command to `cac theme`
 * Made generated settings reference `.cac/settings.schema.json` for editor validation and completion
 * Grouped rendering settings under `page`, `typography`, `style`, `spacing`, and `pagination` while keeping `root` and `theme` at the top level
