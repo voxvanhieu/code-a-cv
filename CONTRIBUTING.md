@@ -35,12 +35,7 @@ Choose all labels that apply, without forcing a match. For example, a guide corr
 
 ## 2. Get a local checkout
 
-For documentation edits, you can work directly in GitHub's editor without installing Rust. For code or theme work, install Git and [Rust 1.92 or newer](https://rustup.rs/), then add the formatter and linter:
-
-```console
-$ rustup update stable
-$ rustup component add rustfmt clippy --toolchain stable
-```
+For documentation edits, you can work directly in GitHub's editor without installing Rust. For code or theme work, install Git and [Rust via rustup](https://rustup.rs/). The repository's `rust-toolchain.toml` selects the compiler, formatter, and linter; rustup installs them automatically when you run Cargo.
 
 Fork [code-a-cv](https://github.com/voxvanhieu/code-a-cv/fork) on GitHub. Replace `YOUR-USERNAME` below with your GitHub username:
 
@@ -48,13 +43,16 @@ Fork [code-a-cv](https://github.com/voxvanhieu/code-a-cv/fork) on GitHub. Replac
 $ git clone https://github.com/YOUR-USERNAME/code-a-cv.git
 $ cd code-a-cv
 $ git remote add upstream https://github.com/voxvanhieu/code-a-cv.git
-$ rustup override set stable
 $ git fetch upstream
 $ git switch --create docs/improve-quickstart upstream/main
 $ cargo run -p cac -- --help
 ```
 
 Choose a branch name for your own change using the rules below. The first build downloads and compiles dependencies, so allow a few minutes. You do not need a separate Typst or LaTeX installation.
+
+If you previously set a directory override for this checkout, run `rustup override unset` so the repository's toolchain file takes effect.
+
+Dependabot checks GitHub Actions, Cargo dependencies, and the pinned Rust toolchain weekly. Cargo minor and patch updates share a PR; major updates and compiler updates receive separate PRs. Review updates and wait for `CI complete` before merging. The `rust-version` field in `Cargo.toml` declares the minimum supported Rust version and is reviewed separately from compiler updates.
 
 ### Branch names
 
