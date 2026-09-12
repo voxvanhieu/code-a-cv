@@ -20,7 +20,7 @@ flowchart LR
 
 Pushing a tag such as `v0.3.0` starts `.github/workflows/release.yml`. `cargo-dist` builds archives and installers for Linux (x64 and ARM64), macOS (Intel and Apple Silicon), and Windows (x64), creates checksums and attestations, and publishes the GitHub release. It also generates `cac-npm-package.tar.gz` for npm. After the Release workflow succeeds, npm publication and Homebrew formula PR creation start automatically for stable releases. WinGet update PR creation also starts once its initial package is accepted and `WINGET_ENABLED` is set. With the tap automation installed, Homebrew bottles publish after the formula PR tests pass.
 
-The GitHub release must finish before Homebrew publication starts. The `Publish Homebrew tap formula` workflow downloads `source.tar.gz`, calculates its checksum, generates `Formula/code-a-cv.rb`, validates it on Linux and macOS 26, and opens a pull request in `voxvanhieu/homebrew-tap`.
+The GitHub release must finish before Homebrew publication starts. The `Publish Homebrew tap formula` workflow downloads `source.tar.gz`, calculates its checksum, generates `Formula/code-a-cv.rb`, validates it on Linux and macOS, and opens a pull request in `voxvanhieu/homebrew-tap`.
 
 The tap pull request runs the `brew test-bot` workflow. This builds and tests bottles on the tap's supported runners. After all checks pass, the tap's `brew pr-pull` workflow automatically publishes same-repository `code-a-cv-X.Y.Z` PRs authored by `voxvanhieu` that change only `Formula/code-a-cv.rb`. It verifies the tested head SHA before publication. Other PRs and retries use manual dispatch with the PR number and expected head SHA. Install [tap PR #5](https://github.com/voxvanhieu/homebrew-tap/pull/5) to enable this behavior.
 
