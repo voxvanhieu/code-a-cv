@@ -151,9 +151,20 @@ jobs:
           git -C homebrew-tap commit -m "code-a-cv ${version}"
           git -C homebrew-tap push origin "${branch}"
 
+          cat > release-pr.md <<EOF
+          Code a CV ${version} renders CVs from Markdown, JSON, YAML, or TOML as PDF or HTML, supports a JSON Resume subset, checks and formats content, and provides reusable PDF themes.
+
+          Release: https://github.com/voxvanhieu/code-a-cv/releases/tag/${TAG}
+          README: https://github.com/voxvanhieu/code-a-cv/blob/${TAG}/README.md
+
+          Update the formula to the checksummed release source archive. Source builds, formula tests, strict audits, and style checks passed on Linux and macOS in https://github.com/voxvanhieu/code-a-cv/actions/runs/${GITHUB_RUN_ID}.
+
+          Bottle builds and publication through brew pr-pull are pending the tap workflows.
+          EOF
+
           gh pr create \
             --repo voxvanhieu/homebrew-tap \
             --base main \
             --head "${branch}" \
             --title "code-a-cv ${version}" \
-            --body "Build code-a-cv ${version} from the checksummed release source archive."
+            --body-file release-pr.md
