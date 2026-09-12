@@ -312,15 +312,17 @@ Update `workspace.package.version` in `Cargo.toml`. Let Cargo update the workspa
 $ cargo check --workspace
 ```
 
-Move the relevant entries from `Unreleased` in `CHANGELOG.md` into a dated release section:
+Move the relevant entries from `Unreleased` in `CHANGELOG.md` into a release section. Keep only the version in the heading: cargo-dist uses it as the GitHub release title. Put the date in the section body:
 
 ```markdown
 ## [Unreleased]
 
-## [0.3.0] - YYYY-MM-DD
+## [0.3.0]
+
+Released on YYYY-MM-DD.
 ```
 
-Leave the `Unreleased` section in place for later changes.
+Leave the `Unreleased` section in place for later changes. CI checks that the generated release title matches the version without a date.
 
 ### 2. Validate the release candidate
 

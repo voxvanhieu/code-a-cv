@@ -7,8 +7,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ## [Unreleased]
 
 - Run Homebrew tap formula validation on macOS 26 so Rust build dependencies have supported bottles.
+- Use version-only GitHub release titles and verify the generated title in CI.
 
-## [0.3.0] - 2026-09-12
+## [0.3.0]
+
+Released on 2026-09-12.
 
 - Test WinGet installation, command discovery, PDF generation, and uninstall on Windows; use an explicit output directory when testing older releases.
 
