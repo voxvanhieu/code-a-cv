@@ -54,7 +54,7 @@ jobs:
               fi
 
               case "${path}" in
-                Cargo.lock | Cargo.toml | dist-workspace.toml | \
+                Cargo.lock | Cargo.toml | dist-workspace.toml | CHANGELOG.md | \
                   crates/* | themes/* | docs/examples/customized-layout/* | scripts/* | .cargo/* | .github/workflows/* | rust-toolchain*)
                   code=true
                   ;;
@@ -151,6 +151,20 @@ jobs:
         shell: pwsh
         run: irm https://github.com/axodotdev/cargo-dist/releases/download/v0.32.0/cargo-dist-installer.ps1 | iex
       - run: dist generate --check
+      - name: Check release title contains only the version
+        shell: bash
+        run: |
+          dist plan --output-format=json > target/release-title-plan.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const assert = require('node:assert/strict');
+          const plan = JSON.parse(fs.readFileSync('target/release-title-plan.json', 'utf8'));
+          assert.equal(
+            plan.announcement_title,
+            plan.announcement_tag.replace(/^v/, ''),
+            'Release title must contain only the version; put the date in the changelog body.'
+          );
+          NODE
       - run: dist build --artifacts=global
       - name: Test generated npm launcher
         shell: bash

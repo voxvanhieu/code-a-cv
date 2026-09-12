@@ -33,6 +33,8 @@ Use Rust `#[test]` tests; CLI integration tests use `assert_cmd` and `predicates
 
 Use short imperative commits, matching history: `Add configurable build artifact names`. Name focused branches like `fix/escape-html-links` and target `main`. Describe the problem, resulting behavior, related issues, compatibility impact, and verification results. Include previews for visual changes and update `CHANGELOG.md` under `Unreleased` for user-visible changes.
 
+Use [.github/pull_request_template.md](.github/pull_request_template.md) for every PR description, including PRs created by agents or the CLI. Keep descriptions concise and focused on the final changes. Remove template comments and sections that do not apply. Report only validation actually performed, distinguish pending checks, and omit conversational history and operational follow-up instructions. Update the title and description when the scope changes.
+
 PRs touching `themes/` must contain only theme files; submit supporting code, documentation, and changelog changes separately. Follow `CONTRIBUTING.md` and wait for review and `CI complete` before merging.
 
 ## Rendering Safety
