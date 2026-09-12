@@ -83,10 +83,8 @@ jobs:
     steps:
       # v7.0.1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      # 1.92.0
-      - uses: dtolnay/rust-toolchain@87eb139fed4b08a67bd1fa429a21d1f5d523e03e
-        with:
-          components: clippy, rustfmt
+      - name: Install pinned Rust toolchain
+        run: rustup show
       # v2.9.2
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         if: github.event_name == 'pull_request'
@@ -125,10 +123,10 @@ jobs:
     steps:
       # v7.0.1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      # 1.92.0
-      - uses: dtolnay/rust-toolchain@87eb139fed4b08a67bd1fa429a21d1f5d523e03e
-        with:
-          targets: ${{ matrix.target }}
+      - name: Install pinned Rust toolchain and target
+        run: |
+          rustup show
+          rustup target add ${{ matrix.target }}
       # v2.9.2
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         if: github.event_name == 'pull_request'

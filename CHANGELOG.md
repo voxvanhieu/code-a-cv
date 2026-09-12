@@ -6,6 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+- Check Cargo dependencies and the pinned Rust toolchain weekly with Dependabot, and use the repository toolchain in CI and local development.
 - Run Homebrew tap formula validation on macOS 26 so Rust build dependencies have supported bottles.
 - Use version-only GitHub release titles and verify the generated title in CI.
 
