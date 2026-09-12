@@ -77,7 +77,8 @@ jobs:
       matrix:
         runner:
           - ubuntu-22.04
-          - macos-14
+          # Match the tap runner; current Rust/LLVM bottles require newer macOS.
+          - macos-26
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Set up Homebrew
