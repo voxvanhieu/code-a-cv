@@ -3,13 +3,11 @@ use std::fs;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
-use sha2::{Digest, Sha256};
-
 use crate::error::{Error, Result};
 use crate::source::{print_result, read_cv};
 
 use super::metadata::{self, ThemeFile, ThemeMetadata};
-use super::project;
+use super::{project, sha256_hex};
 
 pub(super) struct TestedTheme {
     pub project: project::Project,
@@ -99,7 +97,7 @@ fn test_current_with_shared(shared: bool) -> Result<TestedTheme> {
         .iter()
         .map(|(path, bytes)| ThemeFile {
             path: path.clone(),
-            sha256: format!("{:x}", Sha256::digest(bytes)),
+            sha256: sha256_hex(bytes),
         })
         .collect();
     metadata::validate_packaged(&manifest).map_err(Error::ThemeProject)?;
@@ -232,7 +230,7 @@ pub(super) fn verify_files(theme_dir: &Path, manifest: &ThemeMetadata) -> Result
     }
     for file in &manifest.files {
         let bytes = fs::read(theme_dir.join(&file.path))?;
-        if format!("{:x}", Sha256::digest(bytes)) != file.sha256 {
+        if sha256_hex(&bytes) != file.sha256 {
             return Err(Error::ThemeChecksum {
                 theme: manifest.name.clone(),
                 path: file.path.clone(),

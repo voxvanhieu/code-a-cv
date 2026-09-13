@@ -199,7 +199,7 @@ fn install_downloadable(name: &str, directory: &Path, force: bool) -> Result<()>
         .iter()
         .map(|file| {
             let bytes = fetch(&resource(&base, &format!("{name}/{}", file.path)))?;
-            let actual = format!("{:x}", Sha256::digest(&bytes));
+            let actual = sha256_hex(&bytes);
             if actual != file.sha256 {
                 return Err(Error::ThemeChecksum {
                     theme: name.into(),
@@ -327,4 +327,11 @@ fn user_root() -> Result<PathBuf> {
 
 fn location_name(local: bool) -> &'static str {
     if local { "project" } else { "user" }
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }

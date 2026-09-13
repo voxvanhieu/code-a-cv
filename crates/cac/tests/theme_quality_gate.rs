@@ -226,7 +226,11 @@ fn archive_contains_exact_manifest_bytes_hashes_and_normalized_entries() {
         assert_eq!(entry.last_modified().unwrap(), zip::DateTime::default());
         let mut content = Vec::new();
         entry.read_to_end(&mut content).unwrap();
-        assert_eq!(format!("{:x}", Sha256::digest(&content)), file["sha256"]);
+        let expected: String = Sha256::digest(&content)
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        assert_eq!(expected, file["sha256"]);
         assert_eq!(content, fs::read(theme.join(path)).unwrap());
     }
     expected.sort();
