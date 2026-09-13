@@ -100,8 +100,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ${{ matrix.runner }}
-    # Cold Intel macOS release builds can exceed 30 minutes.
-    timeout-minutes: ${{ matrix.target == 'x86_64-apple-darwin' && 60 || 30 }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
