@@ -1,11 +1,9 @@
 use std::fs;
 use std::io::Write;
 
-use sha2::{Digest, Sha256};
-
 use crate::error::{Error, Result};
 
-use super::{metadata, test};
+use super::{metadata, sha256_hex, test};
 
 pub(super) fn run() -> Result<()> {
     let tested = test::test_current()?;
@@ -29,7 +27,7 @@ pub(super) fn run() -> Result<()> {
     for path in paths {
         let bytes = fs::read(tested.theme_dir.join(&path))?;
         if let Some(file) = manifest.files.iter().find(|file| file.path == path)
-            && format!("{:x}", Sha256::digest(&bytes)) != file.sha256
+            && sha256_hex(&bytes) != file.sha256
         {
             return Err(Error::ThemeChecksum {
                 theme: manifest.name.clone(),
