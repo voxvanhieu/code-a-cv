@@ -17,7 +17,7 @@ fn verification_rejects_modified_missing_and_undeclared_files() {
         fs::write(directory.path().join(path), b"original").unwrap();
         manifest.files.push(ThemeFile {
             path: path.into(),
-            sha256: format!("{:x}", Sha256::digest(b"original")),
+            sha256: sha256_hex(b"original"),
         });
     }
     verify_files(directory.path(), &manifest).unwrap();
@@ -32,4 +32,16 @@ fn verification_rejects_modified_missing_and_undeclared_files() {
     fs::remove_file(directory.path().join("extra.txt")).unwrap();
     fs::remove_file(directory.path().join("preview.jpg")).unwrap();
     assert!(verify_files(directory.path(), &manifest).is_err());
+}
+
+#[test]
+fn checksums_preserve_standard_lowercase_hex_encoding() {
+    assert_eq!(
+        sha256_hex(b""),
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    );
+    assert_eq!(
+        sha256_hex(b"abc"),
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    );
 }
