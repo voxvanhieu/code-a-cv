@@ -51,7 +51,7 @@ jobs:
           ref: ${{ inputs.tag }}
           persist-credentials: false
       - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@f8d4222eb633e65c2a0157383cf80861fc7fae7f
+        uses: Homebrew/actions/setup-homebrew@1e34f2e2acaa766b7efacb8c26352e6abbb023f9
         with:
           core: true
       - name: Generate formula
@@ -101,7 +101,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@f8d4222eb633e65c2a0157383cf80861fc7fae7f
+        uses: Homebrew/actions/setup-homebrew@1e34f2e2acaa766b7efacb8c26352e6abbb023f9
         with:
           core: true
       - name: Download formula
