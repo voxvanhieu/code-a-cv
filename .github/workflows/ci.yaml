@@ -114,9 +114,6 @@ jobs:
           - target: aarch64-apple-darwin
             runner: macos-15
             binary: cac
-          - target: x86_64-apple-darwin
-            runner: macos-15-intel
-            binary: cac
           - target: x86_64-pc-windows-msvc
             runner: windows-2022
             binary: cac.exe
