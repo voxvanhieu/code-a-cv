@@ -1,0 +1,6 @@
+{
+  "$schema": ".cac/settings.schema.json",
+  "root": "Ada_Lovelace_JobSpecific.md",
+  "naming": "Ada_Lovelace_JobSpecific",
+  "theme": "classic"
+}

@@ -49,6 +49,13 @@ pub struct Args {
         help = "Read rendering settings from FILE; defaults to settings.json beside the CV"
     )]
     settings: Option<PathBuf>,
+    #[arg(
+        long,
+        value_name = "TAGS",
+        value_delimiter = ',',
+        help = "Build a job-specific variant: keep sections and entries tagged with any of TAGS, drop the rest, and name the artifact after the variant"
+    )]
+    tags: Vec<String>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -95,10 +102,34 @@ pub fn run(args: Args) -> Result<()> {
         )
     });
     let cv = read_cv(&input, args.input_format)?;
-    let stem = settings
+    let mut stem = settings
         .naming
         .as_deref()
         .map_or_else(|| input_stem(&input).to_owned(), str::to_owned);
+    let cv = if args.tags.is_empty() {
+        cv
+    } else {
+        let tags: std::collections::BTreeSet<String> = args
+            .tags
+            .iter()
+            .map(|tag| tag.trim().to_string())
+            .filter(|tag| !tag.is_empty())
+            .collect();
+        let listed = tags.iter().cloned().collect::<Vec<_>>().join(", ");
+        let kept = cv
+            .variant(&tags)
+            .ok_or(crate::error::Error::NoTagMatches(listed))?;
+        let variant = args
+            .tags
+            .iter()
+            .map(|tag| tag.trim())
+            .filter(|tag| !tag.is_empty())
+            .collect::<Vec<_>>()
+            .join("-");
+        println!("VARIANT {variant}");
+        stem = format!("{stem}-{variant}");
+        kept
+    };
     let project = project_directory(&input)?;
     let render_options = cac_render::RenderOptions {
         project_dir: Some(project.join(".cac")),

@@ -18,7 +18,7 @@ so they can be inspected without building the project locally.
 | [`customized-layout`](customized-layout/) | [`Ada_Lovelace_CustomizedLayout.pdf`](customized-layout/offering/Ada_Lovelace_CustomizedLayout.pdf) | Render each section with a table suited to its content using a project-local theme. | `cd customized-layout`<br>`cac build` |
 | [`local-theme`](local-theme/) |  | Find and download themes into a project's `.cac/themes` directory. | `cd local-theme`<br>`cac theme list`<br>`cac theme search`<br>`cac theme install THEME --local` |
 | [`content-checking`](content-checking/) |  | Demonstrate normal and strict content diagnostics. | To be added |
-| [`job-specific-cv`](job-specific-cv/) |  | Maintain a CV tailored to a particular role. | To be added |
+| [`job-specific-cv`](job-specific-cv/) | [`Ada_Lovelace_JobSpecific-backend.pdf`](job-specific-cv/offering/Ada_Lovelace_JobSpecific-backend.pdf) | Build job-specific variants from one tagged source with `--tags`; the artifact is named after the variant. | `cd job-specific-cv`<br>`cac build --tags backend`<br>`cac build --tags frontend`<br>`cac build --tags backend,leadership` |
 | [`complete-cv`](complete-cv/) | [`Ada_Lovelace_CompleteCV.pdf`](complete-cv/offering/Ada_Lovelace_CompleteCV.pdf) | Exercise a long, complex Markdown CV with every supported section and entry shape. | `cd complete-cv`<br>`cac check`<br>`cac build --format pdf,html` |
 
 ## Build every example

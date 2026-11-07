@@ -10,6 +10,7 @@ const CLEAN_MARKDOWN: &str =
     "# Ada Lovelace\n\nada@example.com\n\n## Skills\n\n- Rust and PostgreSQL\n";
 const CLASSIC_SETTINGS: &str = "{\n  \"$schema\": \".cac/settings.schema.json\",\n  \"root\": \"cv.md\",\n  \"theme\": \"classic\"\n}\n";
 const WARNING_MARKDOWN: &str = "# Ada Lovelace\n\nada@example.com\n\n## Experience\n\n### Engineer, Example\n2020–Present\n\n- Helped my team ship software\n";
+const VARIANT_MARKDOWN: &str = "# Ada Lovelace\nEmail: ada@example.com\n\n## Platform\nKind: experience\n<!-- tags: backend -->\n\n### Platform Engineer\nPeriod: 2023-01–Present\n\n- Built the Platform API.\n\n## Web\nKind: experience\n<!-- tags: frontend -->\n\n### Frontend Engineer\nPeriod: 2022-01–2022-12\n\n- Built the Design system.\n\n## Skills\nKind: skills\n\n### Languages\n- Rust\n- TypeScript\n";
 
 #[test]
 fn help_screens_match_snapshots() {
@@ -252,6 +253,75 @@ fn version_uses_lowercase_short_option() {
         .assert()
         .code(2)
         .stderr(predicates::str::contains("unexpected argument '-V'"));
+}
+
+#[test]
+fn build_tags_builds_named_variants_from_one_file() {
+    let directory = tempdir().unwrap();
+    fs::write(directory.path().join("cv.md"), VARIANT_MARKDOWN).unwrap();
+    fs::write(
+        directory.path().join("settings.json"),
+        r#"{"$schema":".cac/settings.schema.json","root":"cv.md","theme":"classic"}"#,
+    )
+    .unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .arg("schema")
+        .assert()
+        .success();
+
+    // Two variants from one source file, each named after its tags, each
+    // carrying only its tagged sections.
+    for (tags, marker, absent) in [
+        ("backend", "Platform API", "Design system"),
+        ("frontend", "Design system", "Platform API"),
+    ] {
+        let offering = directory.path().join("offering");
+        let before = fs::read_dir(&offering)
+            .map(|entries| entries.count())
+            .unwrap_or(0);
+        Command::cargo_bin("cac")
+            .unwrap()
+            .current_dir(directory.path())
+            .args(["build", "--tags", tags, "--format", "pdf,html"])
+            .assert()
+            .success()
+            .stdout(predicates::str::contains("VARIANT ").and(predicates::str::contains("BUILT")));
+        let pdf = directory
+            .path()
+            .join("offering")
+            .join(format!("cv-{tags}.pdf"));
+        let html = directory
+            .path()
+            .join("offering")
+            .join(format!("cv-{tags}.html"));
+        assert!(pdf.is_file(), "variant artifact exists: {}", pdf.display());
+        let after = fs::read_dir(&offering).unwrap().count();
+        assert_eq!(
+            after,
+            before + 2,
+            "the variant writes only its own artifacts"
+        );
+        let text = fs::read_to_string(&html).unwrap();
+        assert!(text.contains(marker), "variant {tags} contains {marker}");
+        assert!(!text.contains(absent), "variant {tags} drops {absent}");
+        assert!(
+            !text.contains("Languages"),
+            "untagged sections drop under --tags"
+        );
+    }
+
+    // A tag that matches nothing fails with a diagnostic, not an empty CV.
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["build", "--tags", "nosuchthing"])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "no sections or entries are tagged with nosuchthing",
+        ));
 }
 
 #[test]

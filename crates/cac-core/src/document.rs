@@ -345,3 +345,44 @@ impl EntryKind {
 pub struct Origin {
     pub path: String,
 }
+
+impl CvDocument {
+    /// Project the document onto a tagged variant: sections whose tags
+    /// intersect `tags` survive whole, untagged sections survive only
+    /// through their tagged entries, and everything else drops. The
+    /// profile always survives; a variant without the name block is not a
+    /// CV. Returns `None` when nothing matches, so callers can report a
+    /// diagnostic instead of writing an empty document.
+    pub fn variant(&self, tags: &TagSet) -> Option<CvDocument> {
+        let sections: Vec<Section> = self
+            .sections
+            .iter()
+            .filter_map(|section| {
+                if !section.tags.is_disjoint(tags) {
+                    return Some(section.clone());
+                }
+                let entries: Vec<Entry> = section
+                    .entries
+                    .iter()
+                    .filter(|entry| !entry.tags.is_disjoint(tags))
+                    .cloned()
+                    .collect();
+                (!entries.is_empty()).then_some(Section {
+                    entries,
+                    ..section.clone()
+                })
+            })
+            .collect();
+        if sections.is_empty() {
+            return None;
+        }
+        Some(CvDocument {
+            profile: self.profile.clone(),
+            sections,
+        })
+    }
+}
+
+#[cfg(test)]
+#[path = "../tests/unit/variant.rs"]
+mod variant_tests;

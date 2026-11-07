@@ -51,4 +51,6 @@ pub enum Error {
     ThemeNotInstalled(String),
     #[error("theme project error: {0}")]
     ThemeProject(String),
+    #[error("no sections or entries are tagged with {0}; nothing to build")]
+    NoTagMatches(String),
 }

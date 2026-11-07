@@ -10,6 +10,7 @@ Options:
   -f, --format <FORMAT>        Build one or more output formats [default: pdf] [possible values: pdf, html]
   -o, --output <DIR>           Write artifacts to DIR, replacing existing artifacts [default: offering]
       --settings <FILE>        Read rendering settings from FILE; defaults to settings.json beside the CV
+      --tags <TAGS>            Build a job-specific variant: keep sections and entries tagged with any of TAGS, drop the rest, and name the artifact after the variant
   -h, --help                   Print help
 
 Examples:
