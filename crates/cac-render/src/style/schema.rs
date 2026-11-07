@@ -349,6 +349,22 @@ pub enum Paper {
     UsLetter,
 }
 
+impl Paper {
+    /// The CSS/Typst page-size spelling.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::A4 => "a4",
+            Self::UsLetter => "us-letter",
+        }
+    }
+}
+
+impl Display for Paper {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, JsonSchema, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum TextAlign {

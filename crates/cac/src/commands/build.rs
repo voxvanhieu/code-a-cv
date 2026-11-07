@@ -131,6 +131,8 @@ pub fn run(args: Args) -> Result<()> {
         kept
     };
     let project = project_directory(&input)?;
+    let resolved_style = cac_render::resolved_style_for(&settings, settings.theme_name())
+        .map_err(|error| cac_render::SettingsError::Style(error.to_string()))?;
     let render_options = cac_render::RenderOptions {
         project_dir: Some(project.join(".cac")),
         user_dir: user_cac_directory(),
@@ -148,7 +150,10 @@ pub fn run(args: Args) -> Result<()> {
             }
             OutputFormat::Html => {
                 let path = args.output.join(format!("{stem}.html"));
-                fs::write(&path, cac_render::render_html(&cv))?;
+                fs::write(
+                    &path,
+                    cac_render::render_html_for_sheet(&cv, &resolved_style),
+                )?;
                 path
             }
         };

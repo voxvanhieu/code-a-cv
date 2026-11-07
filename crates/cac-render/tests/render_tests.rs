@@ -692,9 +692,10 @@ fn html_preserves_complete_metadata_and_prose_list_structure() {
         "Acme, Inc.",
         "Remote",
         "Example Press",
-        "2023-05",
-        "2022–",
-        "–2021",
+        "May 2023",
+        "2022",
+        "May 2023",
+        "2021",
         "A paragraph after the list.",
         "Second line.",
     ] {

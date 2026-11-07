@@ -128,3 +128,16 @@ fn resolve_defaults() -> Result<ResolvedStyle, StyleContractError> {
 
 #[cfg(test)]
 mod tests;
+
+/// Resolve the style sheet for a settings file and theme name: the same
+/// layering the PDF render path uses (defaults, classic family when the
+/// theme is the embedded classic, then the shimmed settings).
+pub fn resolved_style_for(
+    settings: &crate::settings::Settings,
+    theme_name: &str,
+) -> Result<ResolvedStyle, StyleContractError> {
+    let shimmed = legacy::shim(settings);
+    let family = (theme_name == "classic").then(legacy::classic_family);
+    let (resolved, _advisories) = resolve::resolve_layered(family.as_ref(), &shimmed)?;
+    Ok(resolved)
+}
