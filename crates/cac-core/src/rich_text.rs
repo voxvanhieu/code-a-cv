@@ -141,8 +141,17 @@ impl RichText {
                             );
                             let indent = " ".repeat(marker.len());
                             let body = item.to_markdown();
+                            let mut first_visible = true;
                             for (line, text) in body.lines().enumerate() {
-                                output.push_str(if line == 0 { &marker } else { &indent });
+                                if text.is_empty() {
+                                    // Blank lines between an item's text and
+                                    // its nested list carry no meaning; the
+                                    // tight form is formatter-stable.
+                                    continue;
+                                }
+                                let _ = line;
+                                output.push_str(if first_visible { &marker } else { &indent });
+                                first_visible = false;
                                 output.push_str(text);
                                 output.push('\n');
                             }

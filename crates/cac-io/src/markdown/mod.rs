@@ -18,7 +18,10 @@ use cac_core::{CvDocument, SectionKind};
 use crate::ParseError;
 pub use fields::{parse_date_point, slugify};
 pub(crate) use write::difference;
-pub use write::{to_markdown, to_markdown_checked};
+
+pub use write::{
+    MarkdownStyle, detect_style, to_markdown, to_markdown_checked, to_markdown_with_style,
+};
 
 pub const STARTER_MARKDOWN: &str = include_str!("../starter.md");
 

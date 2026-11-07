@@ -1247,7 +1247,7 @@ fn conversion_failure_preserves_the_existing_destination() {
 }
 
 #[test]
-fn formatter_preserves_bare_markdown_and_uses_project_source_format() {
+fn formatter_canonicalizes_markdown_and_uses_project_source_format() {
     let directory = tempdir().unwrap();
     let path = directory.path().join("cv.md");
     fs::write(&path, format!("{CLEAN_MARKDOWN}\n\n")).unwrap();
@@ -1257,7 +1257,18 @@ fn formatter_preserves_bare_markdown_and_uses_project_source_format() {
         .arg(&path)
         .assert()
         .success();
-    assert_eq!(fs::read_to_string(&path).unwrap(), CLEAN_MARKDOWN);
+    // The canonical explicit spelling: fields spelled, a blank line after
+    // every heading, trailing blank lines gone. The data is unchanged.
+    let formatted = fs::read_to_string(&path).unwrap();
+    let reparsed = Command::cargo_bin("cac")
+        .unwrap()
+        .arg("check")
+        .arg(&path)
+        .assert()
+        .success();
+    let _ = reparsed;
+    assert!(formatted.contains("## Skills\n\nKind: skills"));
+    assert!(!formatted.ends_with("\n\n"));
     for (filename, source) in [
         ("cv.json", "{\"profile\":{\"name\":\"Анна\"}}"),
         ("cv.yaml", "profile: {name: Анна}"),

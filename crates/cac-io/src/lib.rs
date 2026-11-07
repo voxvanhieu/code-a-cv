@@ -6,5 +6,6 @@ pub use codec::{InputFormat, ParseError, parse, validate};
 pub use json_resume::{export_json_resume, export_json_resume_checked, import_json_resume};
 
 pub use markdown::{
-    STARTER_MARKDOWN, parse_date_point, parse_markdown, slugify, to_markdown, to_markdown_checked,
+    MarkdownStyle, STARTER_MARKDOWN, detect_style, parse_date_point, parse_markdown, slugify,
+    to_markdown, to_markdown_checked, to_markdown_with_style,
 };
