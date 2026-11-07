@@ -1,14 +1,17 @@
 // The layout contract (L1): four hooks over pure helpers.
 //
-// The classic family below carries the embedded classic layout verbatim
-// (it was classic_components in base.typ); its typography comes from the
-// resolved sheet and the pure helpers arrive through ctx.helpers, which
-// base.typ injects. Families and themes may override any hook through
-// `layout`. The single dynamic hop is ctx.components.entry: a section
-// renders its entries through the active entry hook, so an overridden
-// entry hook applies everywhere.
+// Families live here; the pure helpers arrive through ctx.helpers, which
+// base.typ injects. A theme exports `layout` — either
+// `(family: "classic")` to pick a built-in family with overrides, or a
+// dictionary of hook overrides directly. The single dynamic hop is
+// ctx.components.entry: a section renders its entries through the active
+// entry hook, so an overridden entry hook applies everywhere. heading,
+// styled-text, rich, highlight-list, entry-details, and section-heading
+// are helpers a hook calls explicitly — no longer override points.
 
 #let helpers-of(ctx) = ctx.helpers
+
+// -- classic --
 
 #let classic-section-heading(ctx, section) = {
   let h = helpers-of(ctx)
@@ -55,9 +58,42 @@
   })
 }
 
-// The classic family: centered header, rule under section titles, indented
-// entries with the period beside the title. document and header reuse the
-// base helpers verbatim via the injected helper table.
 #let classic = (document: none, header: none, section: classic-section-flow, entry: classic-entry, section_heading: classic-section-heading, entry_details: classic-entry-details)
 
-#let families = (classic: classic)
+// -- table --
+
+// Section titles keep a rule; homogeneous dated sections render as tables
+// with the period in a gutter, skills as label rows, everything else in
+// flow.
+#let table-section(ctx, section) = {
+  let h = helpers-of(ctx)
+  h.at("section_table")(ctx, section)
+}
+
+#let table = (
+  document: none,
+  header: none,
+  section: table-section,
+  entry: none,
+  section_heading: classic-section-heading,
+  entry_details: classic-entry-details,
+)
+
+// -- compact --
+
+// No indent, no rules: tight flow with the period beside the title.
+#let compact-section-heading(ctx, section) = {
+  let h = helpers-of(ctx)
+  h.at("heading")(ctx, 2, [#section.title])
+}
+
+#let compact = (
+  document: none,
+  header: none,
+  section: classic-section-flow,
+  entry: classic-entry,
+  section_heading: compact-section-heading,
+  entry_details: classic-entry-details,
+)
+
+#let families = (classic: classic, table: table, compact: compact)

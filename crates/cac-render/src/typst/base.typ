@@ -312,6 +312,9 @@
     rich: rich,
     styled_text: styled-text,
     merge: merge,
+    section_table: section_table,
+    section_labels: section_labels,
+    table_kind: table_kind,
   )
   let theme-layout = theme.at("layout", default: none)
   let resolved-components = if theme-layout != none {

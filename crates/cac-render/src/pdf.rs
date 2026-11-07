@@ -113,7 +113,17 @@ pub(crate) fn render_pdf_document(
     render_settings.theme = None;
     render_settings.theme_project = None;
     let shimmed = crate::style::legacy::shim(&render_settings);
-    let family = (theme_name == "classic").then(crate::style::legacy::classic_family);
+    let theme_uses_components = resolved
+        .source_text
+        .as_deref()
+        .is_some_and(|source| source.contains("components:"));
+    if theme_uses_components {
+        eprintln!(
+            "NOTE legacy component themes are deprecated; migrate to layout hooks or theme.toml"
+        );
+    }
+    let family = (theme_name == "classic" && !theme_uses_components)
+        .then(crate::style::legacy::classic_family);
     let (style_sheet, advisories) =
         crate::style::resolve::resolve_layered(family.as_ref(), &shimmed).map_err(|error| {
             RenderError::Settings(crate::settings::SettingsError::Style(error.to_string()))
@@ -173,7 +183,17 @@ pub fn render_pdf_and_preview_with_options(
     render_settings.theme = None;
     render_settings.theme_project = None;
     let shimmed = crate::style::legacy::shim(&render_settings);
-    let family = (theme_name == "classic").then(crate::style::legacy::classic_family);
+    let theme_uses_components = resolved
+        .source_text
+        .as_deref()
+        .is_some_and(|source| source.contains("components:"));
+    if theme_uses_components {
+        eprintln!(
+            "NOTE legacy component themes are deprecated; migrate to layout hooks or theme.toml"
+        );
+    }
+    let family = (theme_name == "classic" && !theme_uses_components)
+        .then(crate::style::legacy::classic_family);
     let (style_sheet, advisories) =
         crate::style::resolve::resolve_layered(family.as_ref(), &shimmed).map_err(|error| {
             RenderError::Settings(crate::settings::SettingsError::Style(error.to_string()))
@@ -245,6 +265,7 @@ pub fn render_pdf_and_preview_with_options(
 }
 
 struct ResolvedTheme {
+    source_text: Option<String>,
     source: ThemeSource,
     directory: Option<PathBuf>,
     embedded_source: Option<&'static str>,
@@ -260,6 +281,7 @@ fn resolve_theme(name: &str, options: &RenderOptions) -> Result<ResolvedTheme, R
             let directory = root.join("themes").join(name);
             if directory.join("theme.typ").is_file() {
                 return Ok(ResolvedTheme {
+                    source_text: std::fs::read_to_string(directory.join("theme.typ")).ok(),
                     source,
                     directory: Some(directory),
                     embedded_source: None,
@@ -269,6 +291,7 @@ fn resolve_theme(name: &str, options: &RenderOptions) -> Result<ResolvedTheme, R
     }
     if let Some(source) = embedded_theme_source(name) {
         Ok(ResolvedTheme {
+            source_text: Some(source.to_string()),
             source: ThemeSource::Embedded,
             directory: None,
             embedded_source: Some(source),
@@ -322,6 +345,7 @@ impl CacWorld {
             style: Bytes::new(style),
             settings_style: Bytes::new(settings_style),
             theme: ResolvedTheme {
+                source_text: theme.source_text.clone(),
                 source: theme.source,
                 directory: theme.directory.clone(),
                 embedded_source: theme.embedded_source,

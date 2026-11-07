@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+- Ship built-in `table` and `compact` layout families alongside `classic`: a project theme exports `layout: (family: "table")` to pick one, dated sections render as tables with the period in a gutter (table) or tight flow without rules and indents (compact). Legacy component themes now print a deprecation note pointing at layout hooks and theme.toml.
+
 - Add layout hooks for Typst themes: a theme may export `layout` (document, header, section, entry) instead of the twelve late-bound components, with the classic family shipped as the default and the section→entry hop as the only dynamic dispatch. The 0.3 component dictionary keeps working through an adapter for one release; embedded classic now renders through the hooks path.
 
 - Render the HTML document from the resolved style sheet: CSS custom properties carry fonts, colors, text layout, heading styles, spacing, link underlines, and page geometry, so a theme accent and sheet settings now show up in the HTML instead of hard-coded CSS. Dates print through the shared locale-aware formatter (en, de, fr, vi, ja) — the same one the PDF's view uses — replacing the raw ISO strings HTML previously leaked (`2023-01–Present` becomes `Jan 2023 – Present`).
