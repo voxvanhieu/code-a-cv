@@ -1,6 +1,6 @@
 use cac_core::{
-    CvDocument, EducationEntry, Entry, EntryKind, ExperienceEntry, Origin, Period, Profile,
-    RichText, Section, SectionKind, SkillGroupEntry, TagSet,
+    CvDocument, EducationEntry, Entry, EntryKind, ExperienceEntry, FieldMap, Origin, Period,
+    Profile, RichText, Section, SectionKind, SkillGroupEntry, TagSet,
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -97,6 +97,11 @@ pub fn import_json_resume(source: &str) -> Result<CvDocument, ParseError> {
         website: resume.basics.url,
         summary: resume.basics.summary.as_deref().map(RichText::literal),
         contacts: Vec::new(),
+        // photo/headline/address mapping lands with the core-extension
+        // behavior task; the model carries the fields already.
+        photo: None,
+        headline: None,
+        address: None,
     };
     let mut sections = Vec::new();
     if !resume.work.is_empty() {
@@ -124,6 +129,7 @@ pub fn import_json_resume(source: &str) -> Result<CvDocument, ParseError> {
                         }),
                         tags: TagSet::new(),
                         content: None,
+                        fields: FieldMap::new(),
                         origin: Origin::default(),
                     })
                 })
@@ -151,6 +157,8 @@ pub fn import_json_resume(source: &str) -> Result<CvDocument, ParseError> {
                             institution: RichText::literal(&value.institution),
                             period: json_period(value.start_date, value.end_date)?,
                             date: None,
+                            // score mapping lands with the core-extension behavior task.
+                            score: None,
                             highlights: value
                                 .courses
                                 .iter()
@@ -159,6 +167,7 @@ pub fn import_json_resume(source: &str) -> Result<CvDocument, ParseError> {
                         }),
                         tags: TagSet::new(),
                         content: None,
+                        fields: FieldMap::new(),
                         origin: Origin::default(),
                     })
                 })
@@ -185,6 +194,7 @@ pub fn import_json_resume(source: &str) -> Result<CvDocument, ParseError> {
                     }),
                     tags: TagSet::new(),
                     content: None,
+                    fields: FieldMap::new(),
                     origin: Origin::default(),
                 })
                 .collect(),

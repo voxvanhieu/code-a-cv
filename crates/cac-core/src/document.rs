@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::{DatePoint, Period, RichText};
+use crate::{DatePoint, FieldMap, Period, RichText, SkillLevel};
 
 pub type TagSet = BTreeSet<String>;
 
@@ -31,6 +31,30 @@ pub struct Profile {
     pub summary: Option<RichText>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub contacts: Vec<Contact>,
+    /// Project-relative path to a photo; the renderer resolves it inside the project jail.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub photo: Option<String>,
+    /// A one-line headline under the name (JSON Resume `basics.label`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub headline: Option<String>,
+    /// Structured postal address; themes choose which parts to show.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub address: Option<Address>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Address {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub street: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub city: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub region: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub postal_code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub country: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -121,6 +145,10 @@ pub struct Entry {
     pub kind: EntryKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content: Option<RichText>,
+    /// Open fields: author-written `Key: value` lines the model does not type.
+    /// Themes document the keys they read; `cac check` validates against packs.
+    #[serde(default, skip_serializing_if = "FieldMap::is_empty")]
+    pub fields: FieldMap,
     #[serde(default, skip_serializing_if = "TagSet::is_empty")]
     pub tags: TagSet,
     #[serde(skip, default)]
@@ -129,7 +157,10 @@ pub struct Entry {
 
 impl PartialEq for Entry {
     fn eq(&self, other: &Self) -> bool {
-        self.kind == other.kind && self.content == other.content && self.tags == other.tags
+        self.kind == other.kind
+            && self.content == other.content
+            && self.fields == other.fields
+            && self.tags == other.tags
     }
 }
 
@@ -174,6 +205,9 @@ pub struct EducationEntry {
     pub period: Option<Period>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub date: Option<DatePoint>,
+    /// Free-text academic score, for example `3.9 GPA` (JSON Resume `education[].score`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub score: Option<String>,
     #[serde(default)]
     pub highlights: Vec<RichText>,
 }
@@ -230,6 +264,34 @@ pub struct CustomEntry {
 #[serde(deny_unknown_fields)]
 pub struct TextEntry {
     pub body: RichText,
+}
+
+/// A spoken language with an optional proficiency level (CEFR grade or a
+/// named scale). The payload for the `language` entry kind.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LanguageEntry {
+    pub name: RichText,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proficiency: Option<SkillLevel>,
+}
+
+/// A reference with contact details (JSON Resume `references[]`). The payload
+/// for the `reference` entry kind.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReferenceEntry {
+    pub name: RichText,
+    #[serde(default)]
+    pub organization: Option<RichText>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub role: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub phone: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
 }
 
 impl EntryKind {

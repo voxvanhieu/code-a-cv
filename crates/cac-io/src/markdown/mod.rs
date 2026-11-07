@@ -4,8 +4,8 @@ mod write;
 use std::collections::{BTreeMap, BTreeSet};
 
 use cac_core::{
-    Contact, CvDocument, Entry, EntryKind, Inline, Origin, Profile, RichText, Section, SectionKind,
-    TagSet, TextEntry, supported_link,
+    Contact, CvDocument, Entry, EntryKind, FieldMap, Inline, Origin, Profile, RichText, Section,
+    SectionKind, TagSet, TextEntry, supported_link,
 };
 use serde_json::{Map, Value};
 use url::Url;
@@ -229,6 +229,8 @@ impl EntryBuilder {
         Ok(Entry {
             kind,
             content: body,
+            // Open-field collection lands with the AST parser task.
+            fields: FieldMap::new(),
             tags: self.tags,
             origin: Origin {
                 path: format!("line {}", self.line),
@@ -434,6 +436,7 @@ fn flush_direct(
         .extend(entries.into_iter().map(|kind| Entry {
             kind,
             content: None,
+            fields: FieldMap::new(),
             tags: TagSet::new(),
             origin: Origin {
                 path: format!("line {line}"),

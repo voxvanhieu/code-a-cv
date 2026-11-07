@@ -6,6 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+- Add the core model extension fields from the 0.4 roadmap contracts: `photo`, `headline`, and structured `address` on the profile, `score` on education entries, and an ordered open `fields` map on every entry for `Key: value` data the model does not type. Documents carrying these keys now parse instead of failing with unknown-field errors.
 - Build and smoke-test the Apple Silicon CI jobs on macOS 15 because the macOS 14 hosted runners were retired.
 - Drop macOS Intel support; releases and CI now target Apple Silicon (`aarch64-apple-darwin`) only. Existing Intel Mac installs keep working through already-published 0.3.0 artifacts.
 - Check Cargo dependencies and the pinned Rust toolchain weekly with Dependabot, and use the repository toolchain in CI and local development.
