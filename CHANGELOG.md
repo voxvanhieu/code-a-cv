@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+- Add layout hooks for Typst themes: a theme may export `layout` (document, header, section, entry) instead of the twelve late-bound components, with the classic family shipped as the default and the section→entry hop as the only dynamic dispatch. The 0.3 component dictionary keeps working through an adapter for one release; embedded classic now renders through the hooks path.
+
 - Render the HTML document from the resolved style sheet: CSS custom properties carry fonts, colors, text layout, heading styles, spacing, link underlines, and page geometry, so a theme accent and sheet settings now show up in the HTML instead of hard-coded CSS. Dates print through the shared locale-aware formatter (en, de, fr, vi, ja) — the same one the PDF's view uses — replacing the raw ISO strings HTML previously leaked (`2023-01–Present` becomes `Jan 2023 – Present`).
 
 - Render from the resolved style sheet: base.typ reads `.cac/style.json` (numeric lengths, hex colors, no string evaluation) and the Typst-side settings translation (`apply-settings` with its `eval`) is deleted. Settings still override project themes through a sparse overlay, so the 0.3 precedence holds; the embedded classic theme slims to its components with its typography living in the style sheet. Determinism doubles as parity: classic builds render byte-identical PDFs against the previous pipeline, including documents with legacy settings.

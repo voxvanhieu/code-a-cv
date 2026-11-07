@@ -1,5 +1,6 @@
 
 #import "style.typ": dictionaries, dictionaries-sparse
+#import "layout.typ": families
 
 // The built-in dictionaries come from the resolved style sheet
 // (/.cac/style.json); no defaults are written here anymore.
@@ -228,6 +229,8 @@
   })
 }
 
+// The 0.3 adapter: legacy themes call classic_components(...) and extend
+// `components`; removed from the family path, kept for one release.
 #let classic_components(header_rule: false, entry_indent: 0.15in) = (
   header: ctx => {
     header(ctx)
@@ -298,13 +301,43 @@
   let styles = merge(merge(sheet.styles, theme.at("styles", default: (:))), settings-dicts.styles)
   let page = merge(merge(sheet.page, theme.at("page", default: (:))), settings-dicts.page)
   let resolved-styles = resolve-styles(styles)
-  let resolved-components = merge(components, theme.at("components", default: (:)))
+
+  let helpers = (
+    heading: heading,
+    entry_details: entry_details,
+    entry_flow: entry_flow,
+    section_start: section_start,
+    keep_entry: keep-entry,
+    highlight_list: highlight-list,
+    rich: rich,
+    styled_text: styled-text,
+    merge: merge,
+  )
+  let theme-layout = theme.at("layout", default: none)
+  let resolved-components = if theme-layout != none {
+    // Hooks path: a family plus optional hook overrides. Hooks left as
+    // none reuse the base helper verbatim (document, header).
+    let family = merge(families.at(theme-layout.at("family", default: "classic"), default: families.classic), theme-layout)
+    merge(components, (
+      document: if family.document == none { document-component } else { family.document },
+      header: if family.header == none { header } else { family.header },
+      section: if family.section == none { section_flow } else { family.section },
+      entry: if family.entry == none { entry_flow } else { family.entry },
+      section_heading: if family.section_heading == none { section-heading } else { family.section_heading },
+      entry_details: if family.entry_details == none { entry_details } else { family.entry_details },
+    ))
+  } else {
+    // Legacy adapter: 0.3 component dictionaries, for one release.
+    merge(components, theme.at("components", default: (:)))
+  }
   let ctx = (
     cv: cv,
     tokens: tokens,
     styles: resolved-styles,
     page: page,
     components: resolved-components,
+    layout: resolved-components,
+    helpers: helpers,
   )
   (resolved-components.document)(ctx)
 }

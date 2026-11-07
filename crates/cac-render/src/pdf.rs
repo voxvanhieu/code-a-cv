@@ -20,6 +20,7 @@ use crate::{Settings, SettingsError, validate_theme_name};
 const MAIN_TYP: &str = include_str!("typst/main.typ");
 const BASE_TYP: &str = include_str!("typst/base.typ");
 const STYLE_TYP: &str = include_str!("typst/style.typ");
+const LAYOUT_TYP: &str = include_str!("typst/layout.typ");
 const CLASSIC_TYP: &str = include_str!("typst/themes/classic.typ");
 
 pub const EMBEDDED_THEME_NAMES: &[&str] = &["classic"];
@@ -367,6 +368,7 @@ impl World for CacWorld {
         let contents = match path {
             ".cac/base.typ" => Bytes::new(BASE_TYP.as_bytes()),
             ".cac/style.typ" => Bytes::new(STYLE_TYP.as_bytes()),
+            ".cac/layout.typ" => Bytes::new(LAYOUT_TYP.as_bytes()),
             ".cac/theme.typ" if self.theme.directory.is_none() => Bytes::new(
                 self.theme
                     .embedded_source
