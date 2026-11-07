@@ -12,6 +12,30 @@ const CLASSIC_SETTINGS: &str = "{\n  \"$schema\": \".cac/settings.schema.json\",
 const WARNING_MARKDOWN: &str = "# Ada Lovelace\n\nada@example.com\n\n## Experience\n\n### Engineer, Example\n2020–Present\n\n- Helped my team ship software\n";
 const VARIANT_MARKDOWN: &str = "# Ada Lovelace\nEmail: ada@example.com\n\n## Platform\nKind: experience\n<!-- tags: backend -->\n\n### Platform Engineer\nPeriod: 2023-01–Present\n\n- Built the Platform API.\n\n## Web\nKind: experience\n<!-- tags: frontend -->\n\n### Frontend Engineer\nPeriod: 2022-01–2022-12\n\n- Built the Design system.\n\n## Skills\nKind: skills\n\n### Languages\n- Rust\n- TypeScript\n";
 
+/// A predicate that compares after folding Windows backslashes to forward
+/// slashes, so assertions stay path-separator agnostic.
+#[derive(Debug, Clone, Copy)]
+struct WindowSlashes(&'static str);
+
+impl std::fmt::Display for WindowSlashes {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "output with \\ folded to / equals {:?}", self.0)
+    }
+}
+
+impl predicates_core::reflection::PredicateReflection for WindowSlashes {}
+
+impl predicates::prelude::Predicate<[u8]> for WindowSlashes {
+    fn eval(&self, variable: &[u8]) -> bool {
+        let text = String::from_utf8_lossy(variable);
+        text.replace('\\', "/") == self.0
+    }
+}
+
+fn window_slashes(expected: &'static str) -> WindowSlashes {
+    WindowSlashes(expected)
+}
+
 #[test]
 fn help_screens_match_snapshots() {
     let snapshots = [
@@ -46,7 +70,11 @@ fn help_screens_match_snapshots() {
             .unwrap();
 
         assert!(output.status.success());
-        assert_eq!(String::from_utf8(output.stdout).unwrap(), snapshot);
+        // Windows names the binary cac.exe; the snapshot spells cac.
+        let stdout = String::from_utf8(output.stdout)
+            .unwrap()
+            .replace("cac.exe", "cac");
+        assert_eq!(stdout, snapshot);
         assert!(output.stderr.is_empty());
     }
 }
@@ -350,7 +378,9 @@ fn schema_creates_updates_and_validates_project_settings() {
         .arg("schema")
         .assert()
         .success()
-        .stdout("CREATED .cac/settings.schema.json\nVALID settings.json\n");
+        .stdout(window_slashes(
+            "CREATED .cac/settings.schema.json\nVALID settings.json\n",
+        ));
     let generated: serde_json::Value = serde_json::from_slice(&fs::read(&schema).unwrap()).unwrap();
     assert_eq!(generated["type"], "object");
     assert_eq!(generated["properties"]["page"]["$ref"], "#/$defs/page");
@@ -366,7 +396,9 @@ fn schema_creates_updates_and_validates_project_settings() {
         .arg("schema")
         .assert()
         .success()
-        .stdout("UPDATED .cac/settings.schema.json\nVALID settings.json\n");
+        .stdout(window_slashes(
+            "UPDATED .cac/settings.schema.json\nVALID settings.json\n",
+        ));
 
     Command::cargo_bin("cac")
         .unwrap()
@@ -523,7 +555,10 @@ fn build_uses_the_settings_root_when_input_is_omitted() {
         .args(["build", "--format", "html"])
         .assert()
         .success()
-        .stdout(predicates::str::contains("BUILT offering/primary.html"));
+        .stdout(
+            predicates::str::contains("BUILT offering")
+                .and(predicates::str::contains("primary.html")),
+        );
     assert!(directory.path().join("offering/primary.html").is_file());
 }
 
@@ -543,9 +578,10 @@ fn build_uses_the_configured_artifact_name() {
         .args(["build", "--format", "html"])
         .assert()
         .success()
-        .stdout(predicates::str::contains(
-            "BUILT offering/Ada_Lovelace_Engineering.html",
-        ));
+        .stdout(
+            predicates::str::contains("BUILT offering")
+                .and(predicates::str::contains("Ada_Lovelace_Engineering.html")),
+        );
     assert!(
         directory
             .path()
@@ -582,7 +618,10 @@ fn build_resolves_root_relative_to_an_explicit_settings_file() {
         ])
         .assert()
         .success()
-        .stdout(predicates::str::contains("BUILT offering/primary.html"));
+        .stdout(
+            predicates::str::contains("BUILT offering")
+                .and(predicates::str::contains("primary.html")),
+        );
 }
 
 #[test]
@@ -596,7 +635,9 @@ fn build_without_settings_falls_back_to_cv_markdown() {
         .args(["build", "--format", "html"])
         .assert()
         .success()
-        .stdout(predicates::str::contains("BUILT offering/cv.html"));
+        .stdout(
+            predicates::str::contains("BUILT offering").and(predicates::str::contains("cv.html")),
+        );
     let generated: serde_json::Value = serde_json::from_slice(
         &fs::read(directory.path().join(".cac/settings.schema.json")).unwrap(),
     )
@@ -621,7 +662,10 @@ fn explicit_build_input_takes_precedence_over_the_settings_root() {
         .args(["build", "selected.md", "--format", "html"])
         .assert()
         .success()
-        .stdout(predicates::str::contains("BUILT offering/selected.html"));
+        .stdout(
+            predicates::str::contains("BUILT offering")
+                .and(predicates::str::contains("selected.html")),
+        );
 }
 
 #[test]
@@ -936,12 +980,22 @@ fn themes_list_and_remove_a_local_theme() {
 #[test]
 fn themes_search_info_install_and_build_from_a_registry() {
     let directory = tempdir().unwrap();
-    let registry = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .join("themes")
         .canonicalize()
         .unwrap();
-    let registry = format!("file://{}", registry.display());
+    // Windows canonicalizes to the verbatim form \\?\C:\...; build a
+    // standard file URL with forward slashes on every platform.
+    let mut root = root.to_string_lossy().replace('\\', "/");
+    if let Some(stripped) = root.strip_prefix("//?/") {
+        root = stripped.to_string();
+    }
+    let registry = if root.starts_with('/') {
+        format!("file://{root}")
+    } else {
+        format!("file:///{root}")
+    };
 
     Command::cargo_bin("cac")
         .unwrap()

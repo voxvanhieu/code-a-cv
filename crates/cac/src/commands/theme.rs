@@ -298,7 +298,7 @@ fn resource(base: &str, relative: &str) -> String {
 }
 
 fn fetch(resource: &str) -> Result<Vec<u8>> {
-    if let Some(path) = resource.strip_prefix("file://") {
+    if let Some(path) = file_resource_path(resource) {
         return Ok(fs::read(path)?);
     }
     let mut response = ureq::get(resource)
@@ -308,6 +308,52 @@ fn fetch(resource: &str) -> Result<Vec<u8>> {
         .body_mut()
         .read_to_vec()
         .map_err(|error| Error::ThemeRegistry(format!("could not read `{resource}`: {error}")))
+}
+
+/// The local path of a `file://` resource, or `None` for other schemes.
+///
+/// Windows file URLs keep a drive letter behind an empty authority
+/// (`file:///C:/Users/...`), so the path arrives with a leading slash that
+/// no Windows API accepts. Percent escapes are decoded the way browsers
+/// write `file:` URLs.
+fn file_resource_path(resource: &str) -> Option<PathBuf> {
+    let path = resource.strip_prefix("file://")?;
+    let path = match path.strip_prefix('/') {
+        // `file:///C:/...` carries the drive letter behind the slash;
+        // `file:///tmp/...` keeps the absolute root.
+        Some(stripped) if is_windows_drive(stripped) => stripped,
+        _ => path,
+    };
+    Some(PathBuf::from(percent_decode(path)))
+}
+
+fn is_windows_drive(path: &str) -> bool {
+    let bytes = path.as_bytes();
+    bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':'
+}
+
+fn percent_decode(path: &str) -> String {
+    let bytes = path.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%'
+            && index + 2 < bytes.len()
+            && bytes[index + 1].is_ascii_hexdigit()
+            && bytes[index + 2].is_ascii_hexdigit()
+        {
+            let hex = std::str::from_utf8(&bytes[index + 1..index + 3])
+                .expect("ASCII slice from checked bytes");
+            if let Ok(byte) = u8::from_str_radix(hex, 16) {
+                decoded.push(byte);
+                index += 3;
+                continue;
+            }
+        }
+        decoded.push(bytes[index]);
+        index += 1;
+    }
+    String::from_utf8_lossy(&decoded).into_owned()
 }
 
 fn selected_root(local: bool) -> Result<PathBuf> {
@@ -335,3 +381,7 @@ fn sha256_hex(bytes: &[u8]) -> String {
         .map(|byte| format!("{byte:02x}"))
         .collect()
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/theme_fetch.rs"]
+mod theme_fetch_tests;

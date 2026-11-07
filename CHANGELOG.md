@@ -6,6 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+- Fix `file://` theme registry URLs on Windows: drive-letter paths (`file:///C:/...`) and percent-escaped directory names now resolve, and the full workspace test suite runs in CI on Windows.
 - Add `cac build --tags a,b` for job-specific CV variants: keep the sections and entries tagged with any of the given tags, drop the rest, name the artifact after the variant (`cv-backend.pdf`), and fail with a diagnostic when nothing matches. The profile block always stays; the `job-specific-cv` example demonstrates one source file producing one CV per posting.
 - Add the core model extension fields from the 0.4 roadmap contracts: `photo`, `headline`, and structured `address` on the profile, `score` on education entries, and an ordered open `fields` map on every entry for `Key: value` data the model does not type. Documents carrying these keys now parse instead of failing with unknown-field errors.
 - Build and smoke-test the Apple Silicon CI jobs on macOS 15 because the macOS 14 hosted runners were retired.

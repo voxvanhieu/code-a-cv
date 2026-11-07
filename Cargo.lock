@@ -258,6 +258,7 @@ dependencies = [
  "cac-render",
  "clap",
  "predicates",
+ "predicates-core",
  "serde",
  "serde_json",
  "serde_yaml_ng",
