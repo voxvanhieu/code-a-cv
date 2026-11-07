@@ -112,7 +112,7 @@ jobs:
             runner: ubuntu-24.04-arm
             binary: cac
           - target: aarch64-apple-darwin
-            runner: macos-14
+            runner: macos-15
             binary: cac
           - target: x86_64-apple-darwin
             runner: macos-15-intel
