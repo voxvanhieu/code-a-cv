@@ -81,7 +81,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@e99025eb970cfa124b8284a35463d87426917478
+        uses: Homebrew/actions/setup-homebrew@c262868c096d909fc278daa87ed9772967331ea3
         with:
           core: true
       - name: Download formula
