@@ -2,6 +2,7 @@ mod html;
 mod pdf;
 mod settings;
 mod shared;
+pub mod style;
 mod view;
 
 use cac_core::DatePoint;
