@@ -86,7 +86,7 @@ jobs:
       - name: Install pinned Rust toolchain
         run: rustup show
       # v2.9.2
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
         if: github.event_name == 'pull_request'
         with:
           key: quality
@@ -125,7 +125,7 @@ jobs:
           rustup show
           rustup target add ${{ matrix.target }}
       # v2.9.2
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
         if: github.event_name == 'pull_request'
         with:
           key: build-${{ matrix.target }}
