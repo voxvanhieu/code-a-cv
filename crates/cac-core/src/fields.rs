@@ -240,7 +240,10 @@ pub static CORE_FIELDS: &[FieldDef] = &[
     FieldDef {
         key: "location",
         label: "Location",
-        scopes: &[FieldScope::Entries(&[EntryKindName::Experience])],
+        scopes: &[
+            FieldScope::Profile,
+            FieldScope::Entries(&[EntryKindName::Experience]),
+        ],
         parser: FieldParser::Text,
         json_resume: Some("work[].location"),
     },

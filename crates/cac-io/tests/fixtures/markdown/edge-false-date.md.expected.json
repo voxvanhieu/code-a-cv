@@ -1,3 +1,21 @@
 {
-  "parse_error": "line 8: invalid date `15 engineers reported to me across two product lines.`; use YYYY, YYYY-MM, YYYY-MM-DD, or Present as the end; omit an unknown endpoint"
+  "profile": {
+    "name": "Ada Lovelace"
+  },
+  "sections": [
+    {
+      "id": "experience",
+      "title": "Experience",
+      "kind": "experience",
+      "entries": [
+        {
+          "type": "experience",
+          "role": "Engineering Manager",
+          "organization": "Analytical Engines Ltd",
+          "highlights": [],
+          "content": "10 - 15 engineers reported to me across two product lines."
+        }
+      ]
+    }
+  ]
 }

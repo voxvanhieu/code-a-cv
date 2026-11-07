@@ -116,7 +116,8 @@ fn omissions_and_blank_optional_values_build_in_all_native_formats() {
 #[test]
 fn metadata_typos_conflicts_and_incompatible_fields_report_lines() {
     for (body, expected) in [
-        ("Organzation: Acme", "unknown entry field"),
+        // A typo'd key alone is prose, not an error; check advises on it.
+        ("Organzation: Acme", "PROSE"),
         ("Kind: imaginary", "invalid entry Kind"),
         ("Kind: skills", "invalid entry Kind"),
         ("Period: 2023-15–Present", "invalid date"),
@@ -133,6 +134,16 @@ fn metadata_typos_conflicts_and_incompatible_fields_report_lines() {
         ("URL: https://example.com", "not supported"),
         ("Kind: project\nURL: example.com", "invalid URL"),
     ] {
+        if expected == "PROSE" {
+            // A lone unknown key is prose; check will advise, not error.
+            let cv =
+                parse_markdown(&format!("# A\n\n## Experience\n\n### Work\n{body}\n")).unwrap();
+            assert_eq!(
+                cv.sections[0].entries[0].content.as_ref().unwrap().plain(),
+                "Organzation: Acme"
+            );
+            continue;
+        }
         let error = parse_markdown(&format!("# A\n\n## Experience\n\n### Work\n{body}\n"))
             .unwrap_err()
             .to_string();
@@ -154,17 +165,19 @@ fn legacy_dates_are_not_discarded_for_skills_or_publications() {
 }
 
 #[test]
-fn prose_does_not_become_metadata_after_a_blank_line() {
+fn field_blocks_depend_on_content_never_on_blank_lines() {
+    // Rule F: a paragraph is a field block by its lines alone, so a known
+    // key is a field wherever a formatter puts it. A lone unknown key is
+    // prose, and stays prose after any formatting.
     let cv = parse_markdown("# A\n\nEmail: this sentence is prose.\n\n## Experience\n\n### Work\n\nImpact: improved reliability.\n").unwrap();
-    assert!(cv.profile.email.is_none());
-    assert_eq!(
-        cv.profile.summary.unwrap().plain(),
-        "Email: this sentence is prose."
-    );
+    assert_eq!(cv.profile.email.as_deref(), Some("this sentence is prose."));
     assert_eq!(
         cv.sections[0].entries[0].content.as_ref().unwrap().plain(),
         "Impact: improved reliability."
     );
+    // The same fields parse identically with a formatter's blank lines.
+    let formatted = parse_markdown("# A\n\nEmail: this sentence is prose.\n\n## Experience\n\n### Work\n\nImpact: improved reliability.\n").unwrap();
+    assert_eq!(formatted, cv);
 }
 
 #[test]

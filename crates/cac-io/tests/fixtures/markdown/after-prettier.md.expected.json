@@ -1,31 +1,42 @@
 {
   "profile": {
     "name": "Ada Lovelace",
-    "summary": "Email: ada@example.com Phone: +44 20 7000 0000 Location: London Website: https://ada.example.com Summary: Pioneer of computing."
+    "email": "ada@example.com",
+    "phone": "+44 20 7000 0000",
+    "location": "London",
+    "website": "https://ada.example.com/"
   },
   "sections": [
     {
-      "id": "experience",
+      "id": "career",
       "title": "Experience",
       "kind": "experience",
       "entries": [
         {
-          "type": "prose",
-          "body": "Kind: experience Id: career"
-        },
-        {
           "type": "experience",
-          "role": "Director",
-          "organization": "Data and AI",
-          "highlights": [],
-          "content": "Organization: Analytical Engines Ltd Location: London Period: 2023-01–Present\n\n- Led the analytical engine team.\n- Published the design notes."
+          "role": "Director, Data and AI",
+          "organization": "Analytical Engines Ltd",
+          "location": "London",
+          "period": {
+            "start": "2023-01",
+            "end": "Present"
+          },
+          "highlights": [
+            "Led the analytical engine team.",
+            "Published the design notes."
+          ]
         },
         {
           "type": "experience",
           "role": "Independent Consultant",
-          "organization": "",
-          "highlights": [],
-          "content": "Organization: Self-employed Period: 2020–2022\n\n- Advised small teams."
+          "organization": "Self-employed",
+          "period": {
+            "start": "2020",
+            "end": "2022"
+          },
+          "highlights": [
+            "Advised small teams."
+          ]
         }
       ]
     },
@@ -34,10 +45,6 @@
       "title": "Skills",
       "kind": "skills",
       "entries": [
-        {
-          "type": "prose",
-          "body": "Kind: skills"
-        },
         {
           "type": "skill-group",
           "name": "Languages",

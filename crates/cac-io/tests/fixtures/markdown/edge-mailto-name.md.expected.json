@@ -1,3 +1,14 @@
 {
-  "parse_error": "line 2: unknown profile field `mailto`; use Email, Phone, Location, Website, or Contact; insert a blank line before ordinary prose"
+  "profile": {
+    "name": "Ada Lovelace",
+    "email": "ada@example.com"
+  },
+  "sections": [
+    {
+      "id": "skills",
+      "title": "Skills",
+      "kind": "skills",
+      "entries": []
+    }
+  ]
 }

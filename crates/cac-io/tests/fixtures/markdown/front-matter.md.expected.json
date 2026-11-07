@@ -1,3 +1,22 @@
 {
-  "parse_error": "line 1: content must start with a level-one name heading"
+  "profile": {
+    "name": "Ada Lovelace",
+    "email": "ada@example.com"
+  },
+  "sections": [
+    {
+      "id": "skills",
+      "title": "Skills",
+      "kind": "skills",
+      "entries": [
+        {
+          "type": "skill-group",
+          "name": "Languages",
+          "skills": [
+            "Rust"
+          ]
+        }
+      ]
+    }
+  ]
 }

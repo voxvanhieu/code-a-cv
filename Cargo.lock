@@ -298,6 +298,7 @@ version = "0.3.0"
 dependencies = [
  "cac-core",
  "chrono",
+ "pulldown-cmark",
  "serde",
  "serde_json",
  "serde_path_to_error",

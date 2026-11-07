@@ -33,6 +33,7 @@ pub fn to_markdown(cv: &CvDocument) -> String {
             )
         );
     }
+    write_open_fields(&cv.profile.fields, &mut output);
     output.push('\n');
     if let Some(summary) = &cv.profile.summary {
         let _ = writeln!(output, "<!-- cac:summary -->\n{}\n", summary.to_markdown());
@@ -77,6 +78,7 @@ pub fn to_markdown(cv: &CvDocument) -> String {
                 entry.kind.heading().0.to_markdown(),
                 fields["type"].as_str().unwrap()
             );
+            write_open_fields(&entry.fields, &mut output);
             for key in [
                 "organization",
                 "institution",
@@ -171,6 +173,23 @@ pub(crate) fn difference(
         _ => {}
     }
     path.to_owned()
+}
+
+/// Open fields round-trip as ordinary `Key: value` lines; the parser
+/// classifies unknown keys back into the open map.
+fn write_open_fields(fields: &cac_core::FieldMap, output: &mut String) {
+    for field in fields.iter() {
+        let label = capitalize_key(&field.key);
+        let _ = writeln!(output, "{label}: {}", field.value.as_text());
+    }
+}
+
+fn capitalize_key(key: &str) -> String {
+    let mut characters = key.chars();
+    match characters.next() {
+        Some(first) => first.to_uppercase().collect::<String>() + characters.as_str(),
+        None => String::new(),
+    }
 }
 
 fn write_tags(tags: &TagSet, output: &mut String) {

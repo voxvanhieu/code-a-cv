@@ -40,6 +40,10 @@ pub struct Profile {
     /// Structured postal address; themes choose which parts to show.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub address: Option<Address>,
+    /// Open profile fields: author-written `Key: value` lines under the name
+    /// the model does not type (a pack declares what they mean).
+    #[serde(default, skip_serializing_if = "FieldMap::is_empty")]
+    pub fields: FieldMap,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

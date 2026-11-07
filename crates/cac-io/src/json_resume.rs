@@ -102,6 +102,7 @@ pub fn import_json_resume(source: &str) -> Result<CvDocument, ParseError> {
         photo: None,
         headline: None,
         address: None,
+        fields: FieldMap::new(),
     };
     let mut sections = Vec::new();
     if !resume.work.is_empty() {
