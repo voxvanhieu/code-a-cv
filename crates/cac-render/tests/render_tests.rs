@@ -4,7 +4,7 @@ use std::fs;
 use cac_core::DatePoint;
 use cac_render::{
     PageMargins, PageSettings, PaginationSettings, RenderOptions, Settings, SpacingSettings,
-    StyleSettings, ThemeSource, TypographySettings, format_date, render_html, render_pdf,
+    StyleOverrides, ThemeSource, TypographySettings, format_date, render_html, render_pdf,
     render_pdf_with_options,
 };
 use tempfile::tempdir;
@@ -234,12 +234,13 @@ fn visual_settings_override_theme_defaults() {
                     heading_font: Some("Noto Sans".into()),
                     ..TypographySettings::default()
                 }),
-                style: Some(StyleSettings {
-                    accent_color: Some("#1f4e79".into()),
-                    body_alignment: Some("left".into()),
+                style: Some(StyleOverrides {
+                    accent_color: Some(cac_render::ColorSpec("#1f4e79".into())),
+                    body_alignment: Some(cac_render::TextAlign::Left),
                     link_underline: Some(false),
-                    header_alignment: Some("right".into()),
+                    header_alignment: Some(cac_render::HeaderAlign::Right),
                     highlight_bullet: Some("◆".into()),
+                    ..StyleOverrides::default()
                 }),
                 spacing: Some(SpacingSettings {
                     section_heading: Some("0.4em".into()),

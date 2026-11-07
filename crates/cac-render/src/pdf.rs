@@ -110,9 +110,18 @@ pub(crate) fn render_pdf_document(
     render_settings.naming = None;
     render_settings.theme = None;
     render_settings.theme_project = None;
+    let shimmed = crate::style::legacy::shim(&render_settings);
+    let (style_sheet, advisories) = crate::style::resolve::resolve_layered(None, &shimmed)
+        .map_err(|error| {
+            RenderError::Settings(crate::settings::SettingsError::Style(error.to_string()))
+        })?;
+    for advisory in &advisories {
+        eprintln!("NOTE {}", advisory.message);
+    }
     let world = CacWorld::new(
         crate::view::render_view(cv)?,
         serde_json::to_vec(&render_settings)?,
+        serde_json::to_vec_pretty(&style_sheet)?,
         &resolved,
     )?;
     let warned = typst::compile::<PagedDocument>(&world);
@@ -156,9 +165,18 @@ pub fn render_pdf_and_preview_with_options(
     render_settings.naming = None;
     render_settings.theme = None;
     render_settings.theme_project = None;
+    let shimmed = crate::style::legacy::shim(&render_settings);
+    let (style_sheet, advisories) = crate::style::resolve::resolve_layered(None, &shimmed)
+        .map_err(|error| {
+            RenderError::Settings(crate::settings::SettingsError::Style(error.to_string()))
+        })?;
+    for advisory in &advisories {
+        eprintln!("NOTE {}", advisory.message);
+    }
     let world = CacWorld::new(
         crate::view::render_view(cv)?,
         serde_json::to_vec(&render_settings)?,
+        serde_json::to_vec_pretty(&style_sheet)?,
         &resolved,
     )?;
     let document = typst::compile::<PagedDocument>(&world)
@@ -263,11 +281,17 @@ struct CacWorld {
     main_source: Source,
     json: Bytes,
     settings: Bytes,
+    style: Bytes,
     theme: ResolvedTheme,
 }
 
 impl CacWorld {
-    fn new(json: Vec<u8>, settings: Vec<u8>, theme: &ResolvedTheme) -> Result<Self, RenderError> {
+    fn new(
+        json: Vec<u8>,
+        settings: Vec<u8>,
+        style: Vec<u8>,
+        theme: &ResolvedTheme,
+    ) -> Result<Self, RenderError> {
         let main = file_id("main.typ");
         let mut fonts = FontStore::new();
         fonts.extend(embedded());
@@ -281,6 +305,7 @@ impl CacWorld {
             main_source: Source::new(main, MAIN_TYP.into()),
             json: Bytes::new(json),
             settings: Bytes::new(settings),
+            style: Bytes::new(style),
             theme: ResolvedTheme {
                 source: theme.source,
                 directory: theme.directory.clone(),
@@ -346,6 +371,7 @@ impl World for CacWorld {
         match id.vpath().get_without_slash() {
             ".cac/cv.json" => Ok(self.json.clone()),
             ".cac/settings.json" => Ok(self.settings.clone()),
+            ".cac/style.json" => Ok(self.style.clone()),
             value if value.starts_with(".cac/") => self.theme_file(Path::new(&value[5..])),
             value => Err(FileError::NotFound(value.into())),
         }

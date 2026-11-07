@@ -4,8 +4,12 @@
 //! the Typst side reads the resolved sheet in the next task, and the
 //! determinism test doubles as the parity proof then.
 
+pub mod legacy;
+pub mod resolve;
 pub mod schema;
 
+pub use legacy::{ShimmedSettings, shim};
+pub use resolve::{materialize, overlay, resolve, resolve_layered};
 pub use schema::{
     AtsMode, BackgroundSpecs, ColorOverrides, ColorSpec, ColorSpecs, DatePosition, EntryStyles,
     FontSpecs, HeaderAlign, HeaderStyles, HeadingSlot, HeadingStyles, HeadingTransform,
@@ -94,6 +98,11 @@ pub fn default_overrides() -> StyleOverrides {
             keep_together: Some(true),
         }),
         locale: Some("en".into()),
+        accent_color: None,
+        body_alignment: None,
+        header_alignment: None,
+        link_underline: None,
+        highlight_bullet: None,
     }
 }
 
@@ -113,238 +122,7 @@ pub fn defaults() -> ResolvedStyle {
 }
 
 fn resolve_defaults() -> Result<ResolvedStyle, StyleContractError> {
-    let sheet = default_overrides();
-    let colors = ColorSpecs {
-        text: sheet
-            .colors
-            .as_ref()
-            .and_then(|colors| colors.text.as_ref())
-            .map(|color| color.resolve(&ColorSpecs::default()))
-            .transpose()?
-            .unwrap_or_else(|| "#000000".into()),
-        muted: sheet
-            .colors
-            .as_ref()
-            .and_then(|colors| colors.muted.as_ref())
-            .map(|color| color.resolve(&ColorSpecs::default()))
-            .transpose()?
-            .unwrap_or_else(|| "#aaaaaa".into()),
-        accent: sheet
-            .colors
-            .as_ref()
-            .and_then(|colors| colors.accent.as_ref())
-            .map(|color| color.resolve(&ColorSpecs::default()))
-            .transpose()?
-            .unwrap_or_else(|| "#000000".into()),
-        rule: "#000000".into(),
-    };
-    let text = sheet.text.as_ref().expect("text defaults");
-    let length = |spec: &Option<LengthSpec>| spec.as_ref().map(|spec| spec.parse()).transpose();
-    Ok(ResolvedStyle {
-        page: ResolvedPage {
-            paper: sheet
-                .page
-                .as_ref()
-                .and_then(|page| page.paper)
-                .unwrap_or(Paper::A4),
-            margin: ResolvedMargins {
-                top: sheet
-                    .page
-                    .as_ref()
-                    .and_then(|page| page.margin.as_ref())
-                    .and_then(|margin| margin.top.clone())
-                    .map(|spec| spec.parse())
-                    .transpose()?
-                    .unwrap_or(Length::new(18.0, LengthUnit::Mm)),
-                right: sheet
-                    .page
-                    .as_ref()
-                    .and_then(|page| page.margin.as_ref())
-                    .and_then(|margin| margin.right.clone())
-                    .map(|spec| spec.parse())
-                    .transpose()?
-                    .unwrap_or(Length::new(18.0, LengthUnit::Mm)),
-                bottom: sheet
-                    .page
-                    .as_ref()
-                    .and_then(|page| page.margin.as_ref())
-                    .and_then(|margin| margin.bottom.clone())
-                    .map(|spec| spec.parse())
-                    .transpose()?
-                    .unwrap_or(Length::new(18.0, LengthUnit::Mm)),
-                left: sheet
-                    .page
-                    .as_ref()
-                    .and_then(|page| page.margin.as_ref())
-                    .and_then(|margin| margin.left.clone())
-                    .map(|spec| spec.parse())
-                    .transpose()?
-                    .unwrap_or(Length::new(18.0, LengthUnit::Mm)),
-            },
-        },
-        fonts: ResolvedFonts {
-            body: sheet
-                .fonts
-                .as_ref()
-                .and_then(|fonts| fonts.body.clone())
-                .unwrap_or_else(|| "Libertinus Serif".into()),
-            heading: sheet
-                .fonts
-                .as_ref()
-                .and_then(|fonts| fonts.heading.clone())
-                .unwrap_or_else(|| "Libertinus Serif".into()),
-            mono: sheet
-                .fonts
-                .as_ref()
-                .and_then(|fonts| fonts.mono.clone())
-                .unwrap_or_else(|| "DejaVu Sans Mono".into()),
-        },
-        colors: {
-            // The rule color defaults to the accent token.
-            let rule = sheet
-                .colors
-                .as_ref()
-                .and_then(|sheet_colors| sheet_colors.rule.as_ref())
-                .map(|color| color.resolve(&colors))
-                .transpose()?
-                .unwrap_or_else(|| colors.accent.clone());
-            ResolvedColors {
-                text: colors.text.clone(),
-                muted: colors.muted.clone(),
-                accent: colors.accent.clone(),
-                rule,
-            }
-        },
-        text: ResolvedText {
-            size: length(&text.size)?.unwrap_or(Length::new(10.0, LengthUnit::Pt)),
-            leading: length(&text.leading)?.unwrap_or(Length::new(0.65, LengthUnit::Em)),
-            paragraph_gap: length(&text.paragraph_gap)?.unwrap_or(Length::new(1.2, LengthUnit::Em)),
-            align: text.align.unwrap_or(TextAlign::Justified),
-        },
-        header: ResolvedHeader {
-            align: sheet
-                .header
-                .as_ref()
-                .and_then(|header| header.align)
-                .unwrap_or(HeaderAlign::Left),
-            rule: sheet
-                .header
-                .as_ref()
-                .and_then(|header| header.rule)
-                .unwrap_or(RuleStyle::None),
-        },
-        headings: ResolvedHeadings {
-            name: resolve_heading(
-                sheet
-                    .headings
-                    .as_ref()
-                    .and_then(|headings| headings.name.clone()),
-                &colors,
-                HeadingSlot {
-                    space_after: Some(LengthSpec("1.2em".into())),
-                    ..Default::default()
-                },
-            )?,
-            section: {
-                let fallback = SectionHeadingSlot {
-                    space_after: Some(LengthSpec("0.65em".into())),
-                    ..Default::default()
-                };
-                let slot = sheet
-                    .headings
-                    .as_ref()
-                    .and_then(|headings| headings.section.clone())
-                    .unwrap_or(fallback.clone());
-                let heading = resolve_heading(
-                    Some(heading_into_slot(slot.clone())),
-                    &colors,
-                    heading_into_slot(fallback),
-                )?;
-                ResolvedSectionHeading {
-                    size: heading.size,
-                    weight: heading.weight,
-                    color: heading.color,
-                    transform: slot.transform.unwrap_or(HeadingTransform::None),
-                    rule: slot.rule.unwrap_or(RuleStyle::None),
-                    space_before: heading.space_before,
-                    space_after: heading.space_after,
-                }
-            },
-            entry: resolve_heading(
-                sheet
-                    .headings
-                    .as_ref()
-                    .and_then(|headings| headings.entry.clone()),
-                &colors,
-                HeadingSlot {
-                    space_after: Some(LengthSpec("0.65em".into())),
-                    ..Default::default()
-                },
-            )?,
-        },
-        spacing: {
-            let spacing = sheet.spacing.as_ref().expect("spacing defaults");
-            ResolvedSpacing {
-                section: length(&spacing.section)?.unwrap_or(Length::new(1.2, LengthUnit::Em)),
-                entry: length(&spacing.entry)?.unwrap_or(Length::new(1.2, LengthUnit::Em)),
-                item: length(&spacing.item)?,
-                heading_gap: Length::new(0.65, LengthUnit::Em),
-            }
-        },
-        lists: ResolvedLists {
-            bullet: sheet
-                .lists
-                .as_ref()
-                .and_then(|lists| lists.bullet.clone())
-                .unwrap_or_else(|| "•".into()),
-        },
-        links: ResolvedLinks {
-            underline: sheet
-                .links
-                .as_ref()
-                .and_then(|links| links.underline)
-                .unwrap_or(true),
-        },
-        entry: {
-            let entry = sheet.entry.as_ref().expect("entry defaults");
-            ResolvedEntry {
-                date_position: entry.date_position.unwrap_or(DatePosition::Right),
-                subtitle_style: entry.subtitle_style.unwrap_or(SubtitleStyle::Italic),
-                keep_together: entry.keep_together.unwrap_or(true),
-            }
-        },
-        locale: sheet.locale.clone().unwrap_or_else(|| "en".into()),
-    })
-}
-
-fn resolve_heading(
-    slot: Option<HeadingSlot>,
-    colors: &ColorSpecs,
-    fallback: HeadingSlot,
-) -> Result<ResolvedHeading, StyleContractError> {
-    let slot = slot.unwrap_or(fallback);
-    let parse = |spec: &Option<LengthSpec>| spec.as_ref().map(|spec| spec.parse()).transpose();
-    Ok(ResolvedHeading {
-        size: parse(&slot.size)?,
-        weight: slot.weight.unwrap_or(Weight::Regular),
-        color: slot
-            .color
-            .map(|color| color.resolve(colors))
-            .transpose()?
-            .unwrap_or_else(|| colors.text.clone()),
-        space_before: parse(&slot.space_before)?.unwrap_or(Length::new(0.0, LengthUnit::Pt)),
-        space_after: parse(&slot.space_after)?.unwrap_or(Length::new(0.0, LengthUnit::Pt)),
-    })
-}
-
-fn heading_into_slot(section: SectionHeadingSlot) -> HeadingSlot {
-    HeadingSlot {
-        size: section.size,
-        weight: section.weight,
-        color: section.color,
-        space_before: section.space_before,
-        space_after: section.space_after,
-    }
+    crate::style::resolve::materialize(&default_overrides())
 }
 
 #[cfg(test)]

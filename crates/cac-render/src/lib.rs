@@ -15,10 +15,15 @@ pub use pdf::{
 };
 pub use settings::{
     DEFAULT_THEME, PageMargins, PageSettings, PaginationSettings, Settings, SettingsError,
-    SpacingSettings, StyleSettings, TypographySettings, settings_schema, validate_theme_name,
+    SpacingSettings, TypographySettings, settings_schema, validate_theme_name,
 };
 
 pub use shared::{SharedThemeArtifact, SharedThemeError, test_shared_theme};
+pub use style::{
+    ColorSpec, HeaderAlign, Length, LengthUnit, ResolvedStyle, ShimmedSettings, StyleContractError,
+    StyleOverrides, TextAlign, defaults, resolve, resolve_layered, shim, style_schema_document,
+    theme_schema_document,
+};
 pub use view::types::{
     InlineView, RichSlot, ViewContact, ViewDocument, ViewEntry, ViewProfile, ViewSection,
 };

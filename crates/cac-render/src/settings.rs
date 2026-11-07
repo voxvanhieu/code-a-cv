@@ -45,21 +45,6 @@ pub struct TypographySettings {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct StyleSettings {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub accent_color: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub body_alignment: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub link_underline: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub header_alignment: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub highlight_bullet: Option<String>,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-#[serde(default, deny_unknown_fields)]
 pub struct SpacingSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub list_item: Option<String>,
@@ -96,7 +81,7 @@ pub struct Settings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub typography: Option<TypographySettings>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub style: Option<StyleSettings>,
+    pub style: Option<crate::style::StyleOverrides>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub spacing: Option<SpacingSettings>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -139,6 +124,8 @@ pub enum SettingsError {
     },
     #[error("invalid `style.highlight_bullet` value; expected a non-empty single-line string")]
     HighlightBullet,
+    #[error("invalid style: {0}")]
+    Style(String),
     #[error("invalid `root` value `{0}`; expected a CV file name without directory components")]
     Root(String),
     #[error(
@@ -184,7 +171,6 @@ impl Settings {
         }
         let page = settings.page.as_ref();
         let typography = settings.typography.as_ref();
-        let style = settings.style.as_ref();
         let spacing = settings.spacing.as_ref();
         if let Some(paper) = page.and_then(|page| page.paper.as_ref())
             && !matches!(paper.as_str(), "a4" | "us-letter")
@@ -256,28 +242,21 @@ impl Settings {
                 }
             }
         }
-        if let Some(color) = style.and_then(|style| style.accent_color.as_ref())
-            && !valid_hex_color(color)
-        {
-            return Err(SettingsError::AccentColor(color.clone()));
-        }
-        validate_choice(
-            "style.body_alignment",
-            style.and_then(|style| style.body_alignment.as_ref()),
-            &["left", "justified"],
-            "left, justified",
-        )?;
-        validate_choice(
-            "style.header_alignment",
-            style.and_then(|style| style.header_alignment.as_ref()),
-            &["left", "center", "right"],
-            "left, center, right",
-        )?;
-        if style
-            .and_then(|style| style.highlight_bullet.as_ref())
-            .is_some_and(|bullet| bullet.trim().is_empty() || bullet.contains(['\n', '\r']))
-        {
-            return Err(SettingsError::HighlightBullet);
+        if let Some(sheet) = &settings.style {
+            if let Some(color) = &sheet.accent_color {
+                let is_token =
+                    matches!(color.as_name(), Some("text" | "muted" | "accent" | "rule"));
+                if color.as_hex().is_none() && !is_token {
+                    return Err(SettingsError::AccentColor(color.0.clone()));
+                }
+            }
+            if sheet
+                .highlight_bullet
+                .as_ref()
+                .is_some_and(|bullet| bullet.trim().is_empty() || bullet.contains(['\n', '\r']))
+            {
+                return Err(SettingsError::HighlightBullet);
+            }
         }
         Ok(settings)
     }
@@ -285,30 +264,6 @@ impl Settings {
     pub fn theme_name(&self) -> &str {
         self.theme.as_deref().unwrap_or(DEFAULT_THEME)
     }
-}
-
-fn validate_choice(
-    field: &'static str,
-    value: Option<&String>,
-    choices: &[&str],
-    expected: &'static str,
-) -> Result<(), SettingsError> {
-    if let Some(value) = value
-        && !choices.contains(&value.as_str())
-    {
-        return Err(SettingsError::Choice {
-            field,
-            value: value.clone(),
-            expected,
-        });
-    }
-    Ok(())
-}
-
-fn valid_hex_color(value: &str) -> bool {
-    value.len() == 7
-        && value.starts_with('#')
-        && value.bytes().skip(1).all(|byte| byte.is_ascii_hexdigit())
 }
 
 fn valid_root(root: &str) -> bool {
@@ -364,7 +319,10 @@ pub fn settings_schema() -> serde_json::Value {
             },
             "page": { "$ref": "#/$defs/page" },
             "typography": { "$ref": "#/$defs/typography" },
-            "style": { "$ref": "#/$defs/style" },
+            "style": {
+                "description": "The style sheet: modern groups (page, fonts, colors, text, header, headings, spacing, lists, links, entry, locale) shared with theme.toml, plus the deprecated 0.3 leaves.",
+                "allOf": [{ "$ref": "https://raw.githubusercontent.com/voxvanhieu/code-a-cv/main/schema/style.schema.json" }]
+            },
             "spacing": { "$ref": "#/$defs/spacing" },
             "pagination": { "$ref": "#/$defs/pagination" }
         },
@@ -400,21 +358,6 @@ pub fn settings_schema() -> serde_json::Value {
                     "heading_font": { "type": "string", "minLength": 1 },
                     "font_size": { "$ref": "#/$defs/positiveLength" },
                     "line_spacing": { "$ref": "#/$defs/positiveLength" }
-                }
-            },
-            "style": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                    "accent_color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
-                    "body_alignment": { "type": "string", "enum": ["left", "justified"] },
-                    "header_alignment": { "type": "string", "enum": ["left", "center", "right"] },
-                    "link_underline": { "type": "boolean" },
-                    "highlight_bullet": {
-                        "type": "string",
-                        "minLength": 1,
-                        "pattern": "^[^\\r\\n]+$"
-                    }
                 }
             },
             "spacing": {

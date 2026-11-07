@@ -54,6 +54,17 @@ impl Display for LengthSpec {
     }
 }
 
+/// Reinterpret a section heading slot as the plain heading slot it carries.
+pub(super) fn heading_into_slot(section: SectionHeadingSlot) -> HeadingSlot {
+    HeadingSlot {
+        size: section.size,
+        weight: section.weight,
+        color: section.color,
+        space_before: section.space_before,
+        space_after: section.space_after,
+    }
+}
+
 /// A color as the author writes it: hex (`"#1f4e79"`) or a token name
 /// (`"text"`, `"muted"`, `"accent"`, `"rule"`).
 #[derive(Clone, Debug, PartialEq, Eq, JsonSchema, Serialize, Deserialize)]
@@ -138,6 +149,18 @@ pub struct StyleOverrides {
     /// BCP 47 tag used by the shared date formatter in both renderers
     /// (`en`, `de`, `fr`, `vi`, `ja` today).
     pub locale: Option<String>,
+    // Deprecated 0.3 spellings, accepted for one minor release and mapped
+    // to their sheet keys by the legacy shim.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accent_color: Option<ColorSpec>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body_alignment: Option<TextAlign>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub header_alignment: Option<HeaderAlign>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub link_underline: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub highlight_bullet: Option<String>,
 }
 
 impl StyleOverrides {
@@ -154,6 +177,11 @@ impl StyleOverrides {
             && self.links.is_none()
             && self.entry.is_none()
             && self.locale.is_none()
+            && self.accent_color.is_none()
+            && self.body_alignment.is_none()
+            && self.header_alignment.is_none()
+            && self.link_underline.is_none()
+            && self.highlight_bullet.is_none()
     }
 }
 
