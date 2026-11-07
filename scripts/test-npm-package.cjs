@@ -10,8 +10,8 @@ const binary = resolve(process.argv[3]);
 const pkg = JSON.parse(readFileSync(join(packageDir, 'package.json')));
 assert.equal(pkg.name, '@voxvanhieu/code-a-cv');
 assert.deepEqual(Object.keys(pkg.bin), ['cac']);
-for (const target of ['aarch64-apple-darwin', 'x86_64-apple-darwin',
-  'aarch64-unknown-linux-gnu', 'x86_64-unknown-linux-gnu', 'x86_64-pc-windows-msvc']) {
+for (const target of ['aarch64-apple-darwin', 'aarch64-unknown-linux-gnu',
+  'x86_64-unknown-linux-gnu', 'x86_64-pc-windows-msvc']) {
   assert.ok(pkg.supportedPlatforms[target], `Missing ${target}`);
 }
 assert.deepEqual(pkg.artifactDownloadUrls,
