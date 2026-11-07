@@ -19,6 +19,7 @@ use crate::{Settings, SettingsError, validate_theme_name};
 
 const MAIN_TYP: &str = include_str!("typst/main.typ");
 const BASE_TYP: &str = include_str!("typst/base.typ");
+const STYLE_TYP: &str = include_str!("typst/style.typ");
 const CLASSIC_TYP: &str = include_str!("typst/themes/classic.typ");
 
 pub const EMBEDDED_THEME_NAMES: &[&str] = &["classic"];
@@ -111,8 +112,9 @@ pub(crate) fn render_pdf_document(
     render_settings.theme = None;
     render_settings.theme_project = None;
     let shimmed = crate::style::legacy::shim(&render_settings);
-    let (style_sheet, advisories) = crate::style::resolve::resolve_layered(None, &shimmed)
-        .map_err(|error| {
+    let family = (theme_name == "classic").then(crate::style::legacy::classic_family);
+    let (style_sheet, advisories) =
+        crate::style::resolve::resolve_layered(family.as_ref(), &shimmed).map_err(|error| {
             RenderError::Settings(crate::settings::SettingsError::Style(error.to_string()))
         })?;
     for advisory in &advisories {
@@ -122,6 +124,10 @@ pub(crate) fn render_pdf_document(
         crate::view::render_view(cv)?,
         serde_json::to_vec(&render_settings)?,
         serde_json::to_vec_pretty(&style_sheet)?,
+        // Sparse: only the keys settings set. The overlay re-asserts the
+        // settings layer above legacy theme dictionaries; unset keys must
+        // not clobber the family values beneath them.
+        serde_json::to_vec(&shimmed.style)?,
         &resolved,
     )?;
     let warned = typst::compile::<PagedDocument>(&world);
@@ -166,8 +172,9 @@ pub fn render_pdf_and_preview_with_options(
     render_settings.theme = None;
     render_settings.theme_project = None;
     let shimmed = crate::style::legacy::shim(&render_settings);
-    let (style_sheet, advisories) = crate::style::resolve::resolve_layered(None, &shimmed)
-        .map_err(|error| {
+    let family = (theme_name == "classic").then(crate::style::legacy::classic_family);
+    let (style_sheet, advisories) =
+        crate::style::resolve::resolve_layered(family.as_ref(), &shimmed).map_err(|error| {
             RenderError::Settings(crate::settings::SettingsError::Style(error.to_string()))
         })?;
     for advisory in &advisories {
@@ -177,6 +184,10 @@ pub fn render_pdf_and_preview_with_options(
         crate::view::render_view(cv)?,
         serde_json::to_vec(&render_settings)?,
         serde_json::to_vec_pretty(&style_sheet)?,
+        // Sparse: only the keys settings set. The overlay re-asserts the
+        // settings layer above legacy theme dictionaries; unset keys must
+        // not clobber the family values beneath them.
+        serde_json::to_vec(&shimmed.style)?,
         &resolved,
     )?;
     let document = typst::compile::<PagedDocument>(&world)
@@ -282,6 +293,7 @@ struct CacWorld {
     json: Bytes,
     settings: Bytes,
     style: Bytes,
+    settings_style: Bytes,
     theme: ResolvedTheme,
 }
 
@@ -290,6 +302,7 @@ impl CacWorld {
         json: Vec<u8>,
         settings: Vec<u8>,
         style: Vec<u8>,
+        settings_style: Vec<u8>,
         theme: &ResolvedTheme,
     ) -> Result<Self, RenderError> {
         let main = file_id("main.typ");
@@ -306,6 +319,7 @@ impl CacWorld {
             json: Bytes::new(json),
             settings: Bytes::new(settings),
             style: Bytes::new(style),
+            settings_style: Bytes::new(settings_style),
             theme: ResolvedTheme {
                 source: theme.source,
                 directory: theme.directory.clone(),
@@ -352,6 +366,7 @@ impl World for CacWorld {
         let path = id.vpath().get_without_slash();
         let contents = match path {
             ".cac/base.typ" => Bytes::new(BASE_TYP.as_bytes()),
+            ".cac/style.typ" => Bytes::new(STYLE_TYP.as_bytes()),
             ".cac/theme.typ" if self.theme.directory.is_none() => Bytes::new(
                 self.theme
                     .embedded_source
@@ -372,6 +387,7 @@ impl World for CacWorld {
             ".cac/cv.json" => Ok(self.json.clone()),
             ".cac/settings.json" => Ok(self.settings.clone()),
             ".cac/style.json" => Ok(self.style.clone()),
+            ".cac/settings-style.json" => Ok(self.settings_style.clone()),
             value if value.starts_with(".cac/") => self.theme_file(Path::new(&value[5..])),
             value => Err(FileError::NotFound(value.into())),
         }

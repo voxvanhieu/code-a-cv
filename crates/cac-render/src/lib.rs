@@ -21,8 +21,8 @@ pub use settings::{
 pub use shared::{SharedThemeArtifact, SharedThemeError, test_shared_theme};
 pub use style::{
     ColorSpec, HeaderAlign, Length, LengthUnit, ResolvedStyle, ShimmedSettings, StyleContractError,
-    StyleOverrides, TextAlign, defaults, resolve, resolve_layered, shim, style_schema_document,
-    theme_schema_document,
+    StyleOverrides, TextAlign, classic_family, defaults, resolve, resolve_layered, shim,
+    style_schema_document, theme_schema_document,
 };
 pub use view::types::{
     InlineView, RichSlot, ViewContact, ViewDocument, ViewEntry, ViewProfile, ViewSection,

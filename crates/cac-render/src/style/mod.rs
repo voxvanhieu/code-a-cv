@@ -8,7 +8,7 @@ pub mod legacy;
 pub mod resolve;
 pub mod schema;
 
-pub use legacy::{ShimmedSettings, shim};
+pub use legacy::{ShimmedSettings, classic_family, shim};
 pub use resolve::{materialize, overlay, resolve, resolve_layered};
 pub use schema::{
     AtsMode, BackgroundSpecs, ColorOverrides, ColorSpec, ColorSpecs, DatePosition, EntryStyles,
@@ -81,6 +81,7 @@ pub fn default_overrides() -> StyleOverrides {
         }),
         spacing: Some(SpacingStyles {
             section: Some(LengthSpec("1.2em".into())),
+            heading_gap: Some(LengthSpec("0.65em".into())),
             entry: Some(LengthSpec("1.2em".into())),
             // The legacy `auto`: follow the text leading.
             item: None,

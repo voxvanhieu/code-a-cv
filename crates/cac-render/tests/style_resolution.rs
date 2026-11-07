@@ -59,7 +59,7 @@ fn customized_layout_settings_shim_to_the_same_sheet_as_the_new_spelling() {
                 "colors": { "accent": "#1f4e79" },
                 "text": { "size": "9.5pt", "align": "left" },
                 "header": { "align": "left" },
-                "headings": { "section": { "space_after": "0.5em" } }
+                "spacing": { "section": "1.2em", "heading_gap": "0.5em" }
             }
         }"##,
     );

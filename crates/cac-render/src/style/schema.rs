@@ -30,8 +30,27 @@ use serde::{Deserialize, Serialize};
 
 /// A length as the author writes it: a non-negative number with an explicit
 /// unit. Zero is allowed where spacing allows it (heading space, gaps).
-#[derive(Clone, Debug, PartialEq, Eq, JsonSchema, Serialize, Deserialize)]
+///
+/// Deserializes from the authoring string (`"16mm"`); serializes as the
+/// resolved `{value, unit}` object the renderers read, so a sparse
+/// settings layer is renderer-ready without a second conversion.
+#[derive(Clone, Debug, PartialEq, Eq, JsonSchema, Deserialize)]
 pub struct LengthSpec(pub String);
+
+impl Serialize for LengthSpec {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeMap;
+        match parse_length(&self.0) {
+            Some(length) => {
+                let mut map = serializer.serialize_map(Some(2))?;
+                map.serialize_entry("value", &length.value)?;
+                map.serialize_entry("unit", &length.unit)?;
+                map.end()
+            }
+            None => serializer.serialize_str(&self.0),
+        }
+    }
+}
 
 impl LengthSpec {
     /// Parse `"16mm"`, `"0.65em"`, `"12%"`, … into a resolved length.
@@ -136,18 +155,29 @@ pub enum StyleContractError {
 #[derive(Clone, Debug, Default, PartialEq, Eq, JsonSchema, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct StyleOverrides {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub page: Option<PageStyles>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fonts: Option<FontSpecs>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub colors: Option<ColorOverrides>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<TextStyles>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub header: Option<HeaderStyles>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub headings: Option<HeadingStyles>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spacing: Option<SpacingStyles>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lists: Option<ListStyles>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub links: Option<LinkStyles>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub entry: Option<EntryStyles>,
     /// BCP 47 tag used by the shared date formatter in both renderers
     /// (`en`, `de`, `fr`, `vi`, `ja` today).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub locale: Option<String>,
     // Deprecated 0.3 spellings, accepted for one minor release and mapped
     // to their sheet keys by the legacy shim.
@@ -276,6 +306,9 @@ pub struct SectionHeadingSlot {
 pub struct SpacingStyles {
     /// Space above each section block.
     pub section: Option<LengthSpec>,
+    /// Space between a section heading and its entries (the 0.3
+    /// `spacing.section_heading`).
+    pub heading_gap: Option<LengthSpec>,
     /// Space after each entry.
     pub entry: Option<LengthSpec>,
     /// Space between list items; the default follows the text leading.

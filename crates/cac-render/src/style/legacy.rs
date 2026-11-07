@@ -39,7 +39,8 @@ pub fn shim(settings: &Settings) -> ShimmedSettings {
     };
 
     if let Some(page) = &settings.page {
-        if page.paper.is_some() {
+        if let Some(paper) = &page.paper {
+            style.page.get_or_insert_with(Default::default).paper = sheet_paper(paper);
             advise("page.paper");
         }
         if page.margin.is_some() {
@@ -112,12 +113,12 @@ pub fn shim(settings: &Settings) -> ShimmedSettings {
             advise("spacing.section");
         }
         if let Some(gap) = &spacing.section_heading {
-            let slot = style
-                .headings
+            // The 0.3 knob was the gap between a section heading and its
+            // entries; the sheet spells it spacing.heading_gap.
+            style
+                .spacing
                 .get_or_insert_with(Default::default)
-                .section
-                .get_or_insert_with(Default::default);
-            slot.space_after = Some(LengthSpec(gap.clone()));
+                .heading_gap = Some(LengthSpec(gap.clone()));
             advise("spacing.section_heading");
         }
         if let Some(entry) = &spacing.entry {
@@ -190,4 +191,34 @@ pub fn uses_legacy_keys(settings: &Settings) -> bool {
                 || sheet.link_underline.is_some()
                 || sheet.highlight_bullet.is_some()
         })
+}
+
+/// The classic family's own values, which used to live in the embedded
+/// classic.typ. They sit between the defaults and user settings: the sheet
+/// resolver layers them below the theme and settings so a user's 9.5pt
+/// still wins over the family's 10pt.
+pub fn classic_family() -> StyleOverrides {
+    serde_json::from_str(
+        r##"{
+            "page": { "paper": "us-letter", "margin": { "top": "12.7mm", "right": "12.7mm", "bottom": "12.7mm", "left": "12.7mm" } },
+            "fonts": { "body": "New Computer Modern", "heading": "New Computer Modern" },
+            "text": { "size": "10pt" },
+            "header": { "align": "center" },
+            "headings": {
+                "name": { "size": "24pt" },
+                "section": { "size": "12pt", "weight": "regular" },
+                "entry": { "size": "10pt" }
+            }
+        }"##,
+    )
+    .expect("the classic family sheet is well-formed")
+}
+
+/// The 0.3 paper spelling onto the sheet enum.
+pub(super) fn sheet_paper(paper: &str) -> Option<super::schema::Paper> {
+    match paper {
+        "a4" => Some(super::schema::Paper::A4),
+        "us-letter" => Some(super::schema::Paper::UsLetter),
+        _ => None,
+    }
 }

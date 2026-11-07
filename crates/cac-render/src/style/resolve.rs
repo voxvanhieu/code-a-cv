@@ -171,6 +171,7 @@ fn overlay_spacing(
     let upper = upper?;
     Some(SpacingStyles {
         section: upper.section.clone().or(merged.section),
+        heading_gap: upper.heading_gap.clone().or(merged.heading_gap),
         entry: upper.entry.clone().or(merged.entry),
         item: upper.item.clone().or(merged.item),
     })
