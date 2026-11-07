@@ -17,6 +17,13 @@ struct ProfileView {
     name: String,
     contacts: Vec<ContactView>,
     summary: Option<Vec<InlineView>>,
+    // Named slots (C3/V1): the extension fields ride in the view so themes
+    // can read them without a model change. Every key is present; absent
+    // values serialize as null.
+    photo: Option<String>,
+    headline: Option<String>,
+    address: Option<cac_core::Address>,
+    fields: cac_core::FieldMap,
 }
 #[derive(Serialize)]
 struct SectionView {
@@ -24,6 +31,7 @@ struct SectionView {
     kind: SectionKind,
     title: String,
     entries: Vec<EntryView>,
+    tags: cac_core::TagSet,
 }
 #[derive(Serialize)]
 struct EntryView {
@@ -31,6 +39,15 @@ struct EntryView {
     primary: Vec<InlineView>,
     secondary: Option<Vec<InlineView>>,
     period: Option<String>,
+    // Named slots (C3/V1): structured dates, scalar metadata, and open
+    // fields ride beside the legacy keys for one release. Every key is
+    // present; absent values serialize as null.
+    structured_period: Option<cac_core::Period>,
+    date: Option<cac_core::DatePoint>,
+    location: Option<String>,
+    url: Option<String>,
+    fields: cac_core::FieldMap,
+    tags: cac_core::TagSet,
     highlights: Vec<Vec<InlineView>>,
     metadata: Vec<MetadataView>,
 }
@@ -65,6 +82,19 @@ fn entry_view(entry: &Entry) -> EntryView {
                 )
             })
             .or_else(|| entry.kind.date().map(format_date)),
+        structured_period: entry.kind.period().cloned(),
+        date: entry.kind.date().cloned(),
+        location: match &entry.kind {
+            EntryKind::Experience(value) => value.location.clone(),
+            _ => None,
+        },
+        url: match &entry.kind {
+            EntryKind::Project(value) => value.url.as_ref().map(ToString::to_string),
+            EntryKind::Publication(value) => value.url.as_ref().map(ToString::to_string),
+            _ => None,
+        },
+        fields: entry.fields.clone(),
+        tags: entry.tags.clone(),
         metadata: {
             let mut metadata = metadata_view(&entry.kind);
             if let Some(body) = &entry.content {
@@ -136,6 +166,10 @@ impl From<&CvDocument> for RenderView {
                 name: cv.profile.name.clone(),
                 contacts,
                 summary: cv.profile.summary.as_ref().map(rich_view),
+                photo: cv.profile.photo.clone(),
+                headline: cv.profile.headline.clone(),
+                address: cv.profile.address.clone(),
+                fields: cv.profile.fields.clone(),
             },
             sections: cv
                 .sections
@@ -145,6 +179,7 @@ impl From<&CvDocument> for RenderView {
                     kind: section.kind.clone(),
                     title: section.title.clone(),
                     entries: entry_views(&section.entries),
+                    tags: section.tags.clone(),
                 })
                 .collect(),
         }
@@ -195,6 +230,12 @@ fn metadata_view(kind: &EntryKind) -> Vec<MetadataView> {
 
 pub(crate) fn render_view(cv: &CvDocument) -> Result<Vec<u8>, serde_json::Error> {
     serde_json::to_vec(&RenderView::from(cv))
+}
+
+/// The rendered view as a serializable value, for snapshot tests.
+#[doc(hidden)]
+pub fn test_render_view(cv: &CvDocument) -> serde_json::Value {
+    serde_json::to_value(RenderView::from(cv)).expect("the view serializes")
 }
 
 #[cfg(test)]

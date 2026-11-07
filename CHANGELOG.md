@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+- Emit the C3 named slots in the rendered view: photo, headline, structured address, and open profile fields on the profile; structured periods, scalar dates, location, URL, open fields, and tags on every entry — beside the legacy keys, with every slot key always present (absent values are null). Themes can now read slots and open fields without a model change; the shared-content checker counts only the legacy keys the default families render.
+
 - Ship built-in `table` and `compact` layout families alongside `classic`: a project theme exports `layout: (family: "table")` to pick one, dated sections render as tables with the period in a gutter (table) or tight flow without rules and indents (compact). Legacy component themes now print a deprecation note pointing at layout hooks and theme.toml.
 
 - Add layout hooks for Typst themes: a theme may export `layout` (document, header, section, entry) instead of the twelve late-bound components, with the classic family shipped as the default and the section→entry hop as the only dynamic dispatch. The 0.3 component dictionary keeps working through an adapter for one release; embedded classic now renders through the hooks path.

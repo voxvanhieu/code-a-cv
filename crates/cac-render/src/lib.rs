@@ -26,6 +26,8 @@ pub use style::{
     theme_schema_document,
 };
 pub use view::dates::{format_date_locale, format_event_locale, format_period_locale};
+#[doc(hidden)]
+pub use view::test_render_view;
 pub use view::types::{
     InlineView, RichSlot, ViewContact, ViewDocument, ViewEntry, ViewProfile, ViewSection,
 };
