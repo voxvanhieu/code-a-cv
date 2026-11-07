@@ -15,7 +15,13 @@ The `/loop` iterations work top to bottom: pick the first unchecked task, implem
 - [x] **T1 · Tags to variants** ✅ fb55d28 — `cac build --tags a,b` keeps tagged sections and entries, drops the rest, names the artifact after the variant; integration test builds two variants from one file; docs example. Files: `crates/cac/src/commands/build.rs`, `crates/cac/src/cli.rs`, `docs/examples/job-specific-cv/` (new).
 - [x] **T0 · Windows-clean tests and file:// registry** ✅ 00bc1ee — Windows suite proof pending CI — Path-separator-agnostic assertions in `crates/cac/tests/command_tests.rs`, help snapshot accepting `cac.exe`, `file://` handling in the registry fetch, a `windows-latest` CI job. Verified by CI, not locally. Files: `crates/cac/tests/command_tests.rs`, `crates/cac/src/commands/theme.rs`, `.github/workflows/ci.yaml`.
 
-**Gate 0** — re-read the four contracts end to end, align naming (one word for subtitle, one for date), freeze.
+**Gate 0** ✅ 6435091 — contracts read end to end and frozen:
+
+- **subtitle** is the one word: view slot (`ViewEntry.subtitle`), grammar rule G, style documentation. Payload names (`organization`, `institution`, `publisher`) stay model-side.
+- **dates** cross the boundary as canonical strings (`"2023"`, `"2023-01"`, `"2023-01-15"`, `"Present"`, parsed case-insensitively); Typst formatters also accept `(y:, m:, d:)` dicts for hand-written layouts. Display orders: en month-first with comma, de/fr/vi day-first, ja year-first (年月日).
+- **style groups** are the C2 set: page, fonts, colors, text, header, headings, spacing, lists, links, entry, locale — mirrored in `contract.typ`'s `ctx.style` documentation.
+- **entry kinds** use `EntryKindName` kebab spellings; `text`/`prose` remain model spellings for one release.
+- **rich text** stays the tagged node array (`InlineView`); kinds match `base.typ`'s `rich()` for theme compatibility.
 
 ## Wave 1 — Implementations against the frozen contracts
 

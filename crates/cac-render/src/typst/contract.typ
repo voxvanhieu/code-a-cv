@@ -41,11 +41,14 @@
 // ---------------------------------------------------------------------------
 //
 // A date point is `(y: 2023)` / `(y: 2023, m: 1)` / `(y: 2023, m: 1, d: 15)`
-// or the string "present". A period is `(start: point or none, end: point or
-// none)`. Formatters receive the sheet's locale; unknown locales fall back
-// to English. The Rust renderer shares this vocabulary through
-// crates/cac-render/src/view/dates.rs (landing with V1) — month names and
-// the "present" spelling must stay in lockstep across the two.
+// A date point is the canonical string the view serializes ("2023",
+// "2023-01", "2023-01-15", "Present" — case-insensitive) or a dict
+// (y:, m:, d:) for hand-written layouts. A period is `(start: point or
+// none, end: point or none)`. Formatters receive the sheet's locale;
+// unknown locales fall back to English. The Rust renderer shares this
+// vocabulary through crates/cac-render/src/view/dates.rs (landing with
+// V1) — month names, display order, and the "Present" spelling must
+// stay in lockstep across the two.
 
 #let months = (
   en: ("January", "February", "March", "April", "May", "June", "July",
@@ -71,20 +74,66 @@
 
 #let locale-of(locale) = if locale in months { locale } else { "en" }
 
-// Format one date point: `2023`, `January 2023`, `January 15 2023`, `Present`.
-#let format-date(locale, date) = {
-  if type(date) == str { return present-word.at(locale-of(locale)) }
-  let name = locale-of(locale)
-  let parts = ()
-  if "m" in date { parts.push(months.at(name).at(date.m - 1)) }
-  if "d" in date { parts.push(str(date.d)) }
-  // Joining an empty array yields none, not an empty string.
-  let rendered = if parts.len() == 0 { "" } else { parts.join(" ") }
-  if "y" in date {
-    if rendered == "" { return str(date.y) }
-    return rendered + " " + str(date.y)
+// Normalize a date point into (y: int or none, m: int or none, d: int or
+// none, present: bool). Dates cross the view boundary as canonical strings
+// ("2023", "2023-01", "2023-01-15", "Present" — case-insensitive); layouts
+// written by hand may use the dict form (y:, m:, d:) instead. Both spell
+// the same date.
+#let date-parts(date) = {
+  if type(date) == str {
+    if lower(date) == "present" {
+      return (y: none, m: none, d: none, present: true)
+    }
+    let pieces = date.split("-").map(piece => int(piece))
+    return (
+      y: pieces.at(0),
+      m: if pieces.len() > 1 { pieces.at(1) } else { none },
+      d: if pieces.len() > 2 { pieces.at(2) } else { none },
+      present: false,
+    )
   }
-  rendered
+  (
+    y: if "y" in date { date.y } else { none },
+    m: if "m" in date { date.m } else { none },
+    d: if "d" in date { date.d } else { none },
+    present: false,
+  )
+}
+
+// Format one date point in the locale's order: `January 2023`,
+// `January 15, 2023`, `15. Januar 2023`, `2023年8月15日`, `Present`.
+#let format-date(locale, date) = {
+  let name = locale-of(locale)
+  let parts = date-parts(date)
+  if parts.present { return present-word.at(name) }
+  let month = if parts.m != none { months.at(name).at(parts.m - 1) } else { none }
+  let year = if parts.y != none { str(parts.y) } else { none }
+  let day = if parts.d != none { str(parts.d) } else { none }
+  if name == "ja" {
+    // Japanese order: 2023年8月15日.
+    let rendered = ""
+    if year != none { rendered += year + "年" }
+    if month != none { rendered += month }
+    if day != none { rendered += day + "日" }
+    return rendered
+  }
+  if name == "de" or name == "fr" or name == "vi" {
+    // Day-first order: 15. Januar 2023.
+    let rendered = ()
+    if day != none { rendered.push(day + if name == "de" { "." } else { "" }) }
+    if month != none { rendered.push(month) }
+    if year != none { rendered.push(year) }
+    return rendered.join(" ")
+  }
+  // English order: January 15, 2023.
+  if day == none {
+    if year == none { return month }
+    if month == none { return year }
+    return month + " " + year
+  }
+  let day-part = if month == none { day } else { month + " " + day }
+  if year == none { return day-part }
+  day-part + ", " + year
 }
 
 // Format a period as `start – end`, omitting absent endpoints.

@@ -16,19 +16,26 @@ const CONTRACT_TYP: &str = include_str!("../src/typst/contract.typ");
 const MAIN_TYP: &str = r##"
 #import "/contract.typ": layout, format-date, format-period
 
-// The formatter runs on structured dates, not display strings.
-#assert(format-date("en", (y: 2023)) == "2023", message: "year only: got [" + format-date("en", (y: 2023)) + "]")
+// The formatter runs on structured dates — dict form and the canonical
+// strings the view actually serializes — never on display text.
+#assert(format-date("en", (y: 2023)) == "2023", message: "year only")
 #assert(format-date("en", (y: 2023, m: 1)) == "January 2023", message: "year month en")
-#assert(format-date("en", (y: 2023, m: 1, d: 15)) == "January 15 2023", message: "full date en")
+#assert(format-date("en", (y: 2023, m: 1, d: 15)) == "January 15, 2023", message: "full date en")
 #assert(format-date("de", (y: 2023, m: 3)) == "März 2023", message: "year month de")
-#assert(format-date("ja", (y: 2023, m: 8)) == "8月 2023", message: "year month ja")
+#assert(format-date("ja", (y: 2023, m: 8)) == "2023年8月", message: "year month ja")
 #assert(format-date("vi", (y: 2022, m: 10)) == "Tháng Mười 2022", message: "year month vi")
 #assert(format-date("en", "present") == "Present", message: "present en")
+#assert(format-date("en", "Present") == "Present", message: "present capitalized")
 #assert(format-date("ja", "present") == "現在", message: "present ja")
 #assert(format-date("unknown", (y: 2023, m: 1)) == "January 2023", message: "unknown locale falls back to English")
+#assert(format-date("en", "2023") == "2023", message: "string year")
+#assert(format-date("en", "2023-01") == "January 2023", message: "string year month")
+#assert(format-date("en", "2023-01-15") == "January 15, 2023", message: "string full date")
+#assert(format-date("ja", "2023-08") == "2023年8月", message: "string year month ja")
 
 // Periods render with the en dash and omit absent endpoints.
 #assert(format-period("en", (start: (y: 2023, m: 1), end: "present")) == "January 2023 – Present", message: "period range")
+#assert(format-period("en", (start: "2023-01", end: "Present")) == "January 2023 – Present", message: "period from strings")
 #assert(format-period("en", (start: none, end: (y: 2024))) == "2024", message: "period end only")
 #assert(format-period("en", (start: none, end: none)) == none, message: "period empty")
 
