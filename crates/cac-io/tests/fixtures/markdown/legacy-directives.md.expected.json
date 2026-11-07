@@ -1,0 +1,29 @@
+{
+  "profile": {
+    "name": "Ada Lovelace",
+    "summary": "Pioneer of computing."
+  },
+  "sections": [
+    {
+      "id": "career",
+      "title": "Experience",
+      "kind": "experience",
+      "entries": [
+        {
+          "type": "experience",
+          "role": "Director, Data and AI",
+          "organization": "",
+          "period": {
+            "start": "2023-01",
+            "end": "Present"
+          },
+          "highlights": []
+        },
+        {
+          "type": "prose",
+          "body": "Joined through an acquisition and kept the team together."
+        }
+      ]
+    }
+  ]
+}

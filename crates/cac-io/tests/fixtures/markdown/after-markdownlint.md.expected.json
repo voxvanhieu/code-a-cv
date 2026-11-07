@@ -1,0 +1,26 @@
+{
+  "profile": {
+    "name": "Ada Lovelace",
+    "summary": "Email: ada@example.com Phone: +44 20 7000 0000"
+  },
+  "sections": [
+    {
+      "id": "experience",
+      "title": "Experience",
+      "kind": "experience",
+      "entries": [
+        {
+          "type": "prose",
+          "body": "Kind: experience"
+        },
+        {
+          "type": "experience",
+          "role": "Director",
+          "organization": "Data and AI",
+          "highlights": [],
+          "content": "Organization: Analytical Engines Ltd Period: 2023-01–Present\n\n- Led the analytical engine team.\n- Published the design notes."
+        }
+      ]
+    }
+  ]
+}

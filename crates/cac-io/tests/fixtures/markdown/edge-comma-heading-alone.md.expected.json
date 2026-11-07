@@ -1,0 +1,20 @@
+{
+  "profile": {
+    "name": "Ada Lovelace"
+  },
+  "sections": [
+    {
+      "id": "experience",
+      "title": "Experience",
+      "kind": "experience",
+      "entries": [
+        {
+          "type": "experience",
+          "role": "Director",
+          "organization": "Data and AI",
+          "highlights": []
+        }
+      ]
+    }
+  ]
+}
