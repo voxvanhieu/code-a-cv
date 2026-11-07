@@ -1,6 +1,10 @@
+pub mod types;
+
 use crate::format_date;
-use cac_core::{CvDocument, Entry, EntryKind, Inline, RichText, SectionKind};
+use cac_core::{CvDocument, Entry, EntryKind, SectionKind};
 use serde::Serialize;
+
+use types::{InlineView, rich_view};
 
 #[derive(Serialize)]
 struct RenderView {
@@ -28,66 +32,6 @@ struct EntryView {
     period: Option<String>,
     highlights: Vec<Vec<InlineView>>,
     metadata: Vec<MetadataView>,
-}
-#[derive(Serialize)]
-#[serde(tag = "kind", rename_all = "kebab-case")]
-enum InlineView {
-    Text {
-        text: String,
-    },
-    Emph {
-        body: Vec<InlineView>,
-    },
-    Strong {
-        body: Vec<InlineView>,
-    },
-    Code {
-        text: String,
-    },
-    Link {
-        href: String,
-        body: Vec<InlineView>,
-    },
-    Paragraph {
-        body: Vec<InlineView>,
-    },
-    Break,
-    List {
-        start: Option<u64>,
-        items: Vec<Vec<InlineView>>,
-    },
-}
-
-fn inline_view(nodes: &[Inline]) -> Vec<InlineView> {
-    nodes
-        .iter()
-        .map(|node| match node {
-            Inline::Paragraph(body) => InlineView::Paragraph {
-                body: inline_view(body),
-            },
-            Inline::Break => InlineView::Break,
-            Inline::List { start, items } => InlineView::List {
-                start: *start,
-                items: items.iter().map(rich_view).collect(),
-            },
-            Inline::Text(text) => InlineView::Text { text: text.clone() },
-            Inline::Emph(body) => InlineView::Emph {
-                body: inline_view(body),
-            },
-            Inline::Strong(body) => InlineView::Strong {
-                body: inline_view(body),
-            },
-            Inline::Code(text) => InlineView::Code { text: text.clone() },
-            Inline::Link { href, body } => InlineView::Link {
-                href: href.to_string(),
-                body: inline_view(body),
-            },
-        })
-        .collect()
-}
-
-fn rich_view(value: &RichText) -> Vec<InlineView> {
-    inline_view(&value.0)
 }
 
 fn entry_kind_name(kind: &EntryKind) -> &'static str {

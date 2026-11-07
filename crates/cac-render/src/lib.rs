@@ -19,6 +19,9 @@ pub use settings::{
 };
 
 pub use shared::{SharedThemeArtifact, SharedThemeError, test_shared_theme};
+pub use view::types::{
+    InlineView, RichSlot, ViewContact, ViewDocument, ViewEntry, ViewProfile, ViewSection,
+};
 
 pub fn format_date(value: &DatePoint) -> String {
     const MONTHS: [&str; 12] = [
