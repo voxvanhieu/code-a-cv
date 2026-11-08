@@ -33,7 +33,7 @@ The `/loop` iterations work top to bottom: pick the first unchecked task, implem
 - [x] **S3 · HTML on the sheet and the view** ✅ cfcb11c — CSS custom properties from the resolved sheet; renderer walks the view; dates from the shared formatter. Done when HTML and PDF print identical date strings for the corpus and a theme accent shows in HTML. Files: `crates/cac-render/src/html.rs`, `html/theme.css` (new).
 - [x] **L1 · Layout hooks and families** ✅ slice 1 4352f2e 353b7e8 — hooks + classic family + adapter landed; sidebar family moves to L2 with regions (slice 2 cee0819 + this commit landed table/compact + the NOTE) — Four hooks over pure helpers; `classic_components` rewritten as the classic family; sidebar, table, compact families; adapter accepting the old components dictionary for one release. Done when classic, classic-blue, classic-left render the corpus with every marker. Files: `crates/cac-render/src/typst/layout.typ` (new), `families/{classic,sidebar,table,compact}.typ` (new), `themes/classic.typ`.
 
-**Gate 1** — base.typ becomes a thin include; round-trip property spot-check over parser+writer; registry theme parity on the corpus; HTML/PDF date parity.
+**Gate 1** ✅ d1ea75b — verified: base.typ is a thin include of style.typ and layout.typ (S2/L1); the round-trip spot-check runs over every Markdown fixture and the shared corpus in all four native formats (gate1_roundtrip.rs); registry theme parity verified byte-identical (9fd5c3f2… adapter); HTML and PDF print identical date strings through the shared formatter (S3 html_sheet tests).
 
 ## Wave 2 — Features
 
