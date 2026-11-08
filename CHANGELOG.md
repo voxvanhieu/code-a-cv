@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+- Add the photo slot: `Photo:` in a CV renders in the sidebar family as a circular-cropped image. Project-relative files (photos, assets) resolve through a jailed lookup in the render world that refuses anything escaping the project root.
+
 - Add the `sidebar` layout family: a two-column layout with skills, languages, and references in a 32% sidebar, the rest of the CV in the main column, numbered section headings (01, 02, …), and level bars for language entries. A project theme selects it with `layout: (family: "sidebar")`.
 
 - Add field packs: a `fields.toml` declares open-field keys with labels, value kinds (text, integer, boolean, length), and requiredness; `cac check --pack path/to/fields.toml` validates open-field values against the declaration — mistyped values and missing required fields are errors, undeclared keys are advisories. Native formats keep unknown fields end to end.

@@ -139,6 +139,10 @@ pub(crate) fn render_pdf_document(
         // settings layer above legacy theme dictionaries; unset keys must
         // not clobber the family values beneath them.
         serde_json::to_vec(&shimmed.style)?,
+        options
+            .project_dir
+            .as_deref()
+            .and_then(|dir| dir.parent().map(Path::to_path_buf)),
         &resolved,
     )?;
     let warned = typst::compile::<PagedDocument>(&world);
@@ -209,6 +213,10 @@ pub fn render_pdf_and_preview_with_options(
         // settings layer above legacy theme dictionaries; unset keys must
         // not clobber the family values beneath them.
         serde_json::to_vec(&shimmed.style)?,
+        options
+            .project_dir
+            .as_deref()
+            .and_then(|dir| dir.parent().map(Path::to_path_buf)),
         &resolved,
     )?;
     let document = typst::compile::<PagedDocument>(&world)
@@ -318,6 +326,7 @@ struct CacWorld {
     settings: Bytes,
     style: Bytes,
     settings_style: Bytes,
+    project_root: Option<PathBuf>,
     theme: ResolvedTheme,
 }
 
@@ -327,6 +336,7 @@ impl CacWorld {
         settings: Vec<u8>,
         style: Vec<u8>,
         settings_style: Vec<u8>,
+        project_root: Option<PathBuf>,
         theme: &ResolvedTheme,
     ) -> Result<Self, RenderError> {
         let main = file_id("main.typ");
@@ -344,6 +354,7 @@ impl CacWorld {
             settings: Bytes::new(settings),
             style: Bytes::new(style),
             settings_style: Bytes::new(settings_style),
+            project_root,
             theme: ResolvedTheme {
                 source_text: theme.source_text.clone(),
                 source: theme.source,
@@ -409,13 +420,38 @@ impl World for CacWorld {
     }
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
-        match id.vpath().get_without_slash() {
+        let virtual_path = id.vpath().get_without_slash();
+        match virtual_path {
             ".cac/cv.json" => Ok(self.json.clone()),
             ".cac/settings.json" => Ok(self.settings.clone()),
             ".cac/style.json" => Ok(self.style.clone()),
             ".cac/settings-style.json" => Ok(self.settings_style.clone()),
             value if value.starts_with(".cac/") => self.theme_file(Path::new(&value[5..])),
-            value => Err(FileError::NotFound(value.into())),
+            other => {
+                // Project files (photos, assets): resolved inside the
+                // project root, refusing anything that escapes it. The
+                // root canonicalizes too, so symlinked roots (/tmp on
+                // macOS) still match.
+                let root = self
+                    .project_root
+                    .as_ref()
+                    .ok_or_else(|| FileError::NotFound(other.to_string().into()))?;
+                let relative = Path::new(other);
+                if relative.is_absolute() {
+                    return Err(FileError::AccessDenied);
+                }
+                let canonical_root = root.canonicalize().unwrap_or_else(|_| root.clone());
+                let canonical = canonical_root
+                    .join(relative)
+                    .canonicalize()
+                    .map_err(|error| FileError::Other(Some(error.to_string().into())))?;
+                if !canonical.starts_with(&canonical_root) {
+                    return Err(FileError::AccessDenied);
+                }
+                fs::read(canonical)
+                    .map(Bytes::new)
+                    .map_err(|error| FileError::Other(Some(error.to_string().into())))
+            }
         }
     }
     fn font(&self, index: usize) -> Option<Font> {

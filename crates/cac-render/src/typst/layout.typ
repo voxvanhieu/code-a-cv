@@ -188,12 +188,26 @@
   if ctx.styles.link.underline { show link: underline }
   (ctx.components.header)(ctx)
   v(1em)
+  // Photo slot: the profile photo cropped into a circle, when present.
+  // The path is project-relative; the world resolves it inside the
+  // project jail.
+  let photo = if ctx.cv.profile.photo != none {
+    circle(radius: 14mm, image("/" + ctx.cv.profile.photo, width: 28mm, height: 28mm))
+  } else {
+    none
+  }
   let sidebar-sections = ctx.cv.sections.filter(section => sidebar-is-sidebar(section))
   let main-sections = ctx.cv.sections.filter(section => not sidebar-is-sidebar(section))
   grid(
     columns: (32%, 1fr),
     column-gutter: 1.5em,
-    align(top, sidebar-column(ctx, sidebar-sections, 1)),
+    align(top, {
+      if photo != none {
+        align(center, photo)
+        v(0.8em)
+      }
+      sidebar-column(ctx, sidebar-sections, 1)
+    }),
     align(top, sidebar-main-column(ctx, main-sections, 1 + sidebar-sections.len())),
   )
 }

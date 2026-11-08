@@ -164,13 +164,16 @@ pub fn run(args: Args) -> Result<()> {
 
 fn project_directory(input: &Path) -> Result<PathBuf> {
     if is_stdio(input) {
-        Ok(std::env::current_dir()?)
-    } else {
-        Ok(input
-            .parent()
-            .unwrap_or_else(|| Path::new("."))
-            .to_path_buf())
+        return Ok(std::env::current_dir()?);
     }
+    // A bare "cv.md" has an empty parent; the "." keeps the jailed project
+    // lookups absolute instead of cwd-relative.
+    let parent = input
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty());
+    Ok(parent
+        .map(|parent| parent.to_path_buf())
+        .unwrap_or_else(|| PathBuf::from(".")))
 }
 
 fn user_cac_directory() -> Option<PathBuf> {

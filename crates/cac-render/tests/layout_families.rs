@@ -62,6 +62,43 @@ fn sidebar_family_renders_two_columns_with_languages() {
 }
 
 #[test]
+fn sidebar_photo_slot_reads_the_project_jail() {
+    // A 1x1 PNG next to the CV; the photo slot resolves it inside the
+    // project root and renders it.
+    let directory = tempdir().unwrap();
+    let theme = directory.path().join(".cac/themes").join("sidebar");
+    fs::create_dir_all(&theme).unwrap();
+    fs::write(
+        theme.join("theme.typ"),
+        "#let theme = (layout: (family: \"sidebar\"))\n",
+    )
+    .unwrap();
+    fs::write(directory.path().join("cv.json"), MINIMAL).unwrap();
+    let png: [u8; 69] = [
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44,
+        0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00, 0x00, 0x90,
+        0x77, 0x53, 0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0xF8,
+        0xFF, 0xFF, 0x3F, 0x00, 0x05, 0xFE, 0x02, 0xFE, 0x0D, 0xEF, 0x46, 0xB8, 0x00, 0x00, 0x00,
+        0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+    ];
+    fs::write(directory.path().join("photo.png"), png).unwrap();
+    let cv: CvDocument =
+        serde_json::from_str(r#"{"profile":{"name":"Ada","photo":"photo.png"},"sections":[]}"#)
+            .unwrap();
+    let settings: Settings = serde_json::from_str(r#"{"theme":"sidebar"}"#).unwrap();
+    let rendered = render_pdf_with_options(
+        &cv,
+        &RenderOptions {
+            project_dir: Some(directory.path().join(".cac")),
+            user_dir: None,
+            settings,
+        },
+    )
+    .unwrap();
+    assert!(rendered.bytes.starts_with(b"%PDF-"));
+}
+
+#[test]
 fn families_differ_in_layout() {
     // The table family renders the dated section as a table (different
     // glyph stream than compact); assert their bytes are not identical.
