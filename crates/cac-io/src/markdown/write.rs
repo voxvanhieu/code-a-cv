@@ -83,6 +83,7 @@ pub fn to_markdown_with_style(cv: &CvDocument, style: MarkdownStyle) -> String {
     for (key, value) in [
         ("Email", cv.profile.email.as_deref()),
         ("Phone", cv.profile.phone.as_deref()),
+        ("Headline", cv.profile.headline.as_deref()),
         ("Location", cv.profile.location.as_deref()),
         (
             "Website",
@@ -229,13 +230,30 @@ fn write_entry(entry: &cac_core::Entry, compact: bool, output: &mut String) {
         block.push_str(&format!("Kind: {kind}\n"));
     }
     write_open_fields(&entry.fields, &mut block);
+    // The primary slot is already the heading; never re-emit it.
+    let primary_key = match kind.as_str() {
+        "experience" => "role",
+        "education" => "qualification",
+        "publication" => "title",
+        "custom" => "heading",
+        "project" | "skill-group" | "language" | "reference" => "name",
+        _ => "",
+    };
     for key in [
         "organization",
         "institution",
         "publisher",
         "location",
         "url",
+        "proficiency",
+        "role",
+        "email",
+        "phone",
+        "note",
     ] {
+        if key == primary_key {
+            continue;
+        }
         if sugared_secondary && matches!(key, "organization" | "institution") {
             continue;
         }
@@ -248,6 +266,11 @@ fn write_entry(entry: &cac_core::Entry, compact: bool, output: &mut String) {
                 "institution" => "Institution",
                 "publisher" => "Publisher",
                 "location" => "Location",
+                "proficiency" => "Proficiency",
+                "role" => "Role",
+                "email" => "Email",
+                "phone" => "Phone",
+                "note" => "Note",
                 _ => "URL",
             };
             let value = if matches!(key, "location" | "url") {

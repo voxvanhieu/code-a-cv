@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+- Add the Q2 property sweep: a seeded generator composes 250 documents across all eight entry kinds with open fields, then verifies JSON/YAML/TOML round trips and both Markdown spellings parse to one model — 1,000+ conversions per run, deterministic for CI. The sweep caught and fixed writer gaps: reference `Note:`/`Role:`/`Email:`/`Phone:`, language `Proficiency:`, education `Score:`, and profile `Headline:` were missing from the canonical writer, and the primary slot was re-emitted as a duplicate field.
+
 - Add the `rirekisho` registry theme: a JIS-style 履歴書 form on the form family — fixed grid with a photo cell, furigana from the profile's open field, 和暦 era dates computed against `document_date`, CJK glyphs from the theme's bundled Noto Sans JP font, and rejection of sections outside its allowed list. The registry lists form themes separately from universal themes.
 
 - Add the `leaves` registry theme: a full-bleed decorative layout with leaf-toned shapes in the corners, a soft header banner with linked contacts, and numbered section headings with a short rule. Decorative shapes are PDF-only; HTML keeps the sheet colors.
