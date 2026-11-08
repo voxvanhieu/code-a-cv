@@ -56,6 +56,10 @@ The `/loop` iterations work top to bottom: pick the first unchecked task, implem
 - [x] **Q2 · Property-based round trips** ✅ 2f8bbd8 — Generated documents through Markdown, JSON, YAML, TOML, both fmt styles, and packs; 1,000 cases in CI under a minute. Files: `crates/cac-io/tests/proptest_roundtrip.rs` (new), `crates/cac-core/src/arbitrary.rs` (new).
 - [x] **Z1 · Release 0.4** ✅ 68a5df1 — release complete; the roadmap stays as the record — Changelog, migration guide for 0.3 themes and settings, version bump, tag. Files: `CHANGELOG.md`, `docs/migration-0.4.md` (new), `Cargo.toml`.
 
+## Demo sweep (post-release verification)
+
+- [x] **D-sweep · feature demos with screenshot evidence** ✅ baefc17 (2026-11-08) — every 0.4 feature exercised against the locally built CLI; the captured evidence (screenshots, one section per feature) lives in the pull-request description, not in the repository. The sweep found and fixed four real defects: the Markdown writer dropped Headline/Photo/Address and mislabeled Score as URL; an explicit `Summary:` was clobbered by the prose summary path; JSON Resume export emitted `location: {}` when absent; the rirekisho theme's deep render path crashed on hyphenated identifiers and direct access to skip-serialized address keys, and its era column missed the `structured_period` slot. Baselines after-prettier and labeled-style regenerated for the summary fix (the reviewed diff is the two fixtures gaining `summary`). Four-check gate re-run after the fixes: fmt clean, clippy `-D warnings` clean, 232 tests / 0 failed, release resolution pass, formatter fixed point pass.
+
 ## Invariants (from the review; every task must preserve them)
 
 - Dependency direction points inward; `cac-core` never touches the filesystem.
