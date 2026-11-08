@@ -30,6 +30,12 @@ pub struct Args {
     strict: bool,
     #[arg(long, help = "Show the parsed CV fields before content diagnostics")]
     explain: bool,
+    #[arg(
+        long,
+        value_name = "PATH",
+        help = "Validate open fields against a field pack (fields.toml); repeatable"
+    )]
+    pack: Vec<PathBuf>,
 }
 
 pub fn run(args: Args) -> Result<()> {
@@ -37,7 +43,12 @@ pub fn run(args: Args) -> Result<()> {
     if args.explain {
         println!("{}", serde_json::to_string_pretty(&cv)?);
     }
-    let diagnostics = check_content(&cv);
+    let mut diagnostics = check_content(&cv);
+    let mut packs = Vec::new();
+    for path in &args.pack {
+        packs.push(cac_io::packs::load_pack_file(path)?);
+    }
+    diagnostics.extend(cac_check::packs::check_packs(&cv, &packs));
     for diagnostic in &diagnostics {
         println!(
             "{} {:?} {}: {}",

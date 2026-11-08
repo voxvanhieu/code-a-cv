@@ -1,3 +1,5 @@
+pub mod packs;
+
 use cac_core::{CvDocument, EntryKind};
 use serde::Serialize;
 

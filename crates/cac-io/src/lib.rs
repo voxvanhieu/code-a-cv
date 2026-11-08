@@ -1,6 +1,7 @@
 mod codec;
 mod json_resume;
 mod markdown;
+pub mod packs;
 
 pub use codec::{InputFormat, ParseError, parse, validate};
 pub use json_resume::{export_json_resume, export_json_resume_checked, import_json_resume};

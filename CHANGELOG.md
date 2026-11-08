@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+- Add field packs: a `fields.toml` declares open-field keys with labels, value kinds (text, integer, boolean, length), and requiredness; `cac check --pack path/to/fields.toml` validates open-field values against the declaration — mistyped values and missing required fields are errors, undeclared keys are advisories. Native formats keep unknown fields end to end.
+
 - Add `language` and `reference` entry kinds with Markdown spellings (`Proficiency: C1`, reference contact lines), education `Score:` support, JSON Resume import/export for photo, headline, languages, references, and education scores, and a `rich` corpus fixture exercising all extensions. `## Languages` and `## References` section titles default their entries to the new kinds; JSON Resume samples with all seven extensions round-trip losslessly.
 
 - Render open fields in the default layouts: entry-level `Key: value` lines appear after the typed metadata with capitalized labels, and profile-level open fields appear under the header contacts — in both PDF and HTML. Documents without open fields are unchanged (byte parity holds).
