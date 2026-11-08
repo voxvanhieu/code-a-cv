@@ -139,6 +139,15 @@
   (ctx.components.heading)(ctx, 3, (ctx.components.rich)(ctx, entry.primary))
   if entry.secondary != none { block(above: 0pt, below: ctx.styles.body.line_spacing, (ctx.components.rich)(ctx, entry.secondary)) }
   for item in entry.metadata { block(above: 0pt, below: ctx.styles.body.line_spacing, (ctx.components.rich)(ctx, item.body)) }
+  // Open fields (V1): author-written Key: value lines the model does not
+  // type, rendered after the typed metadata. Absent for documents without
+  // them, so existing output is unchanged.
+  if entry.fields != none {
+    for (key, value) in entry.fields {
+      let label = key.split("-").map(part => upper(part.slice(0, 1)) + part.slice(1)).join(" ")
+      block(above: 0pt, below: ctx.styles.body.line_spacing)[#text(fill: ctx.tokens.colors.at("muted"), size: 0.9em)[#label:] #value]
+    }
+  }
   (ctx.components.highlight_list)(ctx, entry.highlights)
 }
 

@@ -35,7 +35,7 @@ pub fn render_html_with(
     )));
     output.push_str("</title><style>");
     output.push_str(&css_variables(style));
-    output.push_str("body{font-family:var(--font-body);color:var(--color-text);font-size:var(--text-size);line-height:var(--text-leading);background:#fff}p{margin:0 0 var(--text-paragraph-gap) 0;text-align:var(--text-align)}header{text-align:var(--header-align)}h1{margin-bottom:var(--heading-name-space-after);font-size:var(--heading-name-size,var(--text-size));font-weight:var(--heading-name-weight);color:var(--heading-name-color)}h2{font-size:var(--heading-section-size,var(--text-size));font-weight:var(--heading-section-weight);color:var(--heading-section-color);text-transform:var(--heading-section-transform);border-bottom:var(--heading-section-rule-width) var(--heading-section-rule-style) var(--color-rule);margin-top:var(--spacing-section);margin-bottom:var(--spacing-heading-gap);padding-bottom:.15rem}h3,.entry-title{font-size:var(--heading-entry-size,var(--text-size));font-weight:var(--heading-entry-weight);color:var(--heading-entry-color)}h1,h2,h3{font-family:var(--font-heading)}.contact{display:flex;gap:.75rem;justify-content:var(--header-align);flex-wrap:wrap}a{color:inherit;text-decoration:var(--link-underline)}article.entry{margin:0 0 var(--spacing-entry) 0}.entry-head{display:flex;justify-content:space-between;gap:1rem}.period{white-space:nowrap}ul{margin:.35rem 0;padding-left:1.3rem}::marker{color:var(--color-accent)}@media print{body{margin:0;max-width:none}@page{size:var(--page-paper);margin:var(--page-margin-top) var(--page-margin-right) var(--page-margin-bottom) var(--page-margin-left)}}@media (prefers-color-scheme: dark){body{background:#111;color:var(--color-text)}}");
+    output.push_str("body{font-family:var(--font-body);color:var(--color-text);font-size:var(--text-size);line-height:var(--text-leading);background:#fff}p{margin:0 0 var(--text-paragraph-gap) 0;text-align:var(--text-align)}header{text-align:var(--header-align)}h1{margin-bottom:var(--heading-name-space-after);font-size:var(--heading-name-size,var(--text-size));font-weight:var(--heading-name-weight);color:var(--heading-name-color)}h2{font-size:var(--heading-section-size,var(--text-size));font-weight:var(--heading-section-weight);color:var(--heading-section-color);text-transform:var(--heading-section-transform);border-bottom:var(--heading-section-rule-width) var(--heading-section-rule-style) var(--color-rule);margin-top:var(--spacing-section);margin-bottom:var(--spacing-heading-gap);padding-bottom:.15rem}h3,.entry-title{font-size:var(--heading-entry-size,var(--text-size));font-weight:var(--heading-entry-weight);color:var(--heading-entry-color)}h1,h2,h3{font-family:var(--font-heading)}.contact{display:flex;gap:.75rem;justify-content:var(--header-align);flex-wrap:wrap}a{color:inherit;text-decoration:var(--link-underline)}article.entry{margin:0 0 var(--spacing-entry) 0}.entry-head{display:flex;justify-content:space-between;gap:1rem}.period{white-space:nowrap}.field-label{color:var(--color-muted);margin-right:.35rem}ul{margin:.35rem 0;padding-left:1.3rem}::marker{color:var(--color-accent)}@media print{body{margin:0;max-width:none}@page{size:var(--page-paper);margin:var(--page-margin-top) var(--page-margin-right) var(--page-margin-bottom) var(--page-margin-left)}}@media (prefers-color-scheme: dark){body{background:#111;color:var(--color-text)}}");
     output.push_str("</style></head><body itemscope itemtype=\"https://schema.org/Person\"><header><h1 itemprop=\"name\">");
     output.push_str(&html_escape::encode_text(&cv.profile.name));
     output.push_str("</h1><div class=\"contact\">");
@@ -84,6 +84,14 @@ pub fn render_html_with(
                 html_escape::encode_text(&contact.label)
             );
         }
+    }
+    for field in cv.profile.fields.iter() {
+        let _ = write!(
+            output,
+            "<div class=\"field\"><span class=\"field-label\">{}</span> {}</div>",
+            html_escape::encode_text(&capitalize_label(&field.key)),
+            html_escape::encode_text(&field.value.as_text())
+        );
     }
     output.push_str("</div></header>");
     if let Some(summary) = &cv.profile.summary {
@@ -157,6 +165,14 @@ pub fn render_html_with(
                     "<div><a href=\"{}\">{}</a></div>",
                     html_escape::encode_double_quoted_attribute(url.as_str()),
                     html_escape::encode_text(url.as_str())
+                );
+            }
+            for field in entry.fields.iter() {
+                let label = capitalize_label(&field.key);
+                let _ = write!(
+                    output,
+                    "<div class=\"field\"><span class=\"field-label\">{label}</span> {}</div>",
+                    html_escape::encode_text(&field.value.as_text())
                 );
             }
             if let Some(body) = &entry.content {
@@ -237,6 +253,22 @@ fn render_rich_html(value: &RichText, output: &mut String) {
 
 /// CSS custom properties from the resolved style sheet. Lengths keep their
 /// unit spelling; hex colors pass through; enums become CSS spellings.
+/// Capitalize a normalized field key into a display label.
+fn capitalize_label(key: &str) -> String {
+    let mut label = String::new();
+    for (index, part) in key.split('-').enumerate() {
+        if index > 0 {
+            label.push(' ');
+        }
+        let mut characters = part.chars();
+        if let Some(first) = characters.next() {
+            label.extend(first.to_uppercase());
+            label.push_str(characters.as_str());
+        }
+    }
+    label
+}
+
 fn css_variables(style: &ResolvedStyle) -> String {
     let mut css = String::from(":root{");
     let _ = write!(

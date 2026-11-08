@@ -2,7 +2,7 @@
 //! structured dates; the corpus matches the slot names; date snapshots in
 //! five locales.
 
-use cac_io::{parse, InputFormat};
+use cac_io::{InputFormat, parse};
 
 fn corpus(name: &str) -> cac_core::CvDocument {
     let source = std::fs::read_to_string(format!(
@@ -31,8 +31,13 @@ fn every_corpus_document_exposes_the_named_slots() {
         let cv = corpus(fixture);
         let view = serde_json::to_value(cac_render::test_render_view(&cv)).unwrap();
         let profile = view["profile"].as_object().unwrap();
-        for slot in ["name", "contacts", "summary", "photo", "headline", "address", "fields"] {
-            assert!(profile.contains_key(slot), "{fixture}: profile has `{slot}`");
+        for slot in [
+            "name", "contacts", "summary", "photo", "headline", "address", "fields",
+        ] {
+            assert!(
+                profile.contains_key(slot),
+                "{fixture}: profile has `{slot}`"
+            );
         }
         for section in view["sections"].as_array().unwrap() {
             for slot in ["id", "kind", "title", "entries", "tags"] {
@@ -43,8 +48,17 @@ fn every_corpus_document_exposes_the_named_slots() {
             }
             for entry in section["entries"].as_array().unwrap() {
                 for slot in [
-                    "kind", "primary", "secondary", "period", "structured_period", "date",
-                    "location", "url", "fields", "tags", "highlights",
+                    "kind",
+                    "primary",
+                    "secondary",
+                    "period",
+                    "structured_period",
+                    "date",
+                    "location",
+                    "url",
+                    "fields",
+                    "tags",
+                    "highlights",
                 ] {
                     assert!(
                         entry.as_object().unwrap().contains_key(slot),
@@ -61,10 +75,15 @@ fn structured_dates_use_canonical_strings() {
     let cv = corpus("labeled-style");
     let view = serde_json::to_value(cac_render::test_render_view(&cv)).unwrap();
     let entry = &view["sections"][0]["entries"][0];
-    let period = entry["structured_period"].as_object().expect("structured period");
+    let period = entry["structured_period"]
+        .as_object()
+        .expect("structured period");
     assert_eq!(period["start"], "2023-01");
     assert_eq!(period["end"], "Present");
-    assert_eq!(entry["period"], "Jan 2023 – Present", "display form beside structure");
+    assert_eq!(
+        entry["period"], "Jan 2023 – Present",
+        "display form beside structure"
+    );
 }
 
 #[test]
@@ -81,12 +100,15 @@ fn open_fields_reach_the_view() {
     let document: cac_core::CvDocument = serde_json::from_str(source).unwrap();
     let view = serde_json::to_value(cac_render::test_render_view(&document)).unwrap();
     assert_eq!(view["profile"]["fields"]["gpa"], "3.9");
-    assert_eq!(view["sections"][0]["entries"][0]["fields"]["furigana"], "エイダ");
+    assert_eq!(
+        view["sections"][0]["entries"][0]["fields"]["furigana"],
+        "エイダ"
+    );
 }
 
 #[test]
 fn date_snapshots_in_five_locales() {
-    use cac_render::{format_date_locale, Length};
+    use cac_render::{Length, format_date_locale};
     let _ = Length::new(10.0, cac_render::LengthUnit::Pt);
     let jan2023 = cac_core::DatePoint::YearMonth(2023, 1);
     assert_eq!(format_date_locale("en", &jan2023), "Jan 2023");
