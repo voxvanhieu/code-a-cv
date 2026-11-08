@@ -786,7 +786,11 @@ pub(super) fn map(blocks: Vec<Block>) -> Result<Mapped, ParseError> {
     if let Some(section) = section {
         sections.push(section);
     }
-    profile.summary = take_rich(&mut summary, summary_line)?;
+    // Prose paragraphs under the name fill the summary only when the
+    // explicit `Summary:` field did not; the buffer keeps the prose path.
+    if !summary.is_empty() {
+        profile.summary = take_rich(&mut summary, summary_line)?;
+    }
     let mut cv = CvDocument { profile, sections };
     deduplicate_ids(&mut cv, &section_ids)?;
     Ok(Mapped {

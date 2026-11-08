@@ -4,7 +4,8 @@
     "email": "ada@example.com",
     "phone": "+44 20 7000 0000",
     "location": "London",
-    "website": "https://ada.example.com/"
+    "website": "https://ada.example.com/",
+    "summary": "Pioneer of computing."
   },
   "sections": [
     {

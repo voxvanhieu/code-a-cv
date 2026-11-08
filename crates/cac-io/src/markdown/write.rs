@@ -84,6 +84,7 @@ pub fn to_markdown_with_style(cv: &CvDocument, style: MarkdownStyle) -> String {
         ("Email", cv.profile.email.as_deref()),
         ("Phone", cv.profile.phone.as_deref()),
         ("Headline", cv.profile.headline.as_deref()),
+        ("Photo", cv.profile.photo.as_deref()),
         ("Location", cv.profile.location.as_deref()),
         (
             "Website",
@@ -92,6 +93,22 @@ pub fn to_markdown_with_style(cv: &CvDocument, style: MarkdownStyle) -> String {
     ] {
         if let Some(value) = value {
             let _ = writeln!(profile, "{key}: {}", escape_markdown(value));
+        }
+    }
+    if let Some(address) = &cv.profile.address {
+        let parts: Vec<&str> = [
+            address.street.as_deref(),
+            address.city.as_deref(),
+            address.region.as_deref(),
+            address.postal_code.as_deref(),
+            address.country.as_deref(),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+        if !parts.is_empty() {
+            let joined = parts.join(", ");
+            let _ = writeln!(output, "Address: {}", escape_markdown(&joined));
         }
     }
     for contact in &cv.profile.contacts {
@@ -246,6 +263,7 @@ fn write_entry(entry: &cac_core::Entry, compact: bool, output: &mut String) {
         "location",
         "url",
         "proficiency",
+        "score",
         "role",
         "email",
         "phone",
@@ -266,6 +284,7 @@ fn write_entry(entry: &cac_core::Entry, compact: bool, output: &mut String) {
                 "institution" => "Institution",
                 "publisher" => "Publisher",
                 "location" => "Location",
+                "score" => "Score",
                 "proficiency" => "Proficiency",
                 "role" => "Role",
                 "email" => "Email",

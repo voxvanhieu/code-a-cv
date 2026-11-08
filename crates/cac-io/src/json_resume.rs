@@ -3,7 +3,7 @@ use cac_core::{
     Profile, RichText, Section, SectionKind, SkillGroupEntry, TagSet,
 };
 use serde::Deserialize;
-use serde_json::json;
+use serde_json::{Value, json};
 use url::Url;
 
 use crate::{ParseError, parse_date_point};
@@ -396,7 +396,12 @@ pub fn export_json_resume(cv: &CvDocument) -> serde_json::Value {
     let mut basics = json!({
         "name": cv.profile.name, "email": cv.profile.email, "phone": cv.profile.phone,
         "url": cv.profile.website, "summary": cv.profile.summary.as_ref().map(RichText::plain),
-        "location": { "city": cv.profile.location }
+        "location": cv
+            .profile
+            .location
+            .as_ref()
+            .map(|city| json!({ "city": city }))
+            .unwrap_or(Value::Null),
     });
     if let Some(photo) = &cv.profile.photo {
         basics["image"] = serde_json::Value::String(photo.clone());
