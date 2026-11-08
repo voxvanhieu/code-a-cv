@@ -1,0 +1,12 @@
+{
+  "name": "code-a-cv",
+  "private": true,
+  "description": "Node tooling for Code a CV's formatter fixed-point checks (the CV itself is a Rust workspace).",
+  "scripts": {
+    "format:check": "bash scripts/tests/test_formatter_fixed_point.sh"
+  },
+  "devDependencies": {
+    "prettier": "3.6.2",
+    "markdownlint-cli2": "0.18.1"
+  }
+}

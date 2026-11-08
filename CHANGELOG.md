@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+- Enforce the formatter fixed point in CI: a new job formats the five Markdown examples with `cac fmt`, then asserts Prettier (pinned 3.6.2) and markdownlint (0.18.1) are no-ops over them, with a `.markdownlint.jsonc` config that treats labeled content as data. `scripts/tests/test_formatter_fixed_point.sh` runs the same check locally (`npm ci && npm run format:check`).
+
 - Add overflow detection from frame inspection: pages whose content extends beyond the page edge print a warning naming the page, and `RenderedPdf` carries the overflow page list so build output and checks can act on it.
 
 - Add the `document_date` setting (YYYY-MM-DD) for deterministic builds: Typst code referencing `today()` sees the fixed date instead of the wall clock, and builds with the same date stay byte-identical. Non-ISO values are rejected at settings validation.
