@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+- Add the `form` layout family: a fixed-grid template with a photo cell, address block, and labeled rows. A form theme declares `requires` (sections and profile keys it needs) and `allowed` (section kinds it can place); a document containing anything else fails with the section named, instead of silently dropping content.
+
 - Add a ten-minute first-theme tutorial (`docs/authoring/your-first-theme.md`): start a theme project, pick a family or override style keys, render both outputs, and check — with links into the style-key schema and the theme contract.
 
 - Retire the `themeProject` marker: `cac theme init` writes real files under `.cac/` — the style sheet bridge, the base library, the layout families, and a root `main.typ` — so `typst watch .cac/main.typ` and editor extensions preview the theme outside cac. A theme project is now identified by its theme directory under `.cac/themes` (name falls back to `settings.theme`), and `theme init` no longer blocks installs inside theme projects.

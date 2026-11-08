@@ -224,5 +224,117 @@
   entry_details: none,
 )
 
-#let families = (classic: classic, table: table, compact: compact, sidebar: sidebar)
+
+
+// -- form --
+
+// The form family: a fixed grid with a photo cell, address block, and
+// labeled rows. A form declares `requires` (sections it needs and profile
+// keys it cannot do without) and `allowed` (the section kinds it can
+// place); anything else is rejected by name instead of silently dropped.
+#let form-document(ctx) = {
+  let layout = ctx.layout
+  let hh = helpers-of(ctx)
+  let requires = layout.at("requires", default: (:))
+  let allowed = layout.at("allowed", default: requires.at("sections", default: ()))
+  let hh = helpers-of(ctx)
+  let body = ctx.styles.body
+  set document(title: ctx.cv.profile.name + " CV", author: ctx.cv.profile.name)
+  set page(paper: ctx.page.paper, margin: ctx.page.margin, numbering: none)
+  set text(
+    font: ctx.tokens.fonts.at(body.font),
+    size: body.font_size,
+    weight: body.weight,
+    fill: ctx.tokens.colors.at(body.color),
+  )
+  set par(leading: body.line_spacing, spacing: body.paragraph_spacing)
+  // A form owns the document: sections it cannot place are rejected by
+  // name rather than silently flowing into a generic fallback.
+  for section in ctx.cv.sections {
+    let kind-name = section.kind
+    let placed = allowed.contains(kind-name) or allowed.contains(section.id)
+    if not placed {
+      panic(
+        "this form does not support the section `" + section.title + "` (kind `" + section.kind
+          + "`); it accepts: " + repr(allowed) + " / kind is " + repr(kind-name),
+      )
+    }
+  }
+  // Profile requirements: photo cell and address block need their data.
+  for key in requires.at("profile", default: ()) {
+    let missing = if key == "photo" { ctx.cv.profile.photo == none } else { false }
+    if missing {
+      panic("this form requires profile `" + key + "`")
+    }
+  }
+  // Fixed profile grid: name across the top, photo left, address and
+  // contacts right.
+  let photo = if ctx.cv.profile.photo != none {
+    circle(radius: 14mm, image("/" + ctx.cv.profile.photo, width: 28mm, height: 28mm))
+  } else {
+    box(width: 28mm, height: 28mm, stroke: 0.5pt + silver)[ ]
+  }
+  let address = if ctx.cv.profile.address != none {
+    let a = ctx.cv.profile.address
+    let lines = ()
+    for field in ("street", "city", "region", "postal_code", "country") {
+      if a.at(field, default: none) != none {
+        lines.push(a.at(field))
+      }
+    }
+    if lines.len() > 0 { lines.join(" \u{2022} ") } else { none }
+  } else {
+    none
+  }
+  grid(
+    columns: (30mm, 1fr),
+    column-gutter: 1em,
+    align(top, photo),
+    align(top, {
+      text(size: 1.3em, weight: "bold")[#ctx.cv.profile.name]
+      v(0.3em)
+      if address != none { block(address) }
+      v(0.3em)
+      for contact in ctx.cv.profile.contacts {
+        contact.label
+        h(0.6em)
+      }
+    }),
+  )
+  v(1em)
+  // Fixed line: 1pt rule, then each allowed section with content in a
+  // labeled row grid.
+  line(length: 100%, stroke: 1pt + ctx.tokens.colors.at("text"))
+  v(0.6em)
+  for section in ctx.cv.sections {
+    if section.entries.len() > 0 {
+      grid(
+        columns: (30mm, 1fr),
+        column-gutter: 1em,
+        align(top, text(weight: "bold")[#section.title]),
+        align(top, {
+          for entry in section.entries {
+            block(above: 0.6em, below: 0.6em)[
+              #hh.at("rich")(ctx, entry.primary)
+              #if entry.period != none [ #entry.period ]
+            ]
+          }
+        }),
+      )
+      v(0.6em)
+    }
+  }
+}
+
+#let form = (
+  document: form-document,
+  header: none,
+  section: none,
+  entry: none,
+  section_heading: none,
+  entry_details: none,
+)
+
+#let families = (classic: classic, table: table, compact: compact, sidebar: sidebar, form: form)
+
 

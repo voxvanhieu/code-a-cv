@@ -53,6 +53,10 @@
   ]
 }
 
+// The view's `period` slot is already display-formatted ("Jan 2023 –
+// Present"); pass it through. Structured dates arrive Typst-side with the
+// locale tables in a later slice.
+
 #let resolve-styles(styles) = {
   let resolved = styles
   resolved.insert("heading", merge(resolved.body, resolved.heading))
@@ -321,6 +325,7 @@
     rich: rich,
     styled_text: styled-text,
     merge: merge,
+    format-period: (ctx, period) => period,
     section_table: section_table,
     section_labels: section_labels,
     table_kind: table_kind,
@@ -330,7 +335,9 @@
     // Hooks path: a family plus optional hook overrides. Hooks left as
     // none reuse the base helper verbatim (document, header).
     let family = merge(families.at(theme-layout.at("family", default: "classic"), default: families.classic), theme-layout)
-    merge(components, (
+    // Base defaults, then the family (which carries theme-layout extras
+    // like requires/allowed), then the resolved hooks on top.
+    merge(merge(components, family), (
       document: if family.document == none { document-component } else { family.document },
       header: if family.header == none { header } else { family.header },
       section: if family.section == none { section_flow } else { family.section },
