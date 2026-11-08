@@ -10,6 +10,10 @@ use tempfile::tempdir;
 const MINIMAL: &str = r#"{"profile":{"name":"Ada Lovelace"},"sections":[{"id":"work","title":"Experience","kind":"experience","entries":[{"type":"experience","role":"Engineer","organization":"Acme","period":{"start":"2020","end":"2021"},"highlights":["Built a thing"]}]},{"id":"skills","title":"Skills","kind":"skills","entries":[{"type":"skill-group","name":"Languages","skills":["Rust","SQL"]}]}]}"#;
 
 fn render_with_family(family: &str) -> (usize, Vec<u8>) {
+    render_with_family_cv(family, MINIMAL)
+}
+
+fn render_with_family_cv(family: &str, cv_json: &str) -> (usize, Vec<u8>) {
     let directory = tempdir().unwrap();
     let theme = directory.path().join(".cac/themes").join(family);
     fs::create_dir_all(&theme).unwrap();
@@ -18,7 +22,7 @@ fn render_with_family(family: &str) -> (usize, Vec<u8>) {
         format!("#let theme = (layout: (family: \"{family}\"))\n"),
     )
     .unwrap();
-    let cv: CvDocument = serde_json::from_str(MINIMAL).unwrap();
+    let cv: CvDocument = serde_json::from_str(cv_json).unwrap();
     let settings: Settings = serde_json::from_str(&format!(r#"{{"theme":"{family}"}}"#)).unwrap();
     let rendered = render_pdf_with_options(
         &cv,
@@ -40,6 +44,21 @@ fn table_and_compact_families_render_the_corpus() {
         assert!(bytes.starts_with(b"%PDF-"), "{family} renders a PDF");
         assert!(pages >= 1, "{family} renders at least one page");
     }
+}
+
+#[test]
+fn sidebar_family_renders_two_columns_with_languages() {
+    let sidebar_cv = r#"{"profile":{"name":"Ada Lovelace"},"sections":[
+        {"id":"experience","title":"Experience","kind":"experience","entries":[
+            {"type":"experience","role":"Engineer","organization":"Acme","period":{"start":"2020","end":"2021"},"highlights":["Built a thing"]}]},
+        {"id":"languages","title":"Languages","kind":"custom","entries":[
+            {"type":"language","name":"Japanese","proficiency":"Native"},
+            {"type":"language","name":"English","proficiency":"C1"}]}]}"#;
+    let (pages, bytes) = render_with_family_cv("sidebar", sidebar_cv);
+    assert!(bytes.starts_with(b"%PDF-"), "sidebar renders a PDF");
+    assert!(pages >= 1, "sidebar renders at least one page");
+    let (_, classic) = render_with_family_cv("classic", sidebar_cv);
+    assert_ne!(bytes, classic, "sidebar differs from classic");
 }
 
 #[test]

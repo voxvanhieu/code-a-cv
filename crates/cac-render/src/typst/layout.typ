@@ -96,4 +96,119 @@
   entry_details: classic-entry-details,
 )
 
-#let families = (classic: classic, table: table, compact: compact)
+
+
+// -- sidebar --
+
+// Placement: the sidebar column carries skills, languages, and
+// references; the main column carries everything else, in source order.
+#let sidebar-is-sidebar(section) = {
+  let name = section.id
+  name == "skills" or name == "languages" or name == "references"
+}
+
+// Level bars for a numeric 0–5 proficiency; named scales print as labels.
+#let level-bars(level) = {
+  let filled = if level < 0 { 0 } else if level > 5 { 5 } else { level }
+  for i in range(5) {
+    if i < filled {
+      box(width: 12pt, height: 4pt, fill: rgb("222222"), radius: 1pt)
+      h(2pt)
+    } else {
+      box(width: 12pt, height: 4pt, stroke: 0.5pt + rgb("999999"), radius: 1pt)
+      h(2pt)
+    }
+  }
+}
+
+#let sidebar-section-heading(ctx, section, number) = {
+  let h = helpers-of(ctx)
+  if number != none {
+    h.at("heading")(ctx, 2, [#number  #section.title])
+  } else {
+    h.at("heading")(ctx, 2, [#section.title])
+  }
+}
+
+#let sidebar-render-entry(ctx, entry) = {
+  let h = helpers-of(ctx)
+  if entry.kind == "language" {
+    block(above: 0.5em)[
+      #text(weight: "semibold")[#h.at("rich")(ctx, entry.primary)]
+    ]
+  } else {
+    for highlight in entry.at("highlights", default: ()) {
+      block[- #h.at("rich")(ctx, highlight)]
+    }
+    let content = entry.at("content", default: none)
+    if content != none {
+      block[#h.at("rich")(ctx, content)]
+    }
+  }
+}
+
+#let sidebar-column(ctx, sections, number) = {
+  for section in sections {
+    sidebar-section-heading(ctx, section, number)
+    number += 1
+    v(0.4em)
+    for entry in section.entries {
+      sidebar-render-entry(ctx, entry)
+    }
+    v(0.8em)
+  }
+}
+
+#let sidebar-main-column(ctx, sections, number) = {
+  for section in sections {
+    sidebar-section-heading(ctx, section, number)
+    number += 1
+    v(0.4em)
+    for (index, entry) in section.entries.enumerate() {
+      (ctx.components.entry)(ctx, entry)
+      if index + 1 < section.entries.len() { v(ctx.styles.entry.space_after) }
+    }
+    v(0.8em)
+  }
+}
+
+#let sidebar-document(ctx) = {
+  let body = ctx.styles.body
+  set document(title: ctx.cv.profile.name + " CV", author: ctx.cv.profile.name)
+  set page(paper: ctx.page.paper, margin: ctx.page.margin, numbering: none, footer: (ctx.components.footer)(ctx))
+  set text(
+    font: ctx.tokens.fonts.at(body.font),
+    size: body.font_size,
+    weight: body.weight,
+    fill: ctx.tokens.colors.at(body.color),
+  )
+  set par(leading: body.line_spacing, spacing: body.paragraph_spacing)
+  set list(spacing: ctx.styles.list.item_spacing)
+  set enum(spacing: ctx.styles.list.item_spacing)
+  if ctx.styles.link.underline { show link: underline }
+  (ctx.components.header)(ctx)
+  v(1em)
+  let sidebar-sections = ctx.cv.sections.filter(section => sidebar-is-sidebar(section))
+  let main-sections = ctx.cv.sections.filter(section => not sidebar-is-sidebar(section))
+  grid(
+    columns: (32%, 1fr),
+    column-gutter: 1.5em,
+    align(top, sidebar-column(ctx, sidebar-sections, 1)),
+    align(top, sidebar-main-column(ctx, main-sections, 1 + sidebar-sections.len())),
+  )
+}
+
+// The sidebar family: two-column regions, numbered sections, language
+// proficiencies. document covers the whole page; the other hooks stay at
+// their base defaults.
+#let sidebar = (
+  document: sidebar-document,
+  header: none,
+  section: none,
+  entry: none,
+  section_heading: none,
+  entry_details: none,
+)
+
+#let families = (classic: classic, table: table, compact: compact, sidebar: sidebar)
+
