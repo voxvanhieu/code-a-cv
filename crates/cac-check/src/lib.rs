@@ -53,7 +53,9 @@ pub fn check_content(cv: &CvDocument) -> Vec<Diagnostic> {
                 EntryKind::SkillGroup(_)
                 | EntryKind::Custom(_)
                 | EntryKind::Text(_)
-                | EntryKind::Prose(_) => &[],
+                | EntryKind::Prose(_)
+                | EntryKind::Language(_)
+                | EntryKind::Reference(_) => &[],
             };
             if matches!(
                 entry.kind,

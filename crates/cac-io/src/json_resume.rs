@@ -21,6 +21,10 @@ struct JsonResume {
     education: Vec<JsonEducation>,
     #[serde(default)]
     skills: Vec<JsonSkill>,
+    #[serde(default)]
+    languages: Vec<JsonLanguage>,
+    #[serde(default)]
+    references: Vec<JsonReference>,
 }
 
 #[derive(Default, Deserialize)]
@@ -33,6 +37,10 @@ struct JsonBasics {
     location: Option<JsonLocation>,
     url: Option<Url>,
     summary: Option<String>,
+    #[serde(default)]
+    image: Option<String>,
+    #[serde(default)]
+    label: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -65,7 +73,27 @@ struct JsonEducation {
     start_date: Option<String>,
     end_date: Option<String>,
     #[serde(default)]
+    score: Option<String>,
+    #[serde(default)]
     courses: Vec<String>,
+}
+
+#[derive(Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct JsonLanguage {
+    #[serde(default)]
+    language: String,
+    #[serde(default)]
+    fluency: Option<String>,
+}
+
+#[derive(Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct JsonReference {
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    reference: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -99,12 +127,75 @@ pub fn import_json_resume(source: &str) -> Result<CvDocument, ParseError> {
         contacts: Vec::new(),
         // photo/headline/address mapping lands with the core-extension
         // behavior task; the model carries the fields already.
-        photo: None,
-        headline: None,
+        photo: resume.basics.image.clone(),
+        headline: resume.basics.label.clone(),
         address: None,
         fields: FieldMap::new(),
     };
     let mut sections = Vec::new();
+    let language_entries: Vec<Entry> = resume
+        .languages
+        .iter()
+        .filter(|language| !language.language.is_empty())
+        .map(|language| -> Result<Entry, ParseError> {
+            Ok(Entry {
+                kind: EntryKind::Language(cac_core::LanguageEntry {
+                    name: RichText::literal(&language.language),
+                    proficiency: language.fluency.as_deref().map(|level| {
+                        cac_core::SkillLevel::parse(level)
+                            .unwrap_or(cac_core::SkillLevel::Named(level.to_string()))
+                    }),
+                }),
+                tags: TagSet::new(),
+                content: None,
+                fields: FieldMap::new(),
+                origin: Origin::default(),
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if !language_entries.is_empty() {
+        sections.push(Section {
+            id: "languages".into(),
+            title: "Languages".into(),
+            kind: SectionKind::Custom,
+            tags: TagSet::new(),
+            entries: language_entries,
+        });
+    }
+    let reference_entries: Vec<Entry> = resume
+        .references
+        .iter()
+        .enumerate()
+        .map(|(index, reference)| -> Result<Entry, ParseError> {
+            let name = reference
+                .name
+                .clone()
+                .unwrap_or_else(|| format!("Reference {}", index + 1));
+            Ok(Entry {
+                kind: EntryKind::Reference(cac_core::ReferenceEntry {
+                    name: RichText::literal(&name),
+                    organization: None,
+                    role: None,
+                    email: None,
+                    phone: None,
+                    note: reference.reference.clone(),
+                }),
+                tags: TagSet::new(),
+                content: None,
+                fields: FieldMap::new(),
+                origin: Origin::default(),
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if !reference_entries.is_empty() {
+        sections.push(Section {
+            id: "references".into(),
+            title: "References".into(),
+            kind: SectionKind::Custom,
+            tags: TagSet::new(),
+            entries: reference_entries,
+        });
+    }
     if !resume.work.is_empty() {
         sections.push(Section {
             id: "experience".into(),
@@ -158,8 +249,7 @@ pub fn import_json_resume(source: &str) -> Result<CvDocument, ParseError> {
                             institution: RichText::literal(&value.institution),
                             period: json_period(value.start_date, value.end_date)?,
                             date: None,
-                            // score mapping lands with the core-extension behavior task.
-                            score: None,
+                            score: value.score.clone(),
                             highlights: value
                                 .courses
                                 .iter()
@@ -258,14 +348,67 @@ pub fn export_json_resume(cv: &CvDocument) -> serde_json::Value {
         EntryKind::SkillGroup(value) => Some(json!({ "name": value.name.plain(), "keywords": value.skills.iter().map(RichText::plain).collect::<Vec<_>>() })),
         _ => None,
     }).collect();
+    let languages: Vec<_> = cv
+        .sections
+        .iter()
+        .flat_map(|section| &section.entries)
+        .filter_map(|entry| match &entry.kind {
+            EntryKind::Language(value) => Some(json!({
+                "language": value.name.plain(),
+                "fluency": value.proficiency.as_ref().map(ToString::to_string),
+            })),
+            _ => None,
+        })
+        .collect();
+    let references: Vec<_> = cv
+        .sections
+        .iter()
+        .flat_map(|section| &section.entries)
+        .filter_map(|entry| match &entry.kind {
+            EntryKind::Reference(value) => Some(json!({
+                "name": value.name.plain(),
+                "reference": value.note,
+            })),
+            _ => None,
+        })
+        .collect();
+    let education: Vec<_> = education
+        .into_iter()
+        .enumerate()
+        .map(|(index, mut value)| {
+            // Education scores live in the model; walk the source entries in
+            // order to find the matching score.
+            let score = cv
+                .sections
+                .iter()
+                .flat_map(|section| &section.entries)
+                .filter_map(|entry| match &entry.kind {
+                    EntryKind::Education(value) => value.score.clone(),
+                    _ => None,
+                })
+                .nth(index);
+            if let Some(score) = score {
+                value["score"] = serde_json::Value::String(score);
+            }
+            value
+        })
+        .collect();
+    let mut basics = json!({
+        "name": cv.profile.name, "email": cv.profile.email, "phone": cv.profile.phone,
+        "url": cv.profile.website, "summary": cv.profile.summary.as_ref().map(RichText::plain),
+        "location": { "city": cv.profile.location }
+    });
+    if let Some(photo) = &cv.profile.photo {
+        basics["image"] = serde_json::Value::String(photo.clone());
+    }
+    if let Some(headline) = &cv.profile.headline {
+        basics["label"] = serde_json::Value::String(headline.clone());
+    }
     json!({
         "$schema": "https://raw.githubusercontent.com/jsonresume/resume-schema/master/schema.json",
-        "basics": {
-            "name": cv.profile.name, "email": cv.profile.email, "phone": cv.profile.phone,
-            "url": cv.profile.website, "summary": cv.profile.summary.as_ref().map(RichText::plain),
-            "location": { "city": cv.profile.location }
-        },
-        "work": work, "education": education, "skills": skills
+        "basics": basics,
+        "work": work, "education": education, "skills": skills,
+        "languages": languages, "references": references
     })
 }
 

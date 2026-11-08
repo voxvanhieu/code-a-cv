@@ -98,7 +98,7 @@ fn assert_all_entry_kinds(cv: &CvDocument) {
     let mut present = [false; 7];
     for entry in cv.sections.iter().flat_map(|section| &section.entries) {
         let index = match &entry.kind {
-            EntryKind::Experience(_) => 0,
+            EntryKind::Experience(_) | EntryKind::Language(_) | EntryKind::Reference(_) => 0,
             EntryKind::Education(_) => 1,
             EntryKind::Project(_) => 2,
             EntryKind::Publication(_) => 3,

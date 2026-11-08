@@ -189,18 +189,18 @@ pub static CORE_FIELDS: &[FieldDef] = &[
         json_resume: Some("basics.email"),
     },
     FieldDef {
-        key: "headline",
-        label: "Headline",
-        scopes: &[FieldScope::Profile],
-        parser: FieldParser::Text,
-        json_resume: Some("basics.label"),
-    },
-    FieldDef {
         key: "heading",
         label: "Heading",
         scopes: &[FieldScope::Entries(&[EntryKindName::Custom])],
         parser: FieldParser::Rich,
         json_resume: None,
+    },
+    FieldDef {
+        key: "headline",
+        label: "Headline",
+        scopes: &[FieldScope::Profile],
+        parser: FieldParser::Text,
+        json_resume: Some("basics.label"),
     },
     FieldDef {
         key: "highlights",

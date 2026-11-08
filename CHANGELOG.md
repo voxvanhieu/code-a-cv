@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+- Add `language` and `reference` entry kinds with Markdown spellings (`Proficiency: C1`, reference contact lines), education `Score:` support, JSON Resume import/export for photo, headline, languages, references, and education scores, and a `rich` corpus fixture exercising all extensions. `## Languages` and `## References` section titles default their entries to the new kinds; JSON Resume samples with all seven extensions round-trip losslessly.
+
 - Render open fields in the default layouts: entry-level `Key: value` lines appear after the typed metadata with capitalized labels, and profile-level open fields appear under the header contacts — in both PDF and HTML. Documents without open fields are unchanged (byte parity holds).
 
 - Emit the C3 named slots in the rendered view: photo, headline, structured address, and open profile fields on the profile; structured periods, scalar dates, location, URL, open fields, and tags on every entry — beside the legacy keys, with every slot key always present (absent values are null). Themes can now read slots and open fields without a model change; the shared-content checker counts only the legacy keys the default families render.

@@ -60,6 +60,8 @@ fn entry_kind_name(kind: &EntryKind) -> &'static str {
         EntryKind::Publication(_) => "publication",
         EntryKind::SkillGroup(_) => "skill-group",
         EntryKind::Custom(_) => "custom",
+        EntryKind::Language(_) => "language",
+        EntryKind::Reference(_) => "reference",
         EntryKind::Text(_) => "text",
         EntryKind::Prose(_) => "prose",
     }
@@ -208,6 +210,35 @@ fn metadata_view(kind: &EntryKind) -> Vec<MetadataView> {
                 text: location.clone(),
             }],
         });
+    }
+    if let EntryKind::Language(value) = kind
+        && let Some(proficiency) = &value.proficiency
+    {
+        metadata.push(MetadataView {
+            role: "proficiency",
+            body: vec![InlineView::Text {
+                text: proficiency.to_string(),
+            }],
+        });
+    }
+    if let EntryKind::Reference(value) = kind {
+        for text in [
+            value.organization.as_ref().map(|o| o.plain()),
+            value.role.clone(),
+            value.email.clone(),
+            value.phone.clone(),
+            value.note.clone(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            if !text.is_empty() {
+                metadata.push(MetadataView {
+                    role: "reference",
+                    body: vec![InlineView::Text { text }],
+                });
+            }
+        }
     }
     let url = match kind {
         EntryKind::Project(value) => value.url.as_ref(),

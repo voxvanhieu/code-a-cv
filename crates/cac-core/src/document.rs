@@ -181,6 +181,8 @@ pub enum EntryKind {
     Custom(CustomEntry),
     Text(TextEntry),
     Prose(TextEntry),
+    Language(LanguageEntry),
+    Reference(ReferenceEntry),
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -308,6 +310,8 @@ impl EntryKind {
             Self::SkillGroup(value) => (&value.name, None),
             Self::Custom(value) => (&value.heading, None),
             Self::Text(value) | Self::Prose(value) => (&value.body, None),
+            Self::Language(value) => (&value.name, None),
+            Self::Reference(value) => (&value.name, value.organization.as_ref()),
         }
     }
 
@@ -318,6 +322,7 @@ impl EntryKind {
             Self::Project(value) => value.period.as_ref(),
             Self::Custom(value) => value.period.as_ref(),
             Self::Publication(_) | Self::SkillGroup(_) | Self::Text(_) | Self::Prose(_) => None,
+            Self::Language(_) | Self::Reference(_) => None,
         }
     }
 
@@ -328,6 +333,7 @@ impl EntryKind {
             Self::Project(value) => value.date.as_ref(),
             Self::Custom(value) => value.date.as_ref(),
             Self::Publication(value) => value.date.as_ref(),
+            Self::Language(_) | Self::Reference(_) => None,
             _ => None,
         }
     }
@@ -341,6 +347,7 @@ impl EntryKind {
             Self::SkillGroup(value) => &value.skills,
             Self::Custom(value) => &value.highlights,
             Self::Text(_) | Self::Prose(_) => &[],
+            Self::Language(_) | Self::Reference(_) => &[],
         }
     }
 }

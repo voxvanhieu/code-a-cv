@@ -172,6 +172,9 @@ struct EntryBuilder {
     date: Option<(String, usize)>,
     tags: TagSet,
     fields: FieldMap,
+    /// Payload keys for language/reference entries (proficiency, role,
+    /// email, phone, note) plus education's score.
+    payload: Vec<(String, String, usize)>,
     content: String,
     content_line: usize,
 }
@@ -187,6 +190,11 @@ impl EntryBuilder {
             "url" => &mut self.url,
             "period" => &mut self.period,
             "date" => &mut self.date,
+            "score" | "proficiency" | "role" | "email" | "phone" | "note" => {
+                self.payload
+                    .push((key.to_string(), value.to_string(), line));
+                return Ok(());
+            }
             other => {
                 self.fields
                     .insert(normalize_key(other), FieldValue::Text(value.to_string()));
@@ -241,7 +249,7 @@ impl EntryBuilder {
         let (primary, secondary) = match kind.as_str() {
             "experience" => ("role", Some("organization")),
             "education" => ("qualification", Some("institution")),
-            "project" | "skill-group" => ("name", None),
+            "project" | "skill-group" | "language" | "reference" => ("name", None),
             "publication" => ("title", Some("publisher")),
             "custom" => ("heading", None),
             "text" | "prose" => ("body", None),
@@ -352,6 +360,32 @@ impl EntryBuilder {
         }
         if period_applied && date_applied {
             return markdown_error(self.line, "Date and Period conflict; supply only one");
+        }
+        for (key, value, line) in std::mem::take(&mut self.payload) {
+            let allowed = match key.as_str() {
+                "score" => kind == "education",
+                "proficiency" => kind == "language",
+                "role" | "email" | "phone" | "note" => kind == "reference",
+                _ => false,
+            };
+            if !allowed {
+                return markdown_error(
+                    line,
+                    &format!(
+                        "`{key}` is not supported by `{kind}`; choose an appropriate Kind or put the information in prose or a bullet"
+                    ),
+                );
+            }
+            if value.is_empty() {
+                continue;
+            }
+            let value = if key == "score" || key == "proficiency" {
+                // SkillLevel accepts named scales and 0–5 in string form.
+                Value::String(value)
+            } else {
+                Value::String(value)
+            };
+            object.insert(key, value);
         }
         let mut body = take_rich(&mut self.content, self.content_line)?;
         if let Some(content) = &body

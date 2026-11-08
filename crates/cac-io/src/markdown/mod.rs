@@ -70,7 +70,26 @@ fn default_entry_kind(kind: &SectionKind) -> &'static str {
         SectionKind::Projects => "project",
         SectionKind::Publications => "publication",
         SectionKind::Skills => "skill-group",
-        SectionKind::Custom | SectionKind::Named(_) => "custom",
+        // A named kind whose spelling names an entry kind defaults that
+        // section's entries to it (`## Languages` → language entries).
+        SectionKind::Named(value) => {
+            for known in [
+                "experience",
+                "education",
+                "project",
+                "publication",
+                "skill-group",
+                "custom",
+                "language",
+                "reference",
+            ] {
+                if value.eq_ignore_ascii_case(known) {
+                    return known;
+                }
+            }
+            "custom"
+        }
+        SectionKind::Custom => "custom",
     }
 }
 
@@ -85,6 +104,8 @@ fn section_kind(title: &str) -> SectionKind {
         "project" | "projects" => SectionKind::Projects,
         "publication" | "publications" => SectionKind::Publications,
         "skill" | "skills" | "technical skills" => SectionKind::Skills,
+        "language" | "languages" => SectionKind::Named("language".into()),
+        "reference" | "references" => SectionKind::Named("reference".into()),
         _ => SectionKind::Custom,
     }
 }
