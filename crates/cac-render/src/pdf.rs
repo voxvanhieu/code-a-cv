@@ -85,6 +85,8 @@ pub struct RenderOptions {
 pub struct RenderedPdf {
     pub bytes: Vec<u8>,
     pub pages: usize,
+    /// 1-based pages whose content extends beyond the page edge.
+    pub overflow_pages: Vec<usize>,
     pub theme: String,
     pub theme_source: ThemeSource,
 }
@@ -151,6 +153,10 @@ pub(crate) fn render_pdf_document(
         .output
         .map_err(|errors| RenderError::Compile(format_diagnostics(&errors)))?;
     let pages = document.pages().len();
+    let overflow = crate::diagnostics::overflow_pages(document.pages());
+    for page in &overflow {
+        eprintln!("NOTE page {page} has content outside the page area");
+    }
     let standards = PdfStandards::new(&[PdfStandard::A_2b])
         .map_err(|error| RenderError::Pdf(format!("{error:?}")))?;
     let pdf_options = PdfOptions {
@@ -169,6 +175,7 @@ pub(crate) fn render_pdf_document(
             bytes,
             pages,
             theme: theme_name,
+            overflow_pages: overflow.clone(),
             theme_source: resolved.source,
         },
         document,
@@ -261,11 +268,16 @@ pub fn render_pdf_and_preview_with_options(
     let bytes = typst_pdf::pdf(&document, &pdf_options)
         .map_err(|errors| RenderError::Pdf(format_diagnostics(&errors)))?;
     let pages = document.pages().len();
+    let overflow = crate::diagnostics::overflow_pages(document.pages());
+    for page in &overflow {
+        eprintln!("NOTE page {page} has content outside the page area");
+    }
     Ok((
         RenderedPdf {
             bytes,
             pages,
             theme: theme_name,
+            overflow_pages: overflow.clone(),
             theme_source: resolved.source,
         },
         jpeg,

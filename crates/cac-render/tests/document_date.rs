@@ -2,7 +2,7 @@
 //! and the world's clock returns the setting.
 
 use cac_core::CvDocument;
-use cac_render::{render_pdf_with_options, RenderOptions, Settings};
+use cac_render::{RenderOptions, Settings, render_pdf_with_options};
 
 const CV: &str = r#"{"profile":{"name":"Ada Lovelace"},"sections":[]}"#;
 
@@ -31,7 +31,10 @@ fn two_builds_with_a_fixed_date_are_byte_identical() {
 #[test]
 fn an_invalid_document_date_is_rejected() {
     let settings: Settings = serde_json::from_str(r#"{"document_date":"January 15"}"#).unwrap();
-    assert!(Settings::validate(settings).is_err(), "non-ISO dates are rejected at validation");
+    assert!(
+        Settings::validate(settings).is_err(),
+        "non-ISO dates are rejected at validation"
+    );
 }
 
 #[test]

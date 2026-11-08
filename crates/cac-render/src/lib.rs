@@ -1,3 +1,4 @@
+pub mod diagnostics;
 mod html;
 mod pdf;
 mod settings;
