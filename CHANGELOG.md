@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+- Add the `rirekisho` registry theme: a JIS-style 履歴書 form on the form family — fixed grid with a photo cell, furigana from the profile's open field, 和暦 era dates computed against `document_date`, CJK glyphs from the theme's bundled Noto Sans JP font, and rejection of sections outside its allowed list. The registry lists form themes separately from universal themes.
+
 - Add the `leaves` registry theme: a full-bleed decorative layout with leaf-toned shapes in the corners, a soft header banner with linked contacts, and numbered section headings with a short rule. Decorative shapes are PDF-only; HTML keeps the sheet colors.
 
 - Add the `shapes` registry theme: a sidebar layout with soft geometric shapes behind the skills column, a muted accent palette, numbered main-column headings, a circular photo slot, and language/reference listings. Original design in the sidebar genre.

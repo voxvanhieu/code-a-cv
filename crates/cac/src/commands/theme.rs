@@ -80,6 +80,10 @@ struct LocationArgs {
 struct Registry {
     schema_version: u32,
     themes: Vec<ThemeSummary>,
+    /// Form themes are listed separately: they reject sections by design,
+    /// so the universal-theme search does not surface them.
+    #[serde(default)]
+    forms: Vec<ThemeSummary>,
 }
 
 #[derive(Deserialize)]

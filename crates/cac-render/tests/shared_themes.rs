@@ -24,6 +24,11 @@ fn registry_and_table_themes_preserve_shared_corpus() {
         serde_json::from_slice(&fs::read(root.join("themes/index.json")).unwrap()).unwrap();
     for theme in index["themes"].as_array().unwrap() {
         let name = theme["name"].as_str().unwrap();
+        // Form themes reject sections by design; the shared corpus is the
+        // universal-theme acceptance, not theirs.
+        if theme.get("kind").and_then(|kind| kind.as_str()) == Some("form") {
+            continue;
+        }
         test_shared_theme(&RenderOptions {
             project_dir: Some(root.clone()),
             settings: Settings {
