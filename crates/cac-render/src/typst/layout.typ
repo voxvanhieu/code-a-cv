@@ -333,6 +333,9 @@
   entry: none,
   section_heading: none,
   entry_details: none,
+  // Default placement: the standard kinds. A theme narrows or widens this
+  // through layout.allowed.
+  allowed: ("education", "experience", "projects", "publications", "skills", "custom", "languages", "certifications"),
 )
 
 #let families = (classic: classic, table: table, compact: compact, sidebar: sidebar, form: form)
