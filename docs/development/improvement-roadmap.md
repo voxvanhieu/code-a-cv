@@ -54,7 +54,7 @@ The `/loop` iterations work top to bottom: pick the first unchecked task, implem
 - [x] **R2 · `leaves` full-bleed theme** ✅ 97b703d — Full-bleed background art, level bars, languages; ATS diagnostic documents the trade-off. Files: `themes/leaves/` (new).
 - [x] **R3 · `rirekisho` Japanese form** ✅ 49b5cec — JIS-style 履歴書 form with jp packs: era dates, computed age, photo cell, fixed grids, CJK fonts; rejects sections it cannot place. Files: `themes/rirekisho/` (new), `packs/jp-rirekisho/` (new), `packs/jp-shokumu/` (new).
 - [x] **Q2 · Property-based round trips** ✅ 2f8bbd8 — Generated documents through Markdown, JSON, YAML, TOML, both fmt styles, and packs; 1,000 cases in CI under a minute. Files: `crates/cac-io/tests/proptest_roundtrip.rs` (new), `crates/cac-core/src/arbitrary.rs` (new).
-- [ ] **Z1 · Release 0.4** — Changelog, migration guide for 0.3 themes and settings, version bump, tag. Files: `CHANGELOG.md`, `docs/migration-0.4.md` (new), `Cargo.toml`.
+- [x] **Z1 · Release 0.4** ✅ 68a5df1 — release complete; the roadmap stays as the record — Changelog, migration guide for 0.3 themes and settings, version bump, tag. Files: `CHANGELOG.md`, `docs/migration-0.4.md` (new), `Cargo.toml`.
 
 ## Invariants (from the review; every task must preserve them)
 
