@@ -134,6 +134,7 @@ pub(crate) fn render_pdf_document(
     let world = CacWorld::new(
         crate::view::render_view(cv)?,
         serde_json::to_vec(&render_settings)?,
+        &render_settings,
         serde_json::to_vec_pretty(&style_sheet)?,
         // Sparse: only the keys settings set. The overlay re-asserts the
         // settings layer above legacy theme dictionaries; unset keys must
@@ -208,6 +209,7 @@ pub fn render_pdf_and_preview_with_options(
     let world = CacWorld::new(
         crate::view::render_view(cv)?,
         serde_json::to_vec(&render_settings)?,
+        &render_settings,
         serde_json::to_vec_pretty(&style_sheet)?,
         // Sparse: only the keys settings set. The overlay re-asserts the
         // settings layer above legacy theme dictionaries; unset keys must
@@ -327,6 +329,7 @@ struct CacWorld {
     style: Bytes,
     settings_style: Bytes,
     project_root: Option<PathBuf>,
+    document_date: Option<Datetime>,
     theme: ResolvedTheme,
 }
 
@@ -334,6 +337,7 @@ impl CacWorld {
     fn new(
         json: Vec<u8>,
         settings: Vec<u8>,
+        settings_parsed: &Settings,
         style: Vec<u8>,
         settings_style: Vec<u8>,
         project_root: Option<PathBuf>,
@@ -345,6 +349,7 @@ impl CacWorld {
         if let Some(directory) = &theme.directory {
             load_theme_fonts(&directory.join("fonts"), &mut fonts)?;
         }
+        let document_date = document_date_from(settings_parsed);
         Ok(Self {
             library: LazyHash::new(Library::default()),
             fonts,
@@ -355,6 +360,7 @@ impl CacWorld {
             style: Bytes::new(style),
             settings_style: Bytes::new(settings_style),
             project_root,
+            document_date,
             theme: ResolvedTheme {
                 source_text: theme.source_text.clone(),
                 source: theme.source,
@@ -458,8 +464,24 @@ impl World for CacWorld {
         self.fonts.font(index)
     }
     fn today(&self, _: Option<Duration>) -> Option<Datetime> {
-        None
+        // Deterministic builds: the document date setting, never the clock.
+        self.document_date
     }
+}
+
+/// The document date from settings, parsed once for the world's clock.
+fn document_date_from(settings: &Settings) -> Option<Datetime> {
+    let date = settings.document_date.as_deref()?;
+    let parsed = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").ok()?;
+    use chrono::Datelike;
+    Datetime::from_ymd_hms(
+        parsed.year(),
+        u8::try_from(parsed.month()).ok()?,
+        u8::try_from(parsed.day()).ok()?,
+        0,
+        0,
+        0,
+    )
 }
 
 fn file_id(path: &str) -> FileId {

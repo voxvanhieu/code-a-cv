@@ -86,6 +86,10 @@ pub struct Settings {
     pub spacing: Option<SpacingSettings>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pagination: Option<PaginationSettings>,
+    /// Explicit document date (YYYY-MM-DD) for deterministic builds that
+    /// reference today(); never the wall clock.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub document_date: Option<String>,
 }
 
 #[derive(Debug, Error)]
@@ -126,6 +130,8 @@ pub enum SettingsError {
     HighlightBullet,
     #[error("invalid style: {0}")]
     Style(String),
+    #[error("invalid `document_date` value `{0}`; expected YYYY-MM-DD")]
+    DocumentDate(String),
     #[error("invalid `root` value `{0}`; expected a CV file name without directory components")]
     Root(String),
     #[error(
@@ -240,6 +246,12 @@ impl Settings {
                         value: value.clone(),
                     });
                 }
+            }
+        }
+        if let Some(date) = &settings.document_date {
+            let valid = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").is_ok();
+            if !valid {
+                return Err(SettingsError::DocumentDate(date.clone()));
             }
         }
         if let Some(sheet) = &settings.style {
