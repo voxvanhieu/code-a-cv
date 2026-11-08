@@ -146,7 +146,9 @@ fn scaffold(name: &str, author: &str, author_url: Option<url::Url>) -> Result<()
         schema: Some(schema::SETTINGS_SCHEMA_REFERENCE.into()),
         root: Some("cv.md".into()),
         theme: Some(name.into()),
-        theme_project: Some(name.into()),
+        // The themeProject marker is retired: the presence of the theme
+        // directory says everything (Y1).
+        theme_project: None,
         ..Default::default()
     };
     let manifest = ThemeMetadata {
@@ -169,9 +171,26 @@ fn scaffold(name: &str, author: &str, author_url: Option<url::Url>) -> Result<()
         theme_dir.join("theme.json"),
         super::metadata::bytes(&manifest)?,
     )?;
+    // Real files under .cac/ so `typst watch main.typ` and editor
+    // extensions work outside cac (Y1): the bridge, the base library, the
+    // layout families, and a root document rendering the starter CV.
+    for (source, target) in [
+        (
+            cac_render::STYLE_TYP_SOURCE,
+            Path::new(".cac/style.typ"),
+        ),
+        (
+            cac_render::LAYOUT_TYP_SOURCE,
+            Path::new(".cac/layout.typ"),
+        ),
+        (cac_render::BASE_TYP_SOURCE, Path::new(".cac/base.typ")),
+        (cac_render::MAIN_TYP_SOURCE, Path::new(".cac/main.typ")),
+    ] {
+        fs::write(target, source)?;
+    }
     fs::write(
         theme_dir.join("theme.typ"),
-        "#import \"/.cac/base.typ\" as base\n\n#let theme = base.extend()\n",
+        "#import \"/.cac/base.typ\" as base\n\n#let theme = (layout: base.families.classic)\n",
     )?;
     for path in [
         Path::new("cv.md"),
@@ -179,9 +198,14 @@ fn scaffold(name: &str, author: &str, author_url: Option<url::Url>) -> Result<()
         Path::new(".cac/settings.schema.json"),
         theme_dir.join("theme.json").as_path(),
         theme_dir.join("theme.typ").as_path(),
+        Path::new(".cac/style.typ"),
+        Path::new(".cac/layout.typ"),
+        Path::new(".cac/base.typ"),
+        Path::new(".cac/main.typ"),
     ] {
         print_result("created", path);
     }
+    eprintln!("Run `typst watch .cac/main.typ` for live preview outside cac.");
     eprintln!(
         "Edit the description in {} before running `cac theme test`.",
         theme_dir.join("theme.json").display()

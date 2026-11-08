@@ -100,7 +100,10 @@ fn theme_init_creates_a_development_project_from_arguments() {
     let settings: serde_json::Value =
         serde_json::from_slice(&fs::read(directory.path().join("settings.json")).unwrap()).unwrap();
     assert_eq!(settings["theme"], "portfolio");
-    assert_eq!(settings["themeProject"], "portfolio");
+    assert!(
+        settings.get("themeProject").is_none(),
+        "the themeProject marker is retired"
+    );
     assert!(
         directory
             .path()

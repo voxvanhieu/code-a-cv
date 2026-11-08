@@ -17,10 +17,15 @@ use typst_pdf::{PdfOptions, PdfStandard, PdfStandards, Timestamp};
 
 use crate::{Settings, SettingsError, validate_theme_name};
 
-const MAIN_TYP: &str = include_str!("typst/main.typ");
-const BASE_TYP: &str = include_str!("typst/base.typ");
-const STYLE_TYP: &str = include_str!("typst/style.typ");
-const LAYOUT_TYP: &str = include_str!("typst/layout.typ");
+pub const MAIN_TYP_SOURCE: &str = include_str!("typst/main.typ");
+pub const BASE_TYP_SOURCE: &str = include_str!("typst/base.typ");
+pub const STYLE_TYP_SOURCE: &str = include_str!("typst/style.typ");
+pub const LAYOUT_TYP_SOURCE: &str = include_str!("typst/layout.typ");
+
+const MAIN_TYP: &str = MAIN_TYP_SOURCE;
+const BASE_TYP: &str = BASE_TYP_SOURCE;
+const STYLE_TYP: &str = STYLE_TYP_SOURCE;
+const LAYOUT_TYP: &str = LAYOUT_TYP_SOURCE;
 const CLASSIC_TYP: &str = include_str!("typst/themes/classic.typ");
 
 pub const EMBEDDED_THEME_NAMES: &[&str] = &["classic"];

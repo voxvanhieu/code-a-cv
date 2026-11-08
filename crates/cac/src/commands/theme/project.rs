@@ -11,9 +11,18 @@ pub(super) struct Project {
 pub(super) fn current() -> Result<Project> {
     let root = std::env::current_dir()?;
     let settings = cac_render::Settings::from_path(&root.join("settings.json"))?;
-    let name = settings.theme_project.clone().ok_or_else(|| {
+    // A theme project is a settings file naming a theme that has a
+    // development directory under .cac/themes — the themeProject marker is
+    // retired (Y1).
+    let name = settings.theme.clone().ok_or_else(|| {
         Error::ThemeProject("the current directory is not a theme project".into())
     })?;
+    let directory = root.join(".cac/themes").join(&name);
+    if !directory.is_dir() {
+        return Err(Error::ThemeProject(
+            "the current directory is not a theme project; no matching theme under .cac/themes".into(),
+        ));
+    }
     Ok(Project {
         root,
         name,
