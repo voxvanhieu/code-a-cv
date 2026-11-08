@@ -175,14 +175,8 @@ fn scaffold(name: &str, author: &str, author_url: Option<url::Url>) -> Result<()
     // extensions work outside cac (Y1): the bridge, the base library, the
     // layout families, and a root document rendering the starter CV.
     for (source, target) in [
-        (
-            cac_render::STYLE_TYP_SOURCE,
-            Path::new(".cac/style.typ"),
-        ),
-        (
-            cac_render::LAYOUT_TYP_SOURCE,
-            Path::new(".cac/layout.typ"),
-        ),
+        (cac_render::STYLE_TYP_SOURCE, Path::new(".cac/style.typ")),
+        (cac_render::LAYOUT_TYP_SOURCE, Path::new(".cac/layout.typ")),
         (cac_render::BASE_TYP_SOURCE, Path::new(".cac/base.typ")),
         (cac_render::MAIN_TYP_SOURCE, Path::new(".cac/main.typ")),
     ] {

@@ -8,8 +8,8 @@ mod view;
 
 use cac_core::DatePoint;
 
-pub use pdf::{BASE_TYP_SOURCE, LAYOUT_TYP_SOURCE, MAIN_TYP_SOURCE, STYLE_TYP_SOURCE};
 pub use html::{render_html, render_html_for_sheet, render_html_with};
+pub use pdf::{BASE_TYP_SOURCE, LAYOUT_TYP_SOURCE, MAIN_TYP_SOURCE, STYLE_TYP_SOURCE};
 pub use pdf::{
     EMBEDDED_THEME_NAMES, RenderError, RenderOptions, RenderedPdf, ThemeSource,
     embedded_theme_source, render_pdf, render_pdf_and_preview_with_options,

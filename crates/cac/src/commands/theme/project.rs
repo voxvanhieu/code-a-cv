@@ -20,7 +20,8 @@ pub(super) fn current() -> Result<Project> {
     let directory = root.join(".cac/themes").join(&name);
     if !directory.is_dir() {
         return Err(Error::ThemeProject(
-            "the current directory is not a theme project; no matching theme under .cac/themes".into(),
+            "the current directory is not a theme project; no matching theme under .cac/themes"
+                .into(),
         ));
     }
     Ok(Project {

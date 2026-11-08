@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+- Add a ten-minute first-theme tutorial (`docs/authoring/your-first-theme.md`): start a theme project, pick a family or override style keys, render both outputs, and check — with links into the style-key schema and the theme contract.
+
 - Retire the `themeProject` marker: `cac theme init` writes real files under `.cac/` — the style sheet bridge, the base library, the layout families, and a root `main.typ` — so `typst watch .cac/main.typ` and editor extensions preview the theme outside cac. A theme project is now identified by its theme directory under `.cac/themes` (name falls back to `settings.theme`), and `theme init` no longer blocks installs inside theme projects.
 
 - Enforce the formatter fixed point in CI: a new job formats the five Markdown examples with `cac fmt`, then asserts Prettier (pinned 3.6.2) and markdownlint (0.18.1) are no-ops over them, with a `.markdownlint.jsonc` config that treats labeled content as data. `scripts/tests/test_formatter_fixed_point.sh` runs the same check locally (`npm ci && npm run format:check`).
