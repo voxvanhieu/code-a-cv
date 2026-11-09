@@ -55,7 +55,8 @@ jobs:
 
               case "${path}" in
                 Cargo.lock | Cargo.toml | dist-workspace.toml | CHANGELOG.md | \
-                  crates/* | themes/* | docs/examples/customized-layout/* | scripts/* | .cargo/* | .github/workflows/* | rust-toolchain*)
+                  crates/* | themes/* | docs/examples/customized-layout/* | scripts/* | .cargo/* | .github/workflows/* | rust-toolchain* | \
+                  docs/examples/** | package.json | package-lock.json | .markdownlint.jsonc)
                   code=true
                   ;;
               esac
@@ -215,6 +216,8 @@ jobs:
     needs:
       - changes
       - quality
+      - formatter
+      - quality-windows
       - build
     if: always()
     runs-on: ubuntu-22.04
@@ -225,7 +228,9 @@ jobs:
           BUILD_RESULT: ${{ needs.build.result }}
           CODE_CHANGED: ${{ needs.changes.outputs.code }}
           DETECTION_RESULT: ${{ needs.changes.result }}
+          FORMATTER_RESULT: ${{ needs.formatter.result }}
           QUALITY_RESULT: ${{ needs.quality.result }}
+          WINDOWS_RESULT: ${{ needs.quality-windows.result }}
         shell: bash
         run: |
           test "${DETECTION_RESULT}" = "success"
@@ -233,6 +238,8 @@ jobs:
           if [[ "${CODE_CHANGED}" = "true" ]]; then
             test "${QUALITY_RESULT}" = "success"
             test "${BUILD_RESULT}" = "success"
+            test "${FORMATTER_RESULT}" = "success"
+            test "${WINDOWS_RESULT}" = "success"
           else
             test "${CODE_CHANGED}" = "false"
           fi
