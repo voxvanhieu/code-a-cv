@@ -343,7 +343,13 @@ pub static CORE_FIELDS: &[FieldDef] = &[
     FieldDef {
         key: "role",
         label: "Role",
-        scopes: &[FieldScope::Entries(&[EntryKindName::Reference])],
+        // The model carries a role slot on both kinds; a `Role:` field
+        // LINE parses only on references — the experience role is the
+        // heading, which the kind-aware parser enforces.
+        scopes: &[FieldScope::Entries(&[
+            EntryKindName::Experience,
+            EntryKindName::Reference,
+        ])],
         parser: FieldParser::Rich,
         json_resume: Some("work[].position"),
     },
