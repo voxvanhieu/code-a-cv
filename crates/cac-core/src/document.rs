@@ -3,7 +3,8 @@ use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::{DatePoint, Period, RichText};
+use crate::fields::{EntryKindName, core_field};
+use crate::{DatePoint, FieldMap, Period, RichText, SkillLevel};
 
 pub type TagSet = BTreeSet<String>;
 
@@ -31,6 +32,63 @@ pub struct Profile {
     pub summary: Option<RichText>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub contacts: Vec<Contact>,
+    /// Project-relative path to a photo; the renderer resolves it inside the project jail.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub photo: Option<String>,
+    /// A one-line headline under the name (JSON Resume `basics.label`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub headline: Option<String>,
+    /// Structured postal address; themes choose which parts to show.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub address: Option<Address>,
+    /// Open profile fields: author-written `Key: value` lines under the name
+    /// the model does not type (a pack declares what they mean).
+    #[serde(default, skip_serializing_if = "FieldMap::is_empty")]
+    pub fields: FieldMap,
+}
+
+impl Profile {
+    /// Whether the profile carries a value for `key`: the typed slot for a
+    /// profile-scoped core field (a pack may require `photo` or `email` by
+    /// its core name), the open fields for any other key. The JSON Resume
+    /// spellings are aliases (`image` is `photo`, `label` is `headline`),
+    /// so a pack written against the schema and one written against the
+    /// core names behave the same.
+    pub fn carries_core_field(&self, key: &str) -> bool {
+        let present =
+            |value: &Option<String>| value.as_ref().is_some_and(|value| !value.trim().is_empty());
+        let key = match key {
+            "image" => "photo",
+            "label" => "headline",
+            other => other,
+        };
+        match core_field(key).map(|field| field.key) {
+            Some("address") => self.address.is_some(),
+            Some("email") => present(&self.email),
+            Some("headline") => present(&self.headline),
+            Some("location") => present(&self.location),
+            Some("phone") => present(&self.phone),
+            Some("photo") => present(&self.photo),
+            Some("summary") => self.summary.as_ref().is_some_and(|v| !v.is_empty()),
+            Some("website") => self.website.is_some(),
+            _ => self.fields.get(key).is_some(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Address {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub street: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub city: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub region: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub postal_code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub country: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -121,6 +179,10 @@ pub struct Entry {
     pub kind: EntryKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content: Option<RichText>,
+    /// Open fields: author-written `Key: value` lines the model does not type.
+    /// Themes document the keys they read; `cac check` validates against packs.
+    #[serde(default, skip_serializing_if = "FieldMap::is_empty")]
+    pub fields: FieldMap,
     #[serde(default, skip_serializing_if = "TagSet::is_empty")]
     pub tags: TagSet,
     #[serde(skip, default)]
@@ -129,7 +191,10 @@ pub struct Entry {
 
 impl PartialEq for Entry {
     fn eq(&self, other: &Self) -> bool {
-        self.kind == other.kind && self.content == other.content && self.tags == other.tags
+        self.kind == other.kind
+            && self.content == other.content
+            && self.fields == other.fields
+            && self.tags == other.tags
     }
 }
 
@@ -146,6 +211,8 @@ pub enum EntryKind {
     Custom(CustomEntry),
     Text(TextEntry),
     Prose(TextEntry),
+    Language(LanguageEntry),
+    Reference(ReferenceEntry),
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -174,6 +241,9 @@ pub struct EducationEntry {
     pub period: Option<Period>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub date: Option<DatePoint>,
+    /// Free-text academic score, for example `3.9 GPA` (JSON Resume `education[].score`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub score: Option<String>,
     #[serde(default)]
     pub highlights: Vec<RichText>,
 }
@@ -232,6 +302,34 @@ pub struct TextEntry {
     pub body: RichText,
 }
 
+/// A spoken language with an optional proficiency level (CEFR grade or a
+/// named scale). The payload for the `language` entry kind.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LanguageEntry {
+    pub name: RichText,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proficiency: Option<SkillLevel>,
+}
+
+/// A reference with contact details (JSON Resume `references[]`). The payload
+/// for the `reference` entry kind.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReferenceEntry {
+    pub name: RichText,
+    #[serde(default)]
+    pub organization: Option<RichText>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub role: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub phone: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+}
+
 impl EntryKind {
     pub fn heading(&self) -> (&RichText, Option<&RichText>) {
         match self {
@@ -242,6 +340,8 @@ impl EntryKind {
             Self::SkillGroup(value) => (&value.name, None),
             Self::Custom(value) => (&value.heading, None),
             Self::Text(value) | Self::Prose(value) => (&value.body, None),
+            Self::Language(value) => (&value.name, None),
+            Self::Reference(value) => (&value.name, value.organization.as_ref()),
         }
     }
 
@@ -252,6 +352,7 @@ impl EntryKind {
             Self::Project(value) => value.period.as_ref(),
             Self::Custom(value) => value.period.as_ref(),
             Self::Publication(_) | Self::SkillGroup(_) | Self::Text(_) | Self::Prose(_) => None,
+            Self::Language(_) | Self::Reference(_) => None,
         }
     }
 
@@ -262,6 +363,7 @@ impl EntryKind {
             Self::Project(value) => value.date.as_ref(),
             Self::Custom(value) => value.date.as_ref(),
             Self::Publication(value) => value.date.as_ref(),
+            Self::Language(_) | Self::Reference(_) => None,
             _ => None,
         }
     }
@@ -275,6 +377,99 @@ impl EntryKind {
             Self::SkillGroup(value) => &value.skills,
             Self::Custom(value) => &value.highlights,
             Self::Text(_) | Self::Prose(_) => &[],
+            Self::Language(_) | Self::Reference(_) => &[],
+        }
+    }
+
+    /// The canonical kind name the core field table uses for this entry.
+    pub fn kind_name(&self) -> EntryKindName {
+        match self {
+            Self::Experience(_) => EntryKindName::Experience,
+            Self::Education(_) => EntryKindName::Education,
+            Self::Project(_) => EntryKindName::Project,
+            Self::Publication(_) => EntryKindName::Publication,
+            Self::SkillGroup(_) => EntryKindName::SkillGroup,
+            Self::Custom(_) => EntryKindName::Custom,
+            Self::Text(_) | Self::Prose(_) => EntryKindName::Text,
+            Self::Language(_) => EntryKindName::Language,
+            Self::Reference(_) => EntryKindName::Reference,
+        }
+    }
+}
+
+impl Entry {
+    /// Whether the entry carries a value for the core field `key`: the
+    /// entry's kind must be one of the field's declared entry scopes, and
+    /// the typed slot (`role`, `period`, `tags`, `content`, …) must be
+    /// present. Open fields (`self.fields`) are not consulted; callers
+    /// combine the two.
+    pub fn carries_core_field(&self, key: &str) -> bool {
+        let Some(field) = core_field(key) else {
+            return false;
+        };
+        let name = self.kind.kind_name();
+        if !field.applies_to_entry_kind(name) {
+            return false;
+        }
+        match field.key {
+            "body" => match &self.kind {
+                EntryKind::Text(value) | EntryKind::Prose(value) => !value.body.is_empty(),
+                _ => false,
+            },
+            "content" => self.content.as_ref().is_some_and(|value| !value.is_empty()),
+            "date" => self.kind.date().is_some(),
+            "heading" => {
+                matches!(&self.kind, EntryKind::Custom(value) if !value.heading.is_empty())
+            }
+            "highlights" => !self.kind.highlights().is_empty(),
+            "institution" => {
+                matches!(&self.kind, EntryKind::Education(value) if !value.institution.is_empty())
+            }
+            "location" => matches!(&self.kind, EntryKind::Experience(value) if value
+                .location
+                .as_ref()
+                .is_some_and(|value| !value.trim().is_empty())),
+            "name" => match &self.kind {
+                EntryKind::Project(value) => !value.name.is_empty(),
+                EntryKind::SkillGroup(value) => !value.name.is_empty(),
+                EntryKind::Language(value) => !value.name.is_empty(),
+                EntryKind::Reference(value) => !value.name.is_empty(),
+                _ => false,
+            },
+            "organization" => {
+                matches!(&self.kind, EntryKind::Experience(value) if !value.organization.is_empty())
+            }
+            "period" => self.kind.period().is_some(),
+            "proficiency" => {
+                matches!(&self.kind, EntryKind::Language(value) if value.proficiency.is_some())
+            }
+            "publisher" => matches!(&self.kind, EntryKind::Publication(value) if value
+                .publisher
+                .as_ref()
+                .is_some_and(|value| !value.is_empty())),
+            "qualification" => {
+                matches!(&self.kind, EntryKind::Education(value) if !value.qualification.is_empty())
+            }
+            "role" => matches!(&self.kind, EntryKind::Experience(value) if !value.role.is_empty()),
+            "score" => matches!(&self.kind, EntryKind::Education(value) if value
+                .score
+                .as_ref()
+                .is_some_and(|value| !value.trim().is_empty())),
+            "skills" => {
+                matches!(&self.kind, EntryKind::SkillGroup(value) if !value.skills.is_empty())
+            }
+            "tags" => !self.tags.is_empty(),
+            "title" => {
+                matches!(&self.kind, EntryKind::Publication(value) if !value.title.is_empty())
+            }
+            "url" => match &self.kind {
+                EntryKind::Project(value) => value.url.is_some(),
+                EntryKind::Publication(value) => value.url.is_some(),
+                _ => false,
+            },
+            // `id` and `kind` are section-scoped; `level` lives on skill
+            // items — no entry can carry them.
+            _ => false,
         }
     }
 }
@@ -283,3 +478,88 @@ impl EntryKind {
 pub struct Origin {
     pub path: String,
 }
+
+impl CvDocument {
+    /// Project the document onto a tagged variant. Untagged content is
+    /// shared: an untagged section survives in every variant, carrying its
+    /// untagged entries plus the entries tagged for this variant. A
+    /// section tagged for this variant keeps its shared and matching
+    /// entries; a section tagged for another job drops whole — its tag is
+    /// the more specific claim. Entry tags inside a matching section work
+    /// the same way, so an entry tagged for another job never leaks into
+    /// this variant's artifact. The profile always survives. Returns
+    /// `None` when nothing matches, so callers can report a diagnostic
+    /// instead of writing an empty document.
+    pub fn variant(&self, tags: &TagSet) -> Option<CvDocument> {
+        if tags.is_empty() {
+            return None;
+        }
+        let sections: Vec<Section> = self
+            .sections
+            .iter()
+            .filter_map(|section| self.variant_section(section, tags, false))
+            .collect();
+        if sections.is_empty() {
+            return None;
+        }
+        Some(CvDocument {
+            profile: self.profile.clone(),
+            sections,
+        })
+    }
+
+    /// The strict projection the 0.4 CLI originally shipped: untagged
+    /// sections and entries drop; only content explicitly tagged for the
+    /// variant survives. Available as `cac build --only-tagged`.
+    pub fn only_tagged_variant(&self, tags: &TagSet) -> Option<CvDocument> {
+        if tags.is_empty() {
+            return None;
+        }
+        let sections: Vec<Section> = self
+            .sections
+            .iter()
+            .filter_map(|section| self.variant_section(section, tags, true))
+            .collect();
+        if sections.is_empty() {
+            return None;
+        }
+        Some(CvDocument {
+            profile: self.profile.clone(),
+            sections,
+        })
+    }
+
+    fn variant_section(
+        &self,
+        section: &Section,
+        tags: &TagSet,
+        only_tagged: bool,
+    ) -> Option<Section> {
+        let section_matches = !section.tags.is_disjoint(tags);
+        if only_tagged {
+            if !section_matches {
+                return None;
+            }
+            return Some(section.clone());
+        }
+        if !section.tags.is_empty() && !section_matches {
+            // Tagged for another job: the specific claim wins, shared
+            // entries inside do not leak.
+            return None;
+        }
+        let entries: Vec<Entry> = section
+            .entries
+            .iter()
+            .filter(|entry| entry.tags.is_empty() || !entry.tags.is_disjoint(tags))
+            .cloned()
+            .collect();
+        (!entries.is_empty()).then_some(Section {
+            entries,
+            ..section.clone()
+        })
+    }
+}
+
+#[cfg(test)]
+#[path = "../tests/unit/variant.rs"]
+mod variant_tests;

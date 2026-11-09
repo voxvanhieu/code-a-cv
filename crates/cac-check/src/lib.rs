@@ -1,7 +1,9 @@
+pub mod packs;
+
 use cac_core::{CvDocument, EntryKind};
 use serde::Serialize;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Severity {
     Warning,
@@ -53,7 +55,9 @@ pub fn check_content(cv: &CvDocument) -> Vec<Diagnostic> {
                 EntryKind::SkillGroup(_)
                 | EntryKind::Custom(_)
                 | EntryKind::Text(_)
-                | EntryKind::Prose(_) => &[],
+                | EntryKind::Prose(_)
+                | EntryKind::Language(_)
+                | EntryKind::Reference(_) => &[],
             };
             if matches!(
                 entry.kind,

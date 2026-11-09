@@ -12,6 +12,48 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Run Homebrew tap formula validation on macOS 26 so Rust build dependencies have supported bottles.
 - Use version-only GitHub release titles and verify the generated title in CI.
 
+- See the [0.4 migration guide](docs/migration-0.4.md) for upgrading through the parser, style sheet, and layout changes below.
+
+### Markdown
+
+- Rebuild the Markdown parser on the CommonMark AST: meaning now depends only on block structure, so a file reformatted by Prettier or markdownlint builds to the same CV. Field blocks (`Email:`, `Organization:`, dates) are recognized by content rather than by adjacency to a heading, blank lines between them carry no meaning, unknown `Key:` values become open fields instead of errors, YAML front matter is accepted for `locale`, `packs`, and profile fields, heading sugar (`### Role, Organization`) fills the subtitle per field with no per-entry mode, and prose that merely starts with a number is never mistaken for a date. `Summary:` and `Contact:` join `Email`/`Phone`/`Location`/`Website` as profile fields. Checked Markdown conversion now carries open profile and entry fields.
+- Add `cac fmt --style explicit|compact|preserve` for the two FieldMark spellings: `explicit` spells every field, `compact` uses heading and date sugar and omits implied section kinds and slug ids, and `preserve` (the default) keeps whatever the source used. Formatted output is formatter-stable: a blank line after every heading, directives (`cac:summary`, `cac:entry`) emitted only when a plain paragraph would be misread, and all five Markdown examples pass `prettier --check` after formatting.
+- Add the FieldMark grammar spec (`docs/authoring/markdown.md`) and a 14-fixture baseline corpus recording what the 0.3.0 parser produced, so every grammar change is a visible diff.
+- Add `cac fmt --style` support in the convert path and the writer payload spellings for the extension kinds (`Proficiency:`, `Role:`, `Email:`, `Phone:`, `Note:`, `Score:`).
+
+### Style sheet and rendering
+
+- Resolve the style sheet once in Rust: defaults, then theme.toml `[style]`, then settings.json `[style]` merge into one resolved style sheet with concrete lengths and hex colors that both renderers read. Every deprecated 0.3 settings key keeps working through a shim that prints a `NOTE` naming its replacement (including the inverted `allow_entry_page_break`), and the resolved sheet is served to themes as `.cac/style.json`.
+- Render Typst from the resolved style sheet: base.typ reads `.cac/style.json` (numeric lengths, hex colors, no string evaluation) and the Typst-side settings translation (`apply-settings` with its `eval`) is deleted. Determinism doubles as parity: classic builds render byte-identical PDFs against the previous pipeline, including documents with legacy settings.
+- Render the HTML document from the resolved style sheet: CSS custom properties carry fonts, colors, text layout, heading styles, spacing, link underlines, and page geometry. Dates print through the shared locale-aware formatter (en, de, fr, vi, ja) — replacing the raw ISO strings HTML previously leaked.
+- Add the `document_date` setting (YYYY-MM-DD) for deterministic builds: Typst code referencing `today()` sees the fixed date instead of the wall clock.
+- Add open fields to the rendered view and the default layouts: entry-level `Key: value` lines appear after the typed metadata, and profile-level open fields appear under the header contacts — in both PDF and HTML.
+- Emit the C3 named slots in the rendered view: photo, headline, structured address, open fields, structured periods, scalar dates, location, URL, and tags beside the legacy keys.
+
+### Themes and layout
+
+- Add layout hooks for Typst themes: a theme may export `layout` (document, header, section, entry) instead of the twelve late-bound components, with the classic family shipped as the default and the section→entry hop as the only dynamic dispatch. The 0.3 component dictionary keeps working through an adapter for one release.
+- Ship built-in layout families: `classic`, `table`, `compact`, `sidebar` (two-column regions, numbered headings, language listings), and `form` (fixed grid with requirements and rejection of unsupported sections by name). A project theme selects one with `layout: (family: "...")`.
+- Add the photo slot: `Photo:` in a CV renders in the sidebar family as a circular-cropped image. Project-relative files resolve through a jailed lookup in the render world that refuses anything escaping the project root.
+- Retire the `themeProject` marker: `cac theme init` writes real files under `.cac/` — the style sheet bridge, the base library, the layout families, and a root `main.typ` — so `typst watch .cac/main.typ` and editor extensions preview the theme outside cac. A theme project is identified by its theme directory.
+- Add three reference themes to the registry: `shapes` (sidebar with geometric shapes), `leaves` (full-bleed decorative), and `rirekisho` (JIS-style form with 和暦 dates and a bundled CJK font). The registry lists form themes separately from universal themes.
+
+### Model and conversion
+
+- Add the core model extension fields from the C1 contract: `photo`, `headline`, and structured `address` on the profile, `score` on education entries, `language` and `reference` entry kinds with typed payloads, and an ordered open `fields` map on every entry and the profile. Documents carrying these keys now parse instead of failing with unknown-field errors.
+- Add `language` and `reference` entry kinds with Markdown spellings (`Proficiency: C1`, reference contact lines), education `Score:` support, and JSON Resume import/export for photo, headline, languages, references, and education scores — a JSON Resume sample with all seven extensions round-trips losslessly.
+- Add field packs: a `fields.toml` declares open-field keys with labels, value kinds, and requiredness; `cac check --pack` validates open-field values — mistyped values and missing required fields are errors, undeclared keys are advisories. Native formats keep unknown fields end to end.
+- Add the Q2 property sweep: a seeded generator composes 250 documents across all eight entry kinds and verifies JSON/YAML/TOML round trips and both Markdown spellings parse to one model — 1,000+ conversions per run.
+- Add the Gate 1/2 verification suites: parse→checked-write→parse identity over every fixture and the shared corpus in all four native formats, and the full corpus rendered through every built-in family.
+
+### Platform and checks
+
+- Add `cac build --tags` for job-specific variants: sections and entries carry `Tags:` field lines (or `<!-- tags: ... -->` comments when a tag contains a comma), a build keeps the shared content plus everything tagged with any of the requested tags — profile data always stays — and names the artifact after the variant (`Ada_Lovelace_JobSpecific-backend_leadership.pdf` for `--tags backend,leadership`); `--only-tagged` keeps only explicitly tagged content, and a tag set that matches nothing fails with a diagnostic instead of writing a coincidental artifact.
+- Fix `file://` theme registry URLs on Windows: drive-letter paths and percent-escaped directory names now resolve, and the full workspace test suite runs in CI on Windows.
+- Add overflow detection from frame inspection: pages whose content extends beyond the page edge print a warning naming the page.
+- Enforce the formatter fixed point in CI: a job formats the five Markdown examples with `cac fmt`, then asserts Prettier and markdownlint are no-ops over them.
+- Add the ten-minute first-theme tutorial (`docs/authoring/your-first-theme.md`) and the ordered improvement roadmap (`docs/development/improvement-roadmap.md`).
+
 ## [0.3.0]
 
 Released on 2026-09-12.

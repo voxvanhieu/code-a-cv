@@ -36,6 +36,7 @@ See [checking and formatting](checking-and-formatting.md) for output and exit st
 | Export PDF/HTML and configure output | [Building and settings](building.md) |
 | Convert Markdown, JSON, YAML, TOML, and JSON Resume | [Format conversion](conversion.md) |
 | Select an installed or downloaded theme | [Using themes](themes.md) |
+| Build your first theme in ten minutes | [Your first theme](your-first-theme.md) |
 | Insert profile, section, and entry templates | [Editor snippets](checking-and-formatting.md#editor-snippets) |
 | Explore complete source files and rendered results | [Example projects](../examples/README.md) |
 

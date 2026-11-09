@@ -34,6 +34,8 @@ pub enum ParseError {
     Yaml { path: String, message: String },
     #[error("invalid JSON at {path}: {message}")]
     Json { path: String, message: String },
+    #[error("invalid field pack at {path}: {message}")]
+    Pack { path: String, message: String },
     #[error("invalid TOML: {0}")]
     Toml(#[from] toml::de::Error),
     #[error("invalid CV: {0}")]

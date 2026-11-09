@@ -113,26 +113,31 @@ fn section_fields_support_theme_defined_kinds_and_native_round_trips() {
 
 #[test]
 fn section_metadata_boundaries_defaults_and_conflicts_are_clear() {
-    let cv = parse(
+    // Rule F: field blocks are content-classified, so a blank line no
+    // longer turns a known key into prose — the line is a kind override,
+    // and its value validates like any other kind.
+    let error = parse(
         "# A\n## Experience\nKind:\nId:\n\nKind: this is ordinary prose.\n",
+        InputFormat::Markdown,
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("section kind"), "{error}");
+    let cv = parse(
+        "# A\n## Experience\nKind:\nId:\n\nThis is ordinary prose.\n",
         InputFormat::Markdown,
     )
     .unwrap();
     assert_eq!(cv.sections[0].kind, SectionKind::Experience);
     assert_eq!(cv.sections[0].id, "experience");
-    assert!(
-        cv.sections[0].entries[0]
-            .kind
-            .heading()
-            .0
-            .plain()
-            .contains("Kind:")
-    );
+    assert!(matches!(
+        &cv.sections[0].entries[0].kind,
+        cac_core::EntryKind::Prose(body) if body.body.plain() == "This is ordinary prose."
+    ));
     for suffix in [
         "Kind: awards\nKind: education",
         "Id: one\nid: two",
         "Kind: bad value",
-        "Knd: awards",
         "<!-- cac:section kind=custom -->\nKind: awards",
         "Id: same\n\n## Two\nId: same",
     ] {
@@ -141,6 +146,12 @@ fn section_metadata_boundaries_defaults_and_conflicts_are_clear() {
             "{suffix}"
         );
     }
+    // A typo'd key alone is prose under rule F; check will advise on it.
+    let typo = parse("# A\n## One\nKnd: awards\n", InputFormat::Markdown).unwrap();
+    assert!(matches!(
+        &typo.sections[0].entries[0].kind,
+        cac_core::EntryKind::Prose(body) if body.body.plain() == "Knd: awards"
+    ));
     let cv = parse(
         "# A\n## One\n<!-- cac:section kind=awards -->\nId: prizes\n",
         InputFormat::Markdown,

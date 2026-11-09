@@ -18,6 +18,45 @@ Existing manifests should remove the obsolete version field; package metadata
 continues to reject unknown fields. Custom components should tolerate optional
 fields and use generic fallbacks for unfamiliar entry kinds.
 
+## The 0.4 hook contract (landing)
+
+Version 0.4 replaces the twelve late-bound components with **four hooks over
+pure helpers**, composed statically. The compiled reference for the signatures
+lives in `crates/cac-render/src/typst/contract.typ`, which imports nothing from
+cac and therefore compiles with plain `typst` — editors and `typst watch` can
+check layout code against real signatures. Until the layout-hook task lands,
+the component dictionary below remains the supported authoring surface; 0.4
+accepts it through an adapter for one release.
+
+```typst
+#let layout = (
+  document: (ctx, children) => ...,  // owns the page setup; may be omitted
+  header:  (ctx) => ...,             // the name block
+  section: (ctx, section) => ...,    // dispatches entries to ctx.layout.entry
+  entry:   (ctx, entry) => ...,      // one entry from its named slots
+)
+```
+
+`ctx` carries three keys: `ctx.cv` (the view), `ctx.style` (the resolved style
+sheet — numeric lengths, concrete colors, no strings to evaluate), and
+`ctx.layout` (the active hook table). The only dynamic hop is
+`(ctx.layout.entry)(ctx, entry)`; extra parentheses are required because Typst
+does not call dictionary keys directly. `heading`, `styled_text`, `rich`,
+`highlight_list`, `summary`, `footer`, `section_heading`, and `entry_details`
+stop being override points: they are style keys on the sheet or helpers a hook
+calls explicitly, which removes the recursion hazard and the question of which
+of three entry renderers to replace.
+
+The view carries **named slots** instead of `primary`/`secondary`/`metadata`:
+`title`, `subtitle`, `period`, `date`, `location`, `url`, `fields`,
+`highlights`, `content`, and `tags`, defined in
+`crates/cac-render/src/view/types.rs`. Dates are **structured** —
+`(y: 2023, m: 1)` or `"present"` — never pre-formatted strings, so one
+locale-aware formatter per renderer produces display text from the sheet's
+`locale` key. `content` is a slot in its own right rather than a trailing
+`description` metadata item, and `fields` holds open `Key: value` data the
+model does not type; a theme documents the keys it reads.
+
 ## Author obligations
 
 A shared theme presents arbitrary supported CV content. Select layouts using

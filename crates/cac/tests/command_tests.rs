@@ -10,6 +10,31 @@ const CLEAN_MARKDOWN: &str =
     "# Ada Lovelace\n\nada@example.com\n\n## Skills\n\n- Rust and PostgreSQL\n";
 const CLASSIC_SETTINGS: &str = "{\n  \"$schema\": \".cac/settings.schema.json\",\n  \"root\": \"cv.md\",\n  \"theme\": \"classic\"\n}\n";
 const WARNING_MARKDOWN: &str = "# Ada Lovelace\n\nada@example.com\n\n## Experience\n\n### Engineer, Example\n2020–Present\n\n- Helped my team ship software\n";
+const VARIANT_MARKDOWN: &str = "# Ada Lovelace\nEmail: ada@example.com\n\n## Platform\nKind: experience\n<!-- tags: backend -->\n\n### Platform Engineer\nPeriod: 2023-01–Present\n\n- Built the Platform API.\n\n## Web\nKind: experience\n<!-- tags: frontend -->\n\n### Frontend Engineer\nPeriod: 2022-01–2022-12\n\n- Built the Design system.\n\n## Skills\nKind: skills\n\n### Languages\n- Rust\n- TypeScript\n";
+
+/// A predicate that compares after folding Windows backslashes to forward
+/// slashes, so assertions stay path-separator agnostic.
+#[derive(Debug, Clone, Copy)]
+struct WindowSlashes(&'static str);
+
+impl std::fmt::Display for WindowSlashes {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "output with \\ folded to / equals {:?}", self.0)
+    }
+}
+
+impl predicates_core::reflection::PredicateReflection for WindowSlashes {}
+
+impl predicates::prelude::Predicate<[u8]> for WindowSlashes {
+    fn eval(&self, variable: &[u8]) -> bool {
+        let text = String::from_utf8_lossy(variable);
+        text.replace('\\', "/") == self.0
+    }
+}
+
+fn window_slashes(expected: &'static str) -> WindowSlashes {
+    WindowSlashes(expected)
+}
 
 #[test]
 fn help_screens_match_snapshots() {
@@ -45,7 +70,11 @@ fn help_screens_match_snapshots() {
             .unwrap();
 
         assert!(output.status.success());
-        assert_eq!(String::from_utf8(output.stdout).unwrap(), snapshot);
+        // Windows names the binary cac.exe; the snapshot spells cac.
+        let stdout = String::from_utf8(output.stdout)
+            .unwrap()
+            .replace("cac.exe", "cac");
+        assert_eq!(stdout, snapshot);
         assert!(output.stderr.is_empty());
     }
 }
@@ -71,7 +100,10 @@ fn theme_init_creates_a_development_project_from_arguments() {
     let settings: serde_json::Value =
         serde_json::from_slice(&fs::read(directory.path().join("settings.json")).unwrap()).unwrap();
     assert_eq!(settings["theme"], "portfolio");
-    assert_eq!(settings["themeProject"], "portfolio");
+    assert!(
+        settings.get("themeProject").is_none(),
+        "the themeProject marker is retired"
+    );
     assert!(
         directory
             .path()
@@ -202,17 +234,24 @@ fn theme_test_and_pack_generate_verified_reproducible_artifacts() {
 #[test]
 fn theme_project_restricts_install_and_selected_removal() {
     let directory = tempdir().unwrap();
-    fs::write(
-        directory.path().join("settings.json"),
-        r#"{"theme":"developing","themeProject":"developing"}"#,
-    )
-    .unwrap();
-    fs::create_dir_all(directory.path().join(".cac/themes/developing")).unwrap();
-    fs::write(
-        directory.path().join(".cac/themes/developing/theme.typ"),
-        "",
-    )
-    .unwrap();
+    // Real `theme init` output: the themeProject marker is retired, so the
+    // guards must detect the project from the settings plus the theme
+    // directory. (A hand-written marker here would pass while every fresh
+    // init project stayed unprotected and `theme remove` could delete the
+    // theme under development.)
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["theme", "init", "developing", "--author", "Ada"])
+        .write_stdin("\n")
+        .assert()
+        .success();
+    assert!(
+        directory
+            .path()
+            .join(".cac/themes/developing/theme.typ")
+            .is_file()
+    );
     Command::cargo_bin("cac")
         .unwrap()
         .current_dir(directory.path())
@@ -255,6 +294,95 @@ fn version_uses_lowercase_short_option() {
 }
 
 #[test]
+fn build_tags_builds_named_variants_from_one_file() {
+    let directory = tempdir().unwrap();
+    fs::write(directory.path().join("cv.md"), VARIANT_MARKDOWN).unwrap();
+    fs::write(
+        directory.path().join("settings.json"),
+        r#"{"$schema":".cac/settings.schema.json","root":"cv.md","theme":"classic"}"#,
+    )
+    .unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .arg("schema")
+        .assert()
+        .success();
+
+    // Two variants from one source file, each named after its tags, each
+    // carrying only its tagged sections.
+    for (tags, marker, absent) in [
+        ("backend", "Platform API", "Design system"),
+        ("frontend", "Design system", "Platform API"),
+    ] {
+        let offering = directory.path().join("offering");
+        let before = fs::read_dir(&offering)
+            .map(|entries| entries.count())
+            .unwrap_or(0);
+        Command::cargo_bin("cac")
+            .unwrap()
+            .current_dir(directory.path())
+            .args(["build", "--tags", tags, "--format", "pdf,html"])
+            .assert()
+            .success()
+            .stdout(predicates::str::contains("VARIANT ").and(predicates::str::contains("BUILT")));
+        let pdf = directory
+            .path()
+            .join("offering")
+            .join(format!("cv-{tags}.pdf"));
+        let html = directory
+            .path()
+            .join("offering")
+            .join(format!("cv-{tags}.html"));
+        assert!(pdf.is_file(), "variant artifact exists: {}", pdf.display());
+        let after = fs::read_dir(&offering).unwrap().count();
+        assert_eq!(
+            after,
+            before + 2,
+            "the variant writes only its own artifacts"
+        );
+        let text = fs::read_to_string(&html).unwrap();
+        assert!(text.contains(marker), "variant {tags} contains {marker}");
+        assert!(!text.contains(absent), "variant {tags} drops {absent}");
+        assert!(
+            text.contains("Languages"),
+            "untagged sections are shared and survive under --tags"
+        );
+    }
+
+    // The strict spelling drops the shared section instead.
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args([
+            "build",
+            "--tags",
+            "backend",
+            "--only-tagged",
+            "--format",
+            "html",
+        ])
+        .assert()
+        .success();
+    let strict = fs::read_to_string(directory.path().join("offering/cv-backend.html")).unwrap();
+    assert!(
+        !strict.contains("Languages"),
+        "--only-tagged drops untagged sections"
+    );
+
+    // A tag that matches nothing fails with a diagnostic, not an empty CV.
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["build", "--tags", "nosuchthing"])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "no sections or entries are tagged with nosuchthing",
+        ));
+}
+
+#[test]
 fn build_rejects_json_as_an_output_format_with_syntax_status() {
     Command::cargo_bin("cac")
         .unwrap()
@@ -280,7 +408,9 @@ fn schema_creates_updates_and_validates_project_settings() {
         .arg("schema")
         .assert()
         .success()
-        .stdout("CREATED .cac/settings.schema.json\nVALID settings.json\n");
+        .stdout(window_slashes(
+            "CREATED .cac/settings.schema.json\nVALID settings.json\n",
+        ));
     let generated: serde_json::Value = serde_json::from_slice(&fs::read(&schema).unwrap()).unwrap();
     assert_eq!(generated["type"], "object");
     assert_eq!(generated["properties"]["page"]["$ref"], "#/$defs/page");
@@ -296,7 +426,9 @@ fn schema_creates_updates_and_validates_project_settings() {
         .arg("schema")
         .assert()
         .success()
-        .stdout("UPDATED .cac/settings.schema.json\nVALID settings.json\n");
+        .stdout(window_slashes(
+            "UPDATED .cac/settings.schema.json\nVALID settings.json\n",
+        ));
 
     Command::cargo_bin("cac")
         .unwrap()
@@ -453,7 +585,10 @@ fn build_uses_the_settings_root_when_input_is_omitted() {
         .args(["build", "--format", "html"])
         .assert()
         .success()
-        .stdout(predicates::str::contains("BUILT offering/primary.html"));
+        .stdout(
+            predicates::str::contains("BUILT offering")
+                .and(predicates::str::contains("primary.html")),
+        );
     assert!(directory.path().join("offering/primary.html").is_file());
 }
 
@@ -473,9 +608,10 @@ fn build_uses_the_configured_artifact_name() {
         .args(["build", "--format", "html"])
         .assert()
         .success()
-        .stdout(predicates::str::contains(
-            "BUILT offering/Ada_Lovelace_Engineering.html",
-        ));
+        .stdout(
+            predicates::str::contains("BUILT offering")
+                .and(predicates::str::contains("Ada_Lovelace_Engineering.html")),
+        );
     assert!(
         directory
             .path()
@@ -512,7 +648,10 @@ fn build_resolves_root_relative_to_an_explicit_settings_file() {
         ])
         .assert()
         .success()
-        .stdout(predicates::str::contains("BUILT offering/primary.html"));
+        .stdout(
+            predicates::str::contains("BUILT offering")
+                .and(predicates::str::contains("primary.html")),
+        );
 }
 
 #[test]
@@ -526,7 +665,9 @@ fn build_without_settings_falls_back_to_cv_markdown() {
         .args(["build", "--format", "html"])
         .assert()
         .success()
-        .stdout(predicates::str::contains("BUILT offering/cv.html"));
+        .stdout(
+            predicates::str::contains("BUILT offering").and(predicates::str::contains("cv.html")),
+        );
     let generated: serde_json::Value = serde_json::from_slice(
         &fs::read(directory.path().join(".cac/settings.schema.json")).unwrap(),
     )
@@ -551,7 +692,10 @@ fn explicit_build_input_takes_precedence_over_the_settings_root() {
         .args(["build", "selected.md", "--format", "html"])
         .assert()
         .success()
-        .stdout(predicates::str::contains("BUILT offering/selected.html"));
+        .stdout(
+            predicates::str::contains("BUILT offering")
+                .and(predicates::str::contains("selected.html")),
+        );
 }
 
 #[test]
@@ -582,6 +726,72 @@ fn check_reads_markdown_from_stdin() {
         .success()
         .stdout("PASS\n")
         .stderr("");
+}
+
+#[test]
+fn check_validates_open_fields_against_a_pack_file() {
+    let directory = tempdir().unwrap();
+    let cv = directory.path().join("cv.md");
+    let pack = directory.path().join("fields.toml");
+    fs::write(
+        &pack,
+        "name = \"jp-rirekisho\"\n\n[fields.entry.commute]\nlabel = \"Commute\"\ntype = \"text\"\nrequired = true\n\n[fields.entry.dependents]\nlabel = \"Dependents\"\ntype = \"integer\"\n",
+    )
+    .unwrap();
+    // Markdown stores every open field as text; the pack says integer, so
+    // `Dependents: 2` passes. Diagnostics name the declared pack name, not
+    // the file stem.
+    fs::write(
+        &cv,
+        "# Ada\nEmail: ada@example.com\n\n## Facts\nKind: custom\n\n### Personal\nKind: custom\nDependents: 2\nCommute: 40 minutes\n",
+    )
+    .unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["check", "cv.md", "--pack", "fields.toml"])
+        .assert()
+        .success()
+        .stdout("PASS\n")
+        .stderr("");
+
+    fs::write(
+        &cv,
+        "# Ada\nEmail: ada@example.com\n\n## Facts\nKind: custom\n\n### Personal\nKind: custom\nDependents: two\nCommute: 40 minutes\n",
+    )
+    .unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["check", "cv.md", "--pack", "fields.toml"])
+        .assert()
+        .failure()
+        .stdout(predicates::str::contains(
+            "pack `jp-rirekisho` field `dependents`",
+        ))
+        .stdout(predicates::str::contains("FAIL\n"));
+
+    // An unknown key in the pack is a load error naming the file, and a
+    // missing pack file is one too.
+    fs::write(&pack, "name = \"jp\"\nrequird = true\n").unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["check", "cv.md", "--pack", "fields.toml"])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "invalid field pack at fields.toml",
+        ));
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["check", "cv.md", "--pack", "missing.toml"])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "invalid field pack at missing.toml",
+        ));
 }
 
 #[test]
@@ -866,12 +1076,22 @@ fn themes_list_and_remove_a_local_theme() {
 #[test]
 fn themes_search_info_install_and_build_from_a_registry() {
     let directory = tempdir().unwrap();
-    let registry = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .join("themes")
         .canonicalize()
         .unwrap();
-    let registry = format!("file://{}", registry.display());
+    // Windows canonicalizes to the verbatim form \\?\C:\...; build a
+    // standard file URL with forward slashes on every platform.
+    let mut root = root.to_string_lossy().replace('\\', "/");
+    if let Some(stripped) = root.strip_prefix("//?/") {
+        root = stripped.to_string();
+    }
+    let registry = if root.starts_with('/') {
+        format!("file://{root}")
+    } else {
+        format!("file:///{root}")
+    };
 
     Command::cargo_bin("cac")
         .unwrap()
@@ -1123,7 +1343,7 @@ fn conversion_failure_preserves_the_existing_destination() {
 }
 
 #[test]
-fn formatter_preserves_bare_markdown_and_uses_project_source_format() {
+fn formatter_canonicalizes_markdown_and_uses_project_source_format() {
     let directory = tempdir().unwrap();
     let path = directory.path().join("cv.md");
     fs::write(&path, format!("{CLEAN_MARKDOWN}\n\n")).unwrap();
@@ -1133,7 +1353,18 @@ fn formatter_preserves_bare_markdown_and_uses_project_source_format() {
         .arg(&path)
         .assert()
         .success();
-    assert_eq!(fs::read_to_string(&path).unwrap(), CLEAN_MARKDOWN);
+    // The canonical explicit spelling: fields spelled, a blank line after
+    // every heading, trailing blank lines gone. The data is unchanged.
+    let formatted = fs::read_to_string(&path).unwrap();
+    let reparsed = Command::cargo_bin("cac")
+        .unwrap()
+        .arg("check")
+        .arg(&path)
+        .assert()
+        .success();
+    let _ = reparsed;
+    assert!(formatted.contains("## Skills\n\nKind: skills"));
+    assert!(!formatted.ends_with("\n\n"));
     for (filename, source) in [
         ("cv.json", "{\"profile\":{\"name\":\"Анна\"}}"),
         ("cv.yaml", "profile: {name: Анна}"),
@@ -1169,4 +1400,237 @@ fn formatter_preserves_bare_markdown_and_uses_project_source_format() {
         .assert()
         .success()
         .stdout(predicates::str::contains("\n  \"profile\":"));
+}
+
+#[test]
+fn fmt_preserve_keeps_the_explicit_spelling_when_entries_carry_bullets() {
+    // The old line scanner misread this file as compact because bullets
+    // followed the first entry heading; the parser-derived spelling does
+    // not.
+    let directory = tempdir().unwrap();
+    let path = directory.path().join("cv.md");
+    let source = "# Ada\n\n## Experience\n\n### Engineer\n\nKind: experience\nOrganization: Acme\nPeriod: 2020–2021\n\n- Built a thing\n";
+    fs::write(&path, source).unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .arg("fmt")
+        .arg(&path)
+        .assert()
+        .success();
+    let formatted = fs::read_to_string(&path).unwrap();
+    // Entry fields stay spelled; no comma sugar, no bare period line.
+    assert!(formatted.contains("Period: 2020–2021"), "{formatted}");
+    assert!(formatted.contains("Organization: Acme"), "{formatted}");
+    assert!(formatted.contains("### Engineer\n"), "{formatted}");
+    assert!(!formatted.contains("### Engineer, "), "{formatted}");
+    assert!(!formatted.lines().any(|line| line.trim() == "2020–2021"));
+}
+
+#[test]
+fn fmt_refuses_to_drop_plain_comments() {
+    // The model has no slot for a plain comment; formatting would delete
+    // it, so fmt refuses and leaves the source unchanged.
+    let directory = tempdir().unwrap();
+    let path = directory.path().join("cv.md");
+    let source = "# Ada\n\n<!-- keep this note -->\n\nada@example.com\n";
+    fs::write(&path, source).unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .arg("fmt")
+        .arg(&path)
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("would drop 1 HTML comment"));
+    assert_eq!(fs::read_to_string(&path).unwrap(), source);
+}
+
+#[test]
+fn build_tags_names_come_from_the_normalized_sorted_set() {
+    // The variant name comes from the normalized set: order does not
+    // matter, and a tag that could smuggle a path component is an error.
+    let directory = tempdir().unwrap();
+    fs::write(directory.path().join("cv.md"), VARIANT_MARKDOWN).unwrap();
+    fs::write(
+        directory.path().join("settings.json"),
+        r#"{"$schema":".cac/settings.schema.json","root":"cv.md","theme":"classic"}"#,
+    )
+    .unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .arg("schema")
+        .assert()
+        .success();
+    for tags in ["frontend,backend", "backend,frontend", "Backend, FRONTEND"] {
+        let offering = directory.path().join("offering");
+        let pdf = offering.join("cv-backend_frontend.pdf");
+        Command::cargo_bin("cac")
+            .unwrap()
+            .current_dir(directory.path())
+            .args(["build", "--tags", tags, "--format", "pdf"])
+            .assert()
+            .success()
+            .stdout(predicates::str::contains("VARIANT backend_frontend"));
+        // Every spelling lands on the same artifact name.
+        assert!(pdf.is_file(), "{tags}: {pdf:?} exists");
+    }
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["build", "--tags", "../evil"])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("must be lowercase letters"));
+}
+
+#[test]
+fn theme_init_writes_watchable_inputs_and_the_hint_names_the_root() {
+    let directory = tempdir().unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["theme", "init", "portfolio", "--author", "Ada"])
+        .write_stdin("\n")
+        .assert()
+        .success()
+        .stderr(predicates::str::contains(
+            "typst watch --root . .cac/main.typ",
+        ));
+    // The data inputs the bridge reads exist, so the watch command
+    // compiles without running cac first.
+    let view = fs::read_to_string(directory.path().join(".cac/cv.json")).unwrap();
+    assert!(view.contains("Ada Lovelace"), "cv.json carries the CV");
+    let sheet = fs::read_to_string(directory.path().join(".cac/style.json")).unwrap();
+    assert!(
+        sheet.contains("\"fonts\""),
+        "style.json is the resolved sheet"
+    );
+    assert!(directory.path().join(".cac/settings-style.json").is_file());
+}
+
+#[test]
+fn build_honours_the_on_disk_bridge_files() {
+    // A theme project's `.cac/main.typ` is the file `cac build` runs: an
+    // edit there is visible in the artifact instead of silently ignored.
+    let directory = tempdir().unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["theme", "init", "portfolio", "--author", "Ada"])
+        .write_stdin("\n")
+        .assert()
+        .success();
+    fs::write(directory.path().join("cv.md"), CLEAN_MARKDOWN).unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["build", "--format", "pdf"])
+        .assert()
+        .success();
+    let built = directory.path().join("offering/cv.pdf");
+    let plain = fs::read(&built).unwrap();
+    // Mark the bridge and rebuild: the on-disk main.typ is what runs, so
+    // the artifact changes instead of silently ignoring the edit.
+    let main = directory.path().join(".cac/main.typ");
+    let source = fs::read_to_string(&main).unwrap();
+    fs::write(&main, format!("#text[BRIDGE-MARKER] {source}")).unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["build", "--format", "pdf"])
+        .assert()
+        .success();
+    let marked = fs::read(&built).unwrap();
+    assert_ne!(plain, marked, "the on-disk bridge ran");
+}
+
+#[test]
+fn registry_schema_two_lists_forms_and_gates_versions() {
+    // Schema 2 lives at its own path. The frozen schema-1 index keeps
+    // released clients working; v2 carries forms and `min_cac`.
+    let directory = tempdir().unwrap();
+    let registry = directory.path();
+    let theme = registry.join("meet-form");
+    fs::create_dir_all(&theme).unwrap();
+    // The downloadable payload: a minimal form theme with a checksummed
+    // file list, exactly what `cac theme pack` generates.
+    let source = "#let theme = (layout: (family: \"form\"))\n";
+    let files = serde_json::json!({
+        "name": "meet-form",
+        "description": "A test form",
+        "author": "Ada",
+        "license": "MIT",
+        "preview": "preview.jpg",
+        "files": [
+            {"path": "theme.typ", "sha256": sha256_of(source.as_bytes())},
+            {"path": "README.md", "sha256": sha256_of(b"# meet-form\n")},
+            {"path": "preview.jpg", "sha256": sha256_of(b"jpeg-bytes")},
+        ],
+    });
+    fs::write(
+        theme.join("theme.json"),
+        serde_json::to_vec_pretty(&files).unwrap(),
+    )
+    .unwrap();
+    fs::write(theme.join("theme.typ"), source).unwrap();
+    fs::write(theme.join("README.md"), "# meet-form\n").unwrap();
+    fs::write(theme.join("preview.jpg"), "jpeg-bytes").unwrap();
+    let index = serde_json::json!({
+        "schema_version": 2,
+        "themes": [],
+        "forms": [{
+            "name": "meet-form",
+            "description": "A test form",
+            "min_cac": "99.0.0",
+        }],
+    });
+    fs::write(
+        registry.join("index.v2.json"),
+        serde_json::to_vec_pretty(&index).unwrap(),
+    )
+    .unwrap();
+
+    let env_registry = format!(
+        "file://{}",
+        registry
+            .canonicalize()
+            .unwrap()
+            .to_string_lossy()
+            .replace('\\', "/")
+    );
+    // Search surfaces the form with its kind.
+    Command::cargo_bin("cac")
+        .unwrap()
+        .env("CAC_THEME_REGISTRY", &env_registry)
+        .args(["theme", "search", "form"])
+        .assert()
+        .success()
+        .stdout("meet-form (form): A test form\n");
+    // Info resolves through the forms list.
+    Command::cargo_bin("cac")
+        .unwrap()
+        .env("CAC_THEME_REGISTRY", &env_registry)
+        .args(["theme", "info", "meet-form"])
+        .assert()
+        .success();
+    // Install is gated on `min_cac` before anything downloads.
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .env("CAC_THEME_REGISTRY", &env_registry)
+        .args(["theme", "install", "meet-form", "--local"])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("requires cac 99.0.0 or newer"));
+}
+
+fn sha256_of(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    hex_encode(&hasher.finalize())
+}
+
+fn hex_encode(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }

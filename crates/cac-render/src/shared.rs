@@ -136,6 +136,19 @@ fn visible_strings(
     markers: &mut BTreeMap<String, usize>,
     links: &mut BTreeSet<String>,
 ) {
+    visible_strings_at(value, "", markers, links)
+}
+
+/// Walk with the path so the named-slot keys are skipped only where the
+/// slots live — a `date` inside an open field dictionary still counts,
+/// and a theme dropping a real slot cannot hide behind a namesake
+/// elsewhere in the document.
+fn visible_strings_at(
+    value: &Value,
+    path: &str,
+    markers: &mut BTreeMap<String, usize>,
+    links: &mut BTreeSet<String>,
+) {
     match value {
         Value::Object(object) => {
             for (key, value) in object {
@@ -144,13 +157,44 @@ fn visible_strings(
                         links.insert(url.into());
                     }
                 } else if !matches!(key.as_str(), "id" | "kind" | "role") {
-                    visible_strings(value, markers, links);
+                    // The named slots (V1) carry the same content as the
+                    // legacy keys themes render today; count the legacy
+                    // keys so the expected counts match what the default
+                    // families put on the page. A theme that renders a
+                    // slot updates its own expectations.
+                    // The named slots (V1) carry the same content as the
+                    // legacy keys themes render today; skip them only on
+                    // the objects that own them — profile children and
+                    // entry children.
+                    let owns_slots = path == "profile" || path.ends_with("entries");
+                    if owns_slots
+                        && matches!(
+                            key.as_str(),
+                            "structured_period"
+                                | "date"
+                                | "location"
+                                | "url"
+                                | "fields"
+                                | "tags"
+                                | "photo"
+                                | "headline"
+                                | "address"
+                        )
+                    {
+                        continue;
+                    }
+                    let child_path = if path.is_empty() {
+                        key.clone()
+                    } else {
+                        format!("{path}.{key}")
+                    };
+                    visible_strings_at(value, &child_path, markers, links);
                 }
             }
         }
         Value::Array(values) => {
             for value in values {
-                visible_strings(value, markers, links);
+                visible_strings_at(value, path, markers, links);
             }
         }
         Value::String(text) => {

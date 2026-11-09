@@ -1,0 +1,20 @@
+# The 職務経歴書 open-field vocabulary: the work-history document the
+# shokumu keirekisho layout reads. Load with
+#   cac check cv.md --pack packs/jp-shokumu/fields.toml
+name = "jp-shokumu"
+
+[fields.profile.image]
+label = "Photo"
+type = "text"
+
+[fields.entry.team]
+label = "所属"
+type = "text"
+
+[fields.entry.headcount]
+label = "役割規模"
+type = "text"
+
+[fields.entry.note]
+label = "職務要約"
+type = "text"

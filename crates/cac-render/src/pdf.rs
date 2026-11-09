@@ -17,8 +17,15 @@ use typst_pdf::{PdfOptions, PdfStandard, PdfStandards, Timestamp};
 
 use crate::{Settings, SettingsError, validate_theme_name};
 
-const MAIN_TYP: &str = include_str!("typst/main.typ");
-const BASE_TYP: &str = include_str!("typst/base.typ");
+pub const MAIN_TYP_SOURCE: &str = include_str!("typst/main.typ");
+pub const BASE_TYP_SOURCE: &str = include_str!("typst/base.typ");
+pub const STYLE_TYP_SOURCE: &str = include_str!("typst/style.typ");
+pub const LAYOUT_TYP_SOURCE: &str = include_str!("typst/layout.typ");
+
+const MAIN_TYP: &str = MAIN_TYP_SOURCE;
+const BASE_TYP: &str = BASE_TYP_SOURCE;
+const STYLE_TYP: &str = STYLE_TYP_SOURCE;
+const LAYOUT_TYP: &str = LAYOUT_TYP_SOURCE;
 const CLASSIC_TYP: &str = include_str!("typst/themes/classic.typ");
 
 pub const EMBEDDED_THEME_NAMES: &[&str] = &["classic"];
@@ -83,6 +90,8 @@ pub struct RenderOptions {
 pub struct RenderedPdf {
     pub bytes: Vec<u8>,
     pub pages: usize,
+    /// 1-based pages whose content extends beyond the page edge.
+    pub overflow_pages: Vec<usize>,
     pub theme: String,
     pub theme_source: ThemeSource,
 }
@@ -110,16 +119,56 @@ pub(crate) fn render_pdf_document(
     render_settings.naming = None;
     render_settings.theme = None;
     render_settings.theme_project = None;
+    let shimmed = crate::style::legacy::shim(&render_settings);
+    let theme_uses_components = resolved
+        .source_text
+        .as_deref()
+        .is_some_and(|source| source.contains("components:"));
+    if theme_uses_components {
+        eprintln!(
+            "NOTE legacy component themes are deprecated; migrate to layout hooks or theme.toml"
+        );
+    }
+    let family = (theme_name == "classic" && !theme_uses_components)
+        .then(crate::style::legacy::classic_family);
+    let (style_sheet, advisories) =
+        crate::style::resolve::resolve_layered(family.as_ref(), &shimmed).map_err(|error| {
+            RenderError::Settings(crate::settings::SettingsError::Style(error.to_string()))
+        })?;
+    for advisory in &advisories {
+        eprintln!("NOTE {}", advisory.message);
+    }
+    let assets = collect_assets(
+        cv.profile.photo.as_deref(),
+        project_root(options).as_deref(),
+    )?;
+    // The view carries display strings, so it needs the sheet's locale.
+    let view = crate::view::render_view_with_locale(cv, &style_sheet.locale)?;
     let world = CacWorld::new(
-        crate::view::render_view(cv)?,
-        serde_json::to_vec(&render_settings)?,
+        WorldInputs {
+            json: view,
+            settings: serde_json::to_vec(&render_settings)?,
+            style: serde_json::to_vec_pretty(&style_sheet)?,
+            // Sparse: only the keys settings set, with lengths already in
+            // the (value, unit) form the bridge reads. Unset keys must not
+            // clobber the family values beneath them.
+            settings_style: serde_json::to_vec(&renderer_style_json(&shimmed.style))?,
+            document_date: document_date_json(&render_settings),
+        },
+        &render_settings,
         &resolved,
+        assets,
+        options.project_dir.clone(),
     )?;
     let warned = typst::compile::<PagedDocument>(&world);
     let document = warned
         .output
         .map_err(|errors| RenderError::Compile(format_diagnostics(&errors)))?;
     let pages = document.pages().len();
+    let overflow = crate::diagnostics::overflow_pages(document.pages());
+    for page in &overflow {
+        eprintln!("NOTE page {page} has content outside the page area");
+    }
     let standards = PdfStandards::new(&[PdfStandard::A_2b])
         .map_err(|error| RenderError::Pdf(format!("{error:?}")))?;
     let pdf_options = PdfOptions {
@@ -138,6 +187,7 @@ pub(crate) fn render_pdf_document(
             bytes,
             pages,
             theme: theme_name,
+            overflow_pages: overflow.clone(),
             theme_source: resolved.source,
         },
         document,
@@ -156,10 +206,46 @@ pub fn render_pdf_and_preview_with_options(
     render_settings.naming = None;
     render_settings.theme = None;
     render_settings.theme_project = None;
+    let shimmed = crate::style::legacy::shim(&render_settings);
+    let theme_uses_components = resolved
+        .source_text
+        .as_deref()
+        .is_some_and(|source| source.contains("components:"));
+    if theme_uses_components {
+        eprintln!(
+            "NOTE legacy component themes are deprecated; migrate to layout hooks or theme.toml"
+        );
+    }
+    let family = (theme_name == "classic" && !theme_uses_components)
+        .then(crate::style::legacy::classic_family);
+    let (style_sheet, advisories) =
+        crate::style::resolve::resolve_layered(family.as_ref(), &shimmed).map_err(|error| {
+            RenderError::Settings(crate::settings::SettingsError::Style(error.to_string()))
+        })?;
+    for advisory in &advisories {
+        eprintln!("NOTE {}", advisory.message);
+    }
+    let assets = collect_assets(
+        cv.profile.photo.as_deref(),
+        project_root(options).as_deref(),
+    )?;
+    // The view carries display strings, so it needs the sheet's locale.
+    let view = crate::view::render_view_with_locale(cv, &style_sheet.locale)?;
     let world = CacWorld::new(
-        crate::view::render_view(cv)?,
-        serde_json::to_vec(&render_settings)?,
+        WorldInputs {
+            json: view,
+            settings: serde_json::to_vec(&render_settings)?,
+            style: serde_json::to_vec_pretty(&style_sheet)?,
+            // Sparse: only the keys settings set, with lengths already in
+            // the (value, unit) form the bridge reads. Unset keys must not
+            // clobber the family values beneath them.
+            settings_style: serde_json::to_vec(&renderer_style_json(&shimmed.style))?,
+            document_date: document_date_json(&render_settings),
+        },
+        &render_settings,
         &resolved,
+        assets,
+        options.project_dir.clone(),
     )?;
     let document = typst::compile::<PagedDocument>(&world)
         .output
@@ -201,11 +287,16 @@ pub fn render_pdf_and_preview_with_options(
     let bytes = typst_pdf::pdf(&document, &pdf_options)
         .map_err(|errors| RenderError::Pdf(format_diagnostics(&errors)))?;
     let pages = document.pages().len();
+    let overflow = crate::diagnostics::overflow_pages(document.pages());
+    for page in &overflow {
+        eprintln!("NOTE page {page} has content outside the page area");
+    }
     Ok((
         RenderedPdf {
             bytes,
             pages,
             theme: theme_name,
+            overflow_pages: overflow.clone(),
             theme_source: resolved.source,
         },
         jpeg,
@@ -215,6 +306,7 @@ pub fn render_pdf_and_preview_with_options(
 }
 
 struct ResolvedTheme {
+    source_text: Option<String>,
     source: ThemeSource,
     directory: Option<PathBuf>,
     embedded_source: Option<&'static str>,
@@ -230,6 +322,7 @@ fn resolve_theme(name: &str, options: &RenderOptions) -> Result<ResolvedTheme, R
             let directory = root.join("themes").join(name);
             if directory.join("theme.typ").is_file() {
                 return Ok(ResolvedTheme {
+                    source_text: std::fs::read_to_string(directory.join("theme.typ")).ok(),
                     source,
                     directory: Some(directory),
                     embedded_source: None,
@@ -239,6 +332,7 @@ fn resolve_theme(name: &str, options: &RenderOptions) -> Result<ResolvedTheme, R
     }
     if let Some(source) = embedded_theme_source(name) {
         Ok(ResolvedTheme {
+            source_text: Some(source.to_string()),
             source: ThemeSource::Embedded,
             directory: None,
             embedded_source: Some(source),
@@ -246,6 +340,94 @@ fn resolve_theme(name: &str, options: &RenderOptions) -> Result<ResolvedTheme, R
     } else {
         Err(RenderError::ThemeNotFound(name.into()))
     }
+}
+
+/// The view JSON the Typst bridge reads (`/.cac/cv.json`) — also what a
+/// theme project's on-disk scaffold carries for `typst watch`.
+pub fn view_json(cv: &CvDocument) -> String {
+    String::from_utf8(crate::view::render_view(cv).unwrap_or_default()).unwrap_or_default()
+}
+
+/// The resolved style sheet JSON (`/.cac/style.json`) for a settings file
+/// and theme — the same layering the PDF render path uses.
+pub fn style_sheet_json(settings: &Settings, theme_name: &str) -> Result<String, SettingsError> {
+    let sheet = crate::style::resolved_style_for(settings, theme_name)
+        .map_err(|error| SettingsError::Style(error.to_string()))?;
+    serde_json::to_vec_pretty(&sheet)
+        .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
+        .map_err(|error| SettingsError::Style(error.to_string()))
+}
+
+/// The sparse settings layer JSON (`/.cac/settings-style.json`), with
+/// lengths already in the (value, unit) form the bridge reads.
+pub fn settings_style_json(settings: &Settings) -> Result<String, SettingsError> {
+    let shimmed = crate::style::legacy::shim(settings);
+    serde_json::to_vec(&renderer_style_json(&shimmed.style))
+        .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
+        .map_err(|error| SettingsError::Style(error.to_string()))
+}
+
+/// The sparse settings layer, renderer-ready: a `LengthSpec` serializes as
+/// its authoring string (`"16mm"`), but the Typst bridge reads
+/// `(value, unit)` pairs — so lengths convert here, once, in Rust, and no
+/// string ever reaches a Typst `length()` helper.
+fn renderer_style_json(style: &crate::style::schema::StyleOverrides) -> serde_json::Value {
+    fn walk(value: serde_json::Value) -> serde_json::Value {
+        match value {
+            serde_json::Value::String(text) => {
+                let spec: crate::style::schema::LengthSpec =
+                    serde_json::from_value(serde_json::Value::String(text.clone()))
+                        .expect("a string rebuilds a length spec");
+                match spec.parse() {
+                    Ok(length) => {
+                        serde_json::to_value(length).unwrap_or(serde_json::Value::String(text))
+                    }
+                    Err(_) => serde_json::Value::String(text),
+                }
+            }
+            serde_json::Value::Array(items) => {
+                serde_json::Value::Array(items.into_iter().map(walk).collect())
+            }
+            serde_json::Value::Object(map) => serde_json::Value::Object(
+                map.into_iter()
+                    .filter(|(_, value)| !value.is_null())
+                    .map(|(key, value)| (key, walk(value)))
+                    .collect(),
+            ),
+            other => other,
+        }
+    }
+    walk(serde_json::to_value(style).expect("style overrides serialize"))
+}
+
+/// The jail root for project files: the `.cac` directory's parent.
+fn project_root(options: &RenderOptions) -> Option<PathBuf> {
+    options
+        .project_dir
+        .as_deref()
+        .and_then(|dir| dir.parent().map(Path::to_path_buf))
+}
+
+/// The pinned document date with its locale spellings, computed here so no
+/// theme keeps a second era table: form themes print the 和暦 line from
+/// this file instead of reading the clock.
+fn document_date_json(settings: &Settings) -> String {
+    let date = settings
+        .document_date
+        .as_deref()
+        .and_then(|value| chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d").ok());
+    let payload = match date {
+        Some(date) => {
+            let point = cac_core::DatePoint::Full(date);
+            serde_json::json!({
+                "date": date.to_string(),
+                "era": crate::view::dates::era_date_full(date),
+                "japanese": crate::view::dates::format_date_locale("ja", &point),
+            })
+        }
+        None => serde_json::json!({ "date": null, "era": null, "japanese": null }),
+    };
+    serde_json::to_string(&payload).unwrap_or_else(|_| "{}".into())
 }
 
 fn format_diagnostics<T: fmt::Debug>(diagnostics: &[T]) -> String {
@@ -256,56 +438,151 @@ fn format_diagnostics<T: fmt::Debug>(diagnostics: &[T]) -> String {
         .join("; ")
 }
 
+/// The generated payloads the world serves, built once before compiling.
+struct WorldInputs {
+    json: Vec<u8>,
+    settings: Vec<u8>,
+    style: Vec<u8>,
+    settings_style: Vec<u8>,
+    document_date: String,
+}
+
 struct CacWorld {
     library: LazyHash<Library>,
     fonts: FontStore,
     main: FileId,
     main_source: Source,
-    json: Bytes,
-    settings: Bytes,
+    /// The project `.cac` directory, when one exists; on-disk bridge files
+    /// there win over the embedded library, so author edits are real.
+    project_cac: Option<PathBuf>,
+    inputs: WorldInputs,
+    document_date_value: Option<Datetime>,
     theme: ResolvedTheme,
+    /// The only project files Typst may read: the paths the renderer itself
+    /// collected (the document's photo), keyed by the view's spelling.
+    assets: std::collections::BTreeMap<String, Bytes>,
+}
+
+/// Read a project asset inside the jail: canonicalized root, no `..`, no
+/// symlink escapes, absolute paths refused.
+fn jailed_read(root: &Path, relative: &Path) -> Result<Vec<u8>, FileError> {
+    if relative.is_absolute() {
+        return Err(FileError::AccessDenied);
+    }
+    let canonical_root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    let canonical = canonical_root
+        .join(relative)
+        .canonicalize()
+        .map_err(|error| FileError::Other(Some(error.to_string().into())))?;
+    if !canonical.starts_with(&canonical_root) {
+        return Err(FileError::AccessDenied);
+    }
+    fs::read(canonical).map_err(|error| FileError::Other(Some(error.to_string().into())))
+}
+
+/// Collect the project assets the render may read: only the document's
+/// photo. Everything else stays unreachable from theme code, so a theme
+/// cannot embed `.env`, `.git/config`, or settings contents in its output.
+fn collect_assets(
+    photo: Option<&str>,
+    root: Option<&Path>,
+) -> Result<std::collections::BTreeMap<String, Bytes>, RenderError> {
+    let mut assets = std::collections::BTreeMap::new();
+    let Some(photo) = photo else {
+        return Ok(assets);
+    };
+    let Some(root) = root else {
+        return Ok(assets);
+    };
+    // A photo the file cannot supply is a warning, not a hard error: the
+    // corpus renders without one, and a theme that needs the image gets
+    // Typst's own not-found error at compile time.
+    let Ok(data) = jailed_read(root, Path::new(photo)) else {
+        eprintln!(
+            "NOTE photo `{photo}` was not found in the project directory; rendering without it"
+        );
+        return Ok(assets);
+    };
+    const MAX_ASSET_BYTES: usize = 32 * 1024 * 1024;
+    if data.len() > MAX_ASSET_BYTES {
+        eprintln!(
+            "NOTE photo `{photo}` is larger than the {MAX_ASSET_BYTES}-byte asset cap; rendering without it"
+        );
+        return Ok(assets);
+    }
+    assets.insert(photo.to_owned(), Bytes::new(data));
+    Ok(assets)
 }
 
 impl CacWorld {
-    fn new(json: Vec<u8>, settings: Vec<u8>, theme: &ResolvedTheme) -> Result<Self, RenderError> {
+    fn new(
+        inputs: WorldInputs,
+        settings_parsed: &Settings,
+        theme: &ResolvedTheme,
+        assets: std::collections::BTreeMap<String, Bytes>,
+        project_cac: Option<PathBuf>,
+    ) -> Result<Self, RenderError> {
         let main = file_id("main.typ");
         let mut fonts = FontStore::new();
         fonts.extend(embedded());
         if let Some(directory) = &theme.directory {
             load_theme_fonts(&directory.join("fonts"), &mut fonts)?;
         }
+        let document_date = document_date_from(settings_parsed);
+        // A theme project's scaffold owns its bridge: an on-disk
+        // main.typ renders instead of the embedded one, so the file the
+        // author edits with `typst watch` is the file `cac build` runs.
+        let main_source = project_cac
+            .as_ref()
+            .and_then(|root| fs::read_to_string(root.join("main.typ")).ok())
+            .map_or_else(
+                || Source::new(main, MAIN_TYP.into()),
+                |text| Source::new(main, text),
+            );
         Ok(Self {
             library: LazyHash::new(Library::default()),
             fonts,
             main,
-            main_source: Source::new(main, MAIN_TYP.into()),
-            json: Bytes::new(json),
-            settings: Bytes::new(settings),
+            main_source,
+            inputs: WorldInputs {
+                json: inputs.json,
+                settings: inputs.settings,
+                style: inputs.style,
+                settings_style: inputs.settings_style,
+                document_date: inputs.document_date,
+            },
+            document_date_value: document_date,
+            project_cac,
             theme: ResolvedTheme {
+                source_text: theme.source_text.clone(),
                 source: theme.source,
                 directory: theme.directory.clone(),
                 embedded_source: theme.embedded_source,
             },
+            assets,
         })
+    }
+
+    /// A bridge library file: the project scaffold's copy when one
+    /// exists, the embedded library otherwise. Author edits under
+    /// `.cac/` are real for `cac build`, not just for `typst watch`.
+    fn bridge_file(&self, name: &str, embedded: &'static str) -> FileResult<Bytes> {
+        if let Some(root) = &self.project_cac {
+            let path = root.join(name);
+            if path.is_file() {
+                return fs::read(path)
+                    .map(Bytes::new)
+                    .map_err(|error| FileError::Other(Some(error.to_string().into())));
+            }
+        }
+        Ok(Bytes::new(embedded.as_bytes()))
     }
 
     fn theme_file(&self, relative: &Path) -> FileResult<Bytes> {
         let Some(root) = &self.theme.directory else {
             return Err(FileError::NotFound(relative.into()));
         };
-        let root = root
-            .canonicalize()
-            .map_err(|error| FileError::Other(Some(error.to_string().into())))?;
-        let canonical = root
-            .join(relative)
-            .canonicalize()
-            .map_err(|error| FileError::Other(Some(error.to_string().into())))?;
-        if !canonical.starts_with(&root) {
-            return Err(FileError::AccessDenied);
-        }
-        fs::read(canonical)
-            .map(Bytes::new)
-            .map_err(|error| FileError::Other(Some(error.to_string().into())))
+        jailed_read(root, relative).map(Bytes::new)
     }
 }
 
@@ -326,7 +603,9 @@ impl World for CacWorld {
         }
         let path = id.vpath().get_without_slash();
         let contents = match path {
-            ".cac/base.typ" => Bytes::new(BASE_TYP.as_bytes()),
+            ".cac/base.typ" => self.bridge_file("base.typ", BASE_TYP)?,
+            ".cac/style.typ" => self.bridge_file("style.typ", STYLE_TYP)?,
+            ".cac/layout.typ" => self.bridge_file("layout.typ", LAYOUT_TYP)?,
             ".cac/theme.typ" if self.theme.directory.is_none() => Bytes::new(
                 self.theme
                     .embedded_source
@@ -343,19 +622,49 @@ impl World for CacWorld {
     }
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
-        match id.vpath().get_without_slash() {
-            ".cac/cv.json" => Ok(self.json.clone()),
-            ".cac/settings.json" => Ok(self.settings.clone()),
+        let virtual_path = id.vpath().get_without_slash();
+        match virtual_path {
+            ".cac/cv.json" => Ok(Bytes::new(self.inputs.json.clone())),
+            ".cac/settings.json" => Ok(Bytes::new(self.inputs.settings.clone())),
+            ".cac/style.json" => Ok(Bytes::new(self.inputs.style.clone())),
+            ".cac/settings-style.json" => Ok(Bytes::new(self.inputs.settings_style.clone())),
+            ".cac/document-date.json" => {
+                Ok(Bytes::new(self.inputs.document_date.clone().into_bytes()))
+            }
             value if value.starts_with(".cac/") => self.theme_file(Path::new(&value[5..])),
-            value => Err(FileError::NotFound(value.into())),
+            // Project files: only the renderer-collected assets (the
+            // document's photo) are reachable. A theme asking for anything
+            // else — `.env`, `.git/config`, settings — is refused before
+            // the filesystem is touched.
+            other => self
+                .assets
+                .get(other)
+                .cloned()
+                .ok_or(FileError::AccessDenied),
         }
     }
     fn font(&self, index: usize) -> Option<Font> {
         self.fonts.font(index)
     }
     fn today(&self, _: Option<Duration>) -> Option<Datetime> {
-        None
+        // Deterministic builds: the document date setting, never the clock.
+        self.document_date_value
     }
+}
+
+/// The document date from settings, parsed once for the world's clock.
+fn document_date_from(settings: &Settings) -> Option<Datetime> {
+    let date = settings.document_date.as_deref()?;
+    let parsed = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").ok()?;
+    use chrono::Datelike;
+    Datetime::from_ymd_hms(
+        parsed.year(),
+        u8::try_from(parsed.month()).ok()?,
+        u8::try_from(parsed.day()).ok()?,
+        0,
+        0,
+        0,
+    )
 }
 
 fn file_id(path: &str) -> FileId {

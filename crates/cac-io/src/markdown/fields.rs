@@ -91,17 +91,22 @@ pub fn slugify(value: &str) -> String {
 pub(super) fn parse_tags(line: &str) -> Option<TagSet> {
     let body = line.strip_prefix("<!--")?.strip_suffix("-->")?.trim();
     let values = body.strip_prefix("tags:")?.trim();
+    let normalize = |tags: TagSet| -> TagSet {
+        tags.into_iter()
+            .map(|tag| tag.to_ascii_lowercase())
+            .collect()
+    };
     if values.starts_with('[') {
-        return serde_json::from_str(values).ok();
+        return serde_json::from_str::<TagSet>(values).ok().map(normalize);
     }
-    Some(
+    Some(normalize(
         values
             .split(',')
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .map(str::to_owned)
             .collect(),
-    )
+    ))
 }
 
 pub(super) fn parse_period(value: &str) -> Option<Result<Period, String>> {

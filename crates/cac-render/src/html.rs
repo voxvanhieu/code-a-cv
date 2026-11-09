@@ -1,16 +1,44 @@
 use std::fmt::Write;
 
-use cac_core::{CvDocument, EntryKind, Inline, RichText};
+use cac_core::{CvDocument, DatePoint, EntryKind, Inline, Period, RichText};
+
+use crate::style::ResolvedStyle;
+use crate::view::dates::format_event_locale;
 
 pub fn render_html(cv: &CvDocument) -> String {
-    let mut output = String::from(
-        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>",
+    render_html_for_sheet(cv, &crate::defaults())
+}
+
+/// Render the HTML document from the resolved style sheet: CSS custom
+/// properties carry the sheet's values and dates print through the shared
+/// locale-aware formatter, so the HTML output matches the PDF's.
+pub fn render_html_for_sheet(cv: &CvDocument, style: &ResolvedStyle) -> String {
+    let locale = style.locale.clone();
+    render_html_with(cv, style, move |period, date| {
+        format_event_locale(&locale, period, date)
+    })
+}
+
+/// Render with an explicit date formatter; the generic form the shared
+/// formatter plugs into.
+pub fn render_html_with(
+    cv: &CvDocument,
+    style: &ResolvedStyle,
+    format_dates: impl Fn(Option<&Period>, Option<&DatePoint>) -> Option<String>,
+) -> String {
+    // The document language follows the sheet's locale (primary subtag).
+    let language = style.locale.split(['-', '_']).next().unwrap_or("en");
+    let mut output = format!(
+        "<!doctype html><html lang=\"{language}\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>",
     );
     output.push_str(&html_escape::encode_text(&format!(
         "{} CV",
         cv.profile.name
     )));
-    output.push_str("</title><style>:root{font-family:system-ui,sans-serif;color:#171717}body{max-width:800px;margin:2rem auto;padding:0 1.5rem;line-height:1.4}header{text-align:center}h1{margin-bottom:.25rem}h2{font-size:1.15rem;border-bottom:1px solid;margin-top:1.4rem}.contact{display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap}.entry{margin:.8rem 0}.entry-head{display:flex;justify-content:space-between;gap:1rem}.period{white-space:nowrap}ul{margin:.35rem 0;padding-left:1.3rem}@media print{body{margin:0;max-width:none}@page{size:A4;margin:15mm}}</style></head><body itemscope itemtype=\"https://schema.org/Person\"><header><h1 itemprop=\"name\">");
+    output.push_str("</title><style>");
+    output.push_str(&css_variables(style));
+    output.push_str("body{font-family:var(--font-body);color:var(--color-text);font-size:var(--text-size);line-height:var(--text-leading);background:#fff}p{margin:0 0 var(--text-paragraph-gap) 0;text-align:var(--text-align)}header{text-align:var(--header-align)}h1{margin-bottom:var(--heading-name-space-after);font-size:var(--heading-name-size,var(--text-size));font-weight:var(--heading-name-weight);color:var(--heading-name-color)}h2{font-size:var(--heading-section-size,var(--text-size));font-weight:var(--heading-section-weight);color:var(--heading-section-color);text-transform:var(--heading-section-transform);border-bottom:var(--heading-section-rule-width) var(--heading-section-rule-style) var(--color-rule);margin-top:var(--spacing-section);margin-bottom:var(--spacing-heading-gap);padding-bottom:.15rem}h3,.entry-title{font-size:var(--heading-entry-size,var(--text-size));font-weight:var(--heading-entry-weight);color:var(--heading-entry-color)}h1,h2,h3{font-family:var(--font-heading)}.contact{display:flex;gap:.75rem;justify-content:var(--header-align);flex-wrap:wrap}a{color:inherit;text-decoration:var(--link-underline)}article.entry{margin:0 0 var(--spacing-entry) 0}.entry-head{display:flex;justify-content:space-between;gap:1rem}.period{white-space:nowrap}.field-label{color:var(--color-muted);margin-right:.35rem}ul{margin:.35rem 0;padding-left:1.3rem}::marker{color:var(--color-accent)}@media print{body{margin:0;max-width:none}}");
+    output.push_str("</style></head><body itemscope itemtype=\"https://schema.org/Person\"><header><h1 itemprop=\"name\">");
     output.push_str(&html_escape::encode_text(&cv.profile.name));
     output.push_str("</h1><div class=\"contact\">");
     if let Some(email) = &cv.profile.email {
@@ -58,6 +86,13 @@ pub fn render_html(cv: &CvDocument) -> String {
                 html_escape::encode_text(&contact.label)
             );
         }
+    }
+    for field in cv.profile.fields.iter() {
+        render_field(
+            &capitalize_label(&field.key),
+            &field.value.as_text(),
+            &mut output,
+        );
     }
     output.push_str("</div></header>");
     if let Some(summary) = &cv.profile.summary {
@@ -107,11 +142,8 @@ pub fn render_html(cv: &CvDocument) -> String {
                 output.push_str("</strong>");
             }
             output.push_str("</div>");
-            if let Some(period) = entry.kind.period() {
-                let _ = write!(output, "<time class=\"period\">{period}</time>");
-            }
-            if let Some(date) = entry.kind.date() {
-                let _ = write!(output, "<time class=\"period\">{date}</time>");
+            if let Some(rendered) = format_dates(entry.kind.period(), entry.kind.date()) {
+                let _ = write!(output, "<time class=\"period\">{rendered}</time>");
             }
             output.push_str("</div>");
             if let EntryKind::Experience(value) = &entry.kind
@@ -134,6 +166,13 @@ pub fn render_html(cv: &CvDocument) -> String {
                     "<div><a href=\"{}\">{}</a></div>",
                     html_escape::encode_double_quoted_attribute(url.as_str()),
                     html_escape::encode_text(url.as_str())
+                );
+            }
+            for field in entry.fields.iter() {
+                render_field(
+                    &capitalize_label(&field.key),
+                    &field.value.as_text(),
+                    &mut output,
                 );
             }
             if let Some(body) = &entry.content {
@@ -210,4 +249,200 @@ fn render_rich_html(value: &RichText, output: &mut String) {
         }
     }
     render(&value.0, output);
+}
+
+/// A string value inside a CSS `"..."`: every character that could close
+/// the string or the surrounding `<style>` element becomes a CSS escape, so
+/// a font name from settings or a theme can never inject CSS or HTML.
+fn css_string(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len());
+    for character in value.chars() {
+        match character {
+            '\\' => escaped.push_str("\\5c "),
+            '"' => escaped.push_str("\\22 "),
+            '<' => escaped.push_str("\\3c "),
+            '>' => escaped.push_str("\\3e "),
+            ';' => escaped.push_str("\\3b "),
+            '{' => escaped.push_str("\\7b "),
+            '}' => escaped.push_str("\\7d "),
+            c if c.is_control() => escaped.push_str(&format!("\\{:x} ", c as u32)),
+            c => escaped.push(c),
+        }
+    }
+    escaped
+}
+
+/// One open field as HTML: both the label and the value are escaped here so
+/// the profile and entry loops cannot drift apart on escaping.
+fn render_field(label: &str, value: &str, output: &mut String) {
+    let _ = write!(
+        output,
+        "<div class=\"field\"><span class=\"field-label\">{}</span> {}</div>",
+        html_escape::encode_text(label),
+        html_escape::encode_text(value)
+    );
+}
+
+/// Capitalize a normalized field key into a display label.
+fn capitalize_label(key: &str) -> String {
+    let mut label = String::new();
+    for (index, part) in key.split('-').enumerate() {
+        if index > 0 {
+            label.push(' ');
+        }
+        let mut characters = part.chars();
+        if let Some(first) = characters.next() {
+            label.extend(first.to_uppercase());
+            label.push_str(characters.as_str());
+        }
+    }
+    label
+}
+
+fn css_variables(style: &ResolvedStyle) -> String {
+    let mut css = String::from(":root{");
+    let _ = write!(
+        css,
+        "--font-body:\"{}\";--font-heading:\"{}\";--font-mono:\"{}\";",
+        css_string(&style.fonts.body),
+        css_string(&style.fonts.heading),
+        css_string(&style.fonts.mono)
+    );
+    let _ = write!(
+        css,
+        "--color-text:{};--color-muted:{};--color-accent:{};--color-rule:{};",
+        style.colors.text, style.colors.muted, style.colors.accent, style.colors.rule
+    );
+    let _ = write!(
+        css,
+        "--text-size:{};--text-leading:{};--text-paragraph-gap:{};--text-align:{};",
+        style.text.size,
+        style.text.leading,
+        style.text.paragraph_gap,
+        css_align_text(style.text.align)
+    );
+    let _ = write!(css, "--header-align:{};", css_align(style.header.align));
+    let _ = write!(
+        css,
+        "--heading-name-size:{};--heading-name-weight:{};--heading-name-color:{};--heading-name-space-after:{};",
+        heading_size(&style.headings.name.size, &style.text.size),
+        css_weight(style.headings.name.weight),
+        style.headings.name.color,
+        style.headings.name.space_after
+    );
+    let _ = write!(
+        css,
+        "--heading-section-size:{};--heading-section-weight:{};--heading-section-color:{};--heading-section-transform:{};--heading-section-rule-width:{};--heading-section-rule-style:{};",
+        heading_size(&style.headings.section.size, &style.text.size),
+        css_weight(style.headings.section.weight),
+        style.headings.section.color,
+        css_transform(style.headings.section.transform),
+        rule_width(style.headings.section.rule),
+        rule_style(style.headings.section.rule)
+    );
+    let _ = write!(
+        css,
+        "--heading-entry-size:{};--heading-entry-weight:{};--heading-entry-color:{};",
+        heading_size(&style.headings.entry.size, &style.text.size),
+        css_weight(style.headings.entry.weight),
+        style.headings.entry.color
+    );
+    let _ = write!(
+        css,
+        "--spacing-section:{};--spacing-heading-gap:{};--spacing-entry:{};",
+        style.spacing.section, style.spacing.heading_gap, style.spacing.entry
+    );
+    let _ = write!(
+        css,
+        "--link-underline:{};",
+        if style.links.underline {
+            "underline"
+        } else {
+            "none"
+        }
+    );
+    let _ = write!(
+        css,
+        "--page-paper:{};--page-margin-top:{};--page-margin-right:{};--page-margin-bottom:{};--page-margin-left:{};",
+        style.page.paper,
+        style.page.margin.top,
+        style.page.margin.right,
+        style.page.margin.bottom,
+        style.page.margin.left
+    );
+    // @page cannot resolve custom properties and needs a CSS page size,
+    // so the paper and margins print as literals.
+    let _ = write!(
+        css,
+        "@page{{size:{};margin:{} {} {} {}}}",
+        css_paper(style.page.paper),
+        style.page.margin.top,
+        style.page.margin.right,
+        style.page.margin.bottom,
+        style.page.margin.left,
+    );
+    css.push_str("}\n");
+    css
+}
+
+/// The CSS page-size spelling of the paper enum.
+fn css_paper(paper: crate::style::schema::Paper) -> &'static str {
+    match paper {
+        crate::style::schema::Paper::A4 => "A4",
+        crate::style::schema::Paper::UsLetter => "letter",
+    }
+}
+
+fn heading_size(size: &Option<crate::Length>, text: &crate::Length) -> String {
+    match size {
+        Some(size) => size.to_string(),
+        None => text.to_string(),
+    }
+}
+
+fn css_weight(weight: crate::Weight) -> &'static str {
+    match weight {
+        crate::Weight::Light => "300",
+        crate::Weight::Regular => "400",
+        crate::Weight::Medium => "500",
+        crate::Weight::SemiBold => "600",
+        crate::Weight::Bold => "700",
+        crate::Weight::Black => "900",
+    }
+}
+
+fn css_align(align: crate::HeaderAlign) -> &'static str {
+    match align {
+        crate::HeaderAlign::Left => "left",
+        crate::HeaderAlign::Center => "center",
+        crate::HeaderAlign::Right => "right",
+    }
+}
+
+fn css_align_text(align: crate::TextAlign) -> &'static str {
+    match align {
+        crate::TextAlign::Left => "left",
+        crate::TextAlign::Justified => "justify",
+    }
+}
+
+fn css_transform(transform: crate::HeadingTransform) -> &'static str {
+    match transform {
+        crate::HeadingTransform::None => "none",
+        crate::HeadingTransform::Caps => "uppercase",
+    }
+}
+
+fn rule_width(rule: crate::RuleStyle) -> &'static str {
+    match rule {
+        crate::RuleStyle::None => "0",
+        crate::RuleStyle::Line => "1px",
+    }
+}
+
+fn rule_style(rule: crate::RuleStyle) -> &'static str {
+    match rule {
+        crate::RuleStyle::None => "none",
+        crate::RuleStyle::Line => "solid",
+    }
 }
