@@ -1,0 +1,22 @@
+{
+  "name": "leaves",
+  "description": "A full-bleed decorative theme with leaf-toned shapes and a soft header banner",
+  "author": "Code a CV contributors",
+  "author_url": "https://github.com/voxvanhieu/code-a-cv/graphs/contributors",
+  "license": "MIT",
+  "preview": "preview.jpg",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "50f757fe2b502e4a64b080f8917ceecfcefe4356336b396bdfd8d8d116a7a6ca"
+    },
+    {
+      "path": "preview.jpg",
+      "sha256": "eb340425c2475b82d51285cab6076975e48249eea9df5620cb5e5741fdc7d2bc"
+    },
+    {
+      "path": "theme.typ",
+      "sha256": "b0f71c8f591d5ad3de31167c9eb4ba1e0158a05fa4f0ceb2bc2104f61c5baf97"
+    }
+  ]
+}

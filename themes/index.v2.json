@@ -5,6 +5,11 @@
       "name": "shapes",
       "description": "A sidebar layout with soft geometric shapes and a muted accent palette",
       "min_cac": "0.4.0"
+    },
+    {
+      "name": "leaves",
+      "description": "A full-bleed decorative theme with leaf-toned shapes and a soft header banner",
+      "min_cac": "0.4.0"
     }
   ],
   "forms": []
