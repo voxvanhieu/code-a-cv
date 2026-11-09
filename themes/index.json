@@ -8,6 +8,10 @@
     {
       "name": "classic-blue",
       "description": "The classic centered CV with blue headings"
+    },
+    {
+      "name": "shapes",
+      "description": "A sidebar layout with soft geometric shapes and a muted accent palette"
     }
   ]
 }
