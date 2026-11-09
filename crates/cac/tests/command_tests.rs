@@ -1543,3 +1543,94 @@ fn build_honours_the_on_disk_bridge_files() {
     let marked = fs::read(&built).unwrap();
     assert_ne!(plain, marked, "the on-disk bridge ran");
 }
+
+#[test]
+fn registry_schema_two_lists_forms_and_gates_versions() {
+    // Schema 2 lives at its own path. The frozen schema-1 index keeps
+    // released clients working; v2 carries forms and `min_cac`.
+    let directory = tempdir().unwrap();
+    let registry = directory.path();
+    let theme = registry.join("meet-form");
+    fs::create_dir_all(&theme).unwrap();
+    // The downloadable payload: a minimal form theme with a checksummed
+    // file list, exactly what `cac theme pack` generates.
+    let source = "#let theme = (layout: (family: \"form\"))\n";
+    let files = serde_json::json!({
+        "name": "meet-form",
+        "description": "A test form",
+        "author": "Ada",
+        "license": "MIT",
+        "preview": "preview.jpg",
+        "files": [
+            {"path": "theme.typ", "sha256": sha256_of(source.as_bytes())},
+            {"path": "README.md", "sha256": sha256_of(b"# meet-form\n")},
+            {"path": "preview.jpg", "sha256": sha256_of(b"jpeg-bytes")},
+        ],
+    });
+    fs::write(
+        theme.join("theme.json"),
+        serde_json::to_vec_pretty(&files).unwrap(),
+    )
+    .unwrap();
+    fs::write(theme.join("theme.typ"), source).unwrap();
+    fs::write(theme.join("README.md"), "# meet-form\n").unwrap();
+    fs::write(theme.join("preview.jpg"), "jpeg-bytes").unwrap();
+    let index = serde_json::json!({
+        "schema_version": 2,
+        "themes": [],
+        "forms": [{
+            "name": "meet-form",
+            "description": "A test form",
+            "min_cac": "99.0.0",
+        }],
+    });
+    fs::write(
+        registry.join("index.v2.json"),
+        serde_json::to_vec_pretty(&index).unwrap(),
+    )
+    .unwrap();
+
+    let env_registry = format!(
+        "file://{}",
+        registry
+            .canonicalize()
+            .unwrap()
+            .to_string_lossy()
+            .replace('\\', "/")
+    );
+    // Search surfaces the form with its kind.
+    Command::cargo_bin("cac")
+        .unwrap()
+        .env("CAC_THEME_REGISTRY", &env_registry)
+        .args(["theme", "search", "form"])
+        .assert()
+        .success()
+        .stdout("meet-form (form): A test form\n");
+    // Info resolves through the forms list.
+    Command::cargo_bin("cac")
+        .unwrap()
+        .env("CAC_THEME_REGISTRY", &env_registry)
+        .args(["theme", "info", "meet-form"])
+        .assert()
+        .success();
+    // Install is gated on `min_cac` before anything downloads.
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .env("CAC_THEME_REGISTRY", &env_registry)
+        .args(["theme", "install", "meet-form", "--local"])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("requires cac 99.0.0 or newer"));
+}
+
+fn sha256_of(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    hex_encode(&hasher.finalize())
+}
+
+fn hex_encode(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}

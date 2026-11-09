@@ -81,10 +81,9 @@ struct Registry {
     schema_version: u32,
     themes: Vec<ThemeSummary>,
     /// Form themes are listed separately: they reject sections by design,
-    /// so the universal-theme search does not surface them. Kept in the
-    /// index for registry tooling.
+    /// so the universal-theme search does not surface them. Schema 2
+    /// carries them; find_theme searches both lists.
     #[serde(default)]
-    #[allow(dead_code)]
     forms: Vec<ThemeSummary>,
 }
 
@@ -93,6 +92,33 @@ struct Registry {
 struct ThemeSummary {
     name: String,
     description: String,
+    /// The minimum cac version that renders the theme (schema 2). Old
+    /// clients never see the field: they keep reading the frozen schema-1
+    /// index, which only lists themes they can render.
+    #[serde(default)]
+    min_cac: Option<String>,
+}
+
+/// Whether the running binary satisfies a `major.minor` requirement.
+fn version_at_least(required: &str) -> bool {
+    let parse = |text: &str| -> Vec<u64> {
+        text.split('.')
+            .map(|part| part.trim().parse::<u64>().unwrap_or(0))
+            .collect()
+    };
+    let required = parse(required);
+    let running = parse(env!("CARGO_PKG_VERSION"));
+    for index in 0..required.len().max(running.len()) {
+        let need = required.get(index).copied().unwrap_or(0);
+        let have = running.get(index).copied().unwrap_or(0);
+        if have > need {
+            return true;
+        }
+        if have < need {
+            return false;
+        }
+    }
+    true
 }
 
 pub fn run(args: Args) -> Result<()> {
@@ -144,13 +170,18 @@ fn collect_themes(
 fn search(args: SearchArgs) -> Result<()> {
     let registry = registry()?;
     let query = args.query.unwrap_or_default().to_ascii_lowercase();
-    for theme in registry.themes {
-        if query.is_empty()
+    let matches = |theme: &ThemeSummary| {
+        query.is_empty()
             || theme.name.to_ascii_lowercase().contains(&query)
             || theme.description.to_ascii_lowercase().contains(&query)
-        {
-            println!("{}: {}", theme.name, theme.description);
-        }
+    };
+    for theme in registry.themes.iter().filter(|theme| matches(theme)) {
+        println!("{}: {}", theme.name, theme.description);
+    }
+    // Form themes surface with their kind, so `cac theme search` finds
+    // them and `install` works through the same lookup.
+    for theme in registry.forms.iter().filter(|theme| matches(theme)) {
+        println!("{} (form): {}", theme.name, theme.description);
     }
     Ok(())
 }
@@ -197,7 +228,15 @@ fn install(args: InstallArgs) -> Result<()> {
 
 fn install_downloadable(name: &str, directory: &Path, force: bool) -> Result<()> {
     let registry = registry()?;
-    find_theme(&registry, name)?;
+    let summary = find_theme(&registry, name)?;
+    if let Some(required) = &summary.min_cac
+        && !version_at_least(required)
+    {
+        return Err(Error::ThemeRegistry(format!(
+            "theme `{name}` requires cac {required} or newer; you are running {}",
+            env!("CARGO_PKG_VERSION")
+        )));
+    }
     let theme = metadata(name)?;
     let base = registry_base();
     let files = theme
@@ -250,19 +289,30 @@ fn remove(args: LocationArgs) -> Result<()> {
 }
 
 fn registry() -> Result<Registry> {
+    // Schema 2 first, at its own path: released 0.3 clients only ever
+    // read `index.json`, which stays frozen at the spellings they can
+    // render, so the schema-2 file can carry new themes, forms, and
+    // `min_cac` without breaking a single installed binary.
+    if let Ok(bytes) = fetch(&resource(&registry_base(), "index.v2.json")) {
+        return parse_registry(&bytes, "index.v2.json");
+    }
     let bytes = fetch(&resource(&registry_base(), "index.json"))?;
-    let registry: Registry = serde_json::from_slice(&bytes)
-        .map_err(|source| Error::ThemeRegistry(format!("invalid index.json: {source}")))?;
-    if registry.schema_version != 1 {
+    parse_registry(&bytes, "index.json")
+}
+
+fn parse_registry(bytes: &[u8], file: &str) -> Result<Registry> {
+    let registry: Registry = serde_json::from_slice(bytes)
+        .map_err(|source| Error::ThemeRegistry(format!("invalid {file}: {source}")))?;
+    if registry.schema_version != 1 && registry.schema_version != 2 {
         return Err(Error::ThemeRegistry(format!(
             "unsupported registry schema version {}",
             registry.schema_version
         )));
     }
     let mut names = std::collections::BTreeSet::new();
-    for theme in &registry.themes {
+    for theme in registry.themes.iter().chain(registry.forms.iter()) {
         cac_render::validate_theme_name(&theme.name)?;
-        if theme.description.trim().is_empty() || !names.insert(&theme.name) {
+        if theme.description.trim().is_empty() || !names.insert(theme.name.as_str()) {
             return Err(Error::ThemeRegistry(format!(
                 "theme `{}` has invalid search metadata",
                 theme.name
@@ -276,6 +326,7 @@ fn find_theme<'a>(registry: &'a Registry, name: &str) -> Result<&'a ThemeSummary
     registry
         .themes
         .iter()
+        .chain(registry.forms.iter())
         .find(|theme| theme.name == name)
         .ok_or_else(|| Error::DownloadableTheme(name.into()))
 }
