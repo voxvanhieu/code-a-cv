@@ -1,0 +1,22 @@
+{
+  "name": "shapes",
+  "description": "A sidebar layout with soft geometric shapes and a muted accent palette",
+  "author": "Code a CV contributors",
+  "author_url": "https://github.com/voxvanhieu/code-a-cv/graphs/contributors",
+  "license": "MIT",
+  "preview": "preview.jpg",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "e19f3834bf1210089fb1c89fcc7622e5d567ad7ba9b8644b846c94944c67431c"
+    },
+    {
+      "path": "preview.jpg",
+      "sha256": "b94ef7dc71dbe9aacade91b70cfd68f083c8298f04d6e800f701a94906b8102a"
+    },
+    {
+      "path": "theme.typ",
+      "sha256": "ae022536febd2fc1471fd82c9d283a817f37c35348af3e57c516ff5e71e5ac5b"
+    }
+  ]
+}
