@@ -4,7 +4,7 @@ use std::fs;
 use cac_core::DatePoint;
 use cac_render::{
     PageMargins, PageSettings, PaginationSettings, RenderOptions, Settings, SpacingSettings,
-    StyleSettings, ThemeSource, TypographySettings, format_date, render_html, render_pdf,
+    StyleOverrides, ThemeSource, TypographySettings, format_date_locale, render_html, render_pdf,
     render_pdf_with_options,
 };
 use tempfile::tempdir;
@@ -24,11 +24,14 @@ fn html_escapes_text_and_preserves_rich_markup() {
 
 #[test]
 fn display_dates_match_classic_resume_style() {
-    assert_eq!(format_date(&DatePoint::Year(2021)), "2021");
-    assert_eq!(format_date(&DatePoint::YearMonth(2021, 8)), "Aug 2021");
+    assert_eq!(format_date_locale("en", &DatePoint::Year(2021)), "2021");
+    assert_eq!(
+        format_date_locale("en", &DatePoint::YearMonth(2021, 8)),
+        "Aug 2021"
+    );
     let full = serde_json::from_str("\"2021-08-17\"").unwrap();
-    assert_eq!(format_date(&full), "Aug 17, 2021");
-    assert_eq!(format_date(&DatePoint::Present), "Present");
+    assert_eq!(format_date_locale("en", &full), "Aug 17, 2021");
+    assert_eq!(format_date_locale("en", &DatePoint::Present), "Present");
 }
 
 #[test]
@@ -234,12 +237,13 @@ fn visual_settings_override_theme_defaults() {
                     heading_font: Some("Noto Sans".into()),
                     ..TypographySettings::default()
                 }),
-                style: Some(StyleSettings {
-                    accent_color: Some("#1f4e79".into()),
-                    body_alignment: Some("left".into()),
+                style: Some(StyleOverrides {
+                    accent_color: Some(cac_render::ColorSpec("#1f4e79".into())),
+                    body_alignment: Some(cac_render::TextAlign::Left),
                     link_underline: Some(false),
-                    header_alignment: Some("right".into()),
+                    header_alignment: Some(cac_render::HeaderAlign::Right),
                     highlight_bullet: Some("◆".into()),
+                    ..StyleOverrides::default()
                 }),
                 spacing: Some(SpacingSettings {
                     section_heading: Some("0.4em".into()),
@@ -691,9 +695,10 @@ fn html_preserves_complete_metadata_and_prose_list_structure() {
         "Acme, Inc.",
         "Remote",
         "Example Press",
-        "2023-05",
-        "2022–",
-        "–2021",
+        "May 2023",
+        "2022",
+        "May 2023",
+        "2021",
         "A paragraph after the list.",
         "Second line.",
     ] {

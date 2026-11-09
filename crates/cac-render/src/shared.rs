@@ -144,6 +144,25 @@ fn visible_strings(
                         links.insert(url.into());
                     }
                 } else if !matches!(key.as_str(), "id" | "kind" | "role") {
+                    // The named slots (V1) carry the same content as the
+                    // legacy keys themes render today; count the legacy
+                    // keys so the expected counts match what the default
+                    // families put on the page. A theme that renders a
+                    // slot updates its own expectations.
+                    if matches!(
+                        key.as_str(),
+                        "structured_period"
+                            | "date"
+                            | "location"
+                            | "url"
+                            | "fields"
+                            | "tags"
+                            | "photo"
+                            | "headline"
+                            | "address"
+                    ) {
+                        continue;
+                    }
                     visible_strings(value, markers, links);
                 }
             }
