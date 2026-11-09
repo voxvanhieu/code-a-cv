@@ -249,7 +249,7 @@ checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 
 [[package]]
 name = "cac"
-version = "0.4.0"
+version = "0.3.0"
 dependencies = [
  "assert_cmd",
  "cac-check",
@@ -273,7 +273,7 @@ dependencies = [
 
 [[package]]
 name = "cac-check"
-version = "0.4.0"
+version = "0.3.0"
 dependencies = [
  "cac-core",
  "cac-io",
@@ -282,7 +282,7 @@ dependencies = [
 
 [[package]]
 name = "cac-core"
-version = "0.4.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "pulldown-cmark",
@@ -294,7 +294,7 @@ dependencies = [
 
 [[package]]
 name = "cac-io"
-version = "0.4.0"
+version = "0.3.0"
 dependencies = [
  "cac-core",
  "chrono",
@@ -310,7 +310,7 @@ dependencies = [
 
 [[package]]
 name = "cac-render"
-version = "0.4.0"
+version = "0.3.0"
 dependencies = [
  "cac-core",
  "cac-io",

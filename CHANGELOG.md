@@ -1,6 +1,18 @@
-## [0.4.0]
+# Changelog
 
-Released on 2026-11-08. See the [0.4 migration guide](docs/migration-0.4.md).
+All notable changes to Code a CV are documented in this file.
+
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and releases use [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+- Build and smoke-test the Apple Silicon CI jobs on macOS 15 because the macOS 14 hosted runners were retired.
+- Drop macOS Intel support; releases and CI now target Apple Silicon (`aarch64-apple-darwin`) only. Existing Intel Mac installs keep working through already-published 0.3.0 artifacts.
+- Check Cargo dependencies and the pinned Rust toolchain weekly with Dependabot, and use the repository toolchain in CI and local development.
+- Run Homebrew tap formula validation on macOS 26 so Rust build dependencies have supported bottles.
+- Use version-only GitHub release titles and verify the generated title in CI.
+
+- See the [0.4 migration guide](docs/migration-0.4.md) for upgrading through the parser, style sheet, and layout changes below.
 
 ### Markdown
 
@@ -15,7 +27,6 @@ Released on 2026-11-08. See the [0.4 migration guide](docs/migration-0.4.md).
 - Render Typst from the resolved style sheet: base.typ reads `.cac/style.json` (numeric lengths, hex colors, no string evaluation) and the Typst-side settings translation (`apply-settings` with its `eval`) is deleted. Determinism doubles as parity: classic builds render byte-identical PDFs against the previous pipeline, including documents with legacy settings.
 - Render the HTML document from the resolved style sheet: CSS custom properties carry fonts, colors, text layout, heading styles, spacing, link underlines, and page geometry. Dates print through the shared locale-aware formatter (en, de, fr, vi, ja) — replacing the raw ISO strings HTML previously leaked.
 - Add the `document_date` setting (YYYY-MM-DD) for deterministic builds: Typst code referencing `today()` sees the fixed date instead of the wall clock.
-- Add overflow detection from frame inspection: pages whose content extends beyond the page edge print a warning naming the page.
 - Add open fields to the rendered view and the default layouts: entry-level `Key: value` lines appear after the typed metadata, and profile-level open fields appear under the header contacts — in both PDF and HTML.
 - Emit the C3 named slots in the rendered view: photo, headline, structured address, open fields, structured periods, scalar dates, location, URL, and tags beside the legacy keys.
 
@@ -37,6 +48,7 @@ Released on 2026-11-08. See the [0.4 migration guide](docs/migration-0.4.md).
 
 ### Platform and checks
 
+- Add `cac build --tags` for job-specific variants: sections and entries carry `Tags:` field lines (or `<!-- tags: ... -->` comments when a tag contains a comma), a build keeps the shared content plus everything tagged with any of the requested tags — profile data always stays — and names the artifact after the variant (`Ada_Lovelace_JobSpecific-backend_leadership.pdf` for `--tags backend,leadership`); `--only-tagged` keeps only explicitly tagged content, and a tag set that matches nothing fails with a diagnostic instead of writing a coincidental artifact.
 - Fix `file://` theme registry URLs on Windows: drive-letter paths and percent-escaped directory names now resolve, and the full workspace test suite runs in CI on Windows.
 - Add overflow detection from frame inspection: pages whose content extends beyond the page edge print a warning naming the page.
 - Enforce the formatter fixed point in CI: a job formats the five Markdown examples with `cac fmt`, then asserts Prettier and markdownlint are no-ops over them.
