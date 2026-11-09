@@ -5,7 +5,6 @@ All notable changes to Code a CV are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and releases use [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-
 - Build and smoke-test the Apple Silicon CI jobs on macOS 15 because the macOS 14 hosted runners were retired.
 - Drop macOS Intel support; releases and CI now target Apple Silicon (`aarch64-apple-darwin`) only. Existing Intel Mac installs keep working through already-published 0.3.0 artifacts.
 - Check Cargo dependencies and the pinned Rust toolchain weekly with Dependabot, and use the repository toolchain in CI and local development.
@@ -13,6 +12,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Use version-only GitHub release titles and verify the generated title in CI.
 
 - See the [0.4 migration guide](docs/migration-0.4.md) for upgrading through the parser, style sheet, and layout changes below.
+
+## [0.4.0]
+
+The date lands when the release tags; the entries below are the 0.4 work.
 
 ### Markdown
 
@@ -53,6 +56,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Add overflow detection from frame inspection: pages whose content extends beyond the page edge print a warning naming the page.
 - Enforce the formatter fixed point in CI: a job formats the five Markdown examples with `cac fmt`, then asserts Prettier and markdownlint are no-ops over them.
 - Add the ten-minute first-theme tutorial (`docs/authoring/your-first-theme.md`) and the ordered improvement roadmap (`docs/development/improvement-roadmap.md`).
+
 
 ## [0.3.0]
 
