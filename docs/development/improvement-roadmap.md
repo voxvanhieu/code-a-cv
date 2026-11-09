@@ -1,70 +1,190 @@
 # Improvement roadmap — 0.4
 
-Ordered implementation plan derived from the architecture review (`dist/Code a CV Review/index.htm`, reviewed 2026-10-23 against commit e325cbb). The ordering is dependency-driven: contracts and schemas first (pure additive work, no rework), then implementations against the frozen contracts, then features, then reference templates. Each task commits on its own; check the box and record the commit when a task lands.
+The ordered implementation plan derived from the architecture review
+(a user-provided document, reviewed 2026-10-23 against the 0.3 codebase).
+The ordering is dependency-driven: contracts and schemas first (pure
+additive work, no rework), then implementations against the frozen
+contracts, then features, then reference templates. Each task commits on
+its own.
+
+**Status**: implemented on the `feature/feature-improvements` branch and
+under review. This file is the plan, not a completion record — the review
+history and per-task commits live in the branch; the merge state lives in
+the pull request.
 
 ## How this file is used
 
-The `/loop` iterations work top to bottom: pick the first unchecked task, implement it, run the four checks (`cargo fmt --all --check`, `cargo clippy --workspace --all-features --all-targets --locked -- -D warnings`, `cargo test --workspace --all-features --locked`, `bash scripts/tests/test_release_resolution.sh`), commit, then tick the box with the commit hash. Keep `[ ]`/`[x]` exactly parseable.
+Work the list top to bottom: pick the first unchecked task, implement it,
+run the four checks (`cargo fmt --all --check`, `cargo clippy --workspace
+--all-features --all-targets --locked -- -D warnings`, `cargo test
+--workspace --all-features --locked`, `bash
+scripts/tests/test_release_resolution.sh`), commit, then tick the box.
+Keep `[ ]`/`[x]` exactly parseable.
 
 ## Wave 0 — Architecture contracts (types, schemas, fixtures; no behavior change)
 
-- [x] **C1 · Model contract** ✅ c6784d9 — In `crates/cac-core`: a field table as data (key, label, accepted entry kinds, parser kind); `Entry.fields` as an ordered open map; core extension types for photo, headline, address, skill level, language proficiency, reference, education score. Types and serde round-trip tests only; every existing fixture still deserializes. Files: `crates/cac-core/src/fields.rs` (new), `document.rs`, `profile.rs` (if present, else `document.rs`), `lib.rs`.
-- [x] **C2 · Style contract** ✅ 78ee8e6 — One style vocabulary as serde structs with `schemars`: page, fonts, colors, text, headings, spacing, lists, links, entry presentation, locale; `ResolvedStyle` type; `theme.toml` schema (name, extends, options, regions, photo, backgrounds, packs); a table mapping all 20 legacy settings keys to new keys. Committed schemas; defaults validate. Files: `crates/cac-render/src/style/` (new `schema.rs`, `mod.rs`), `crates/cac-render/schema/style.schema.json`, `theme.schema.json` (new dir).
-- [x] **C3 · Layout contract** ✅ 1e00316 — The four hook signatures (document, header, section, entry), the `ctx` shape, the named view slots (title, subtitle, date, location, url, fields, highlights, content), structured date with locale/calendar; a stub `contract.typ` that compiles with plain `typst` against a `cv.json` fixture, outside cac. Files: `docs/development/shared-theme-contract.md`, `crates/cac-render/src/view/types.rs` (new), `crates/cac-render/src/typst/contract.typ` (new).
-- [x] **C4 · Grammar spec and corpus** ✅ 298c080 — AST-based FieldMark grammar written as rules in `docs/authoring/markdown.md` (structure only: headings, paragraphs, lists, comments, front matter carry meaning; whitespace never does); fixture pairs `input.md` + `expected.json` for plain, labeled, mixed, post-Prettier, post-markdownlint, six edge cases, legacy directives, front matter; record current 0.3.0 parser output as the before-baseline. Files: `docs/authoring/markdown.md`, `crates/cac-io/tests/fixtures/markdown/`.
-- [x] **T1 · Tags to variants** ✅ fb55d28 — `cac build --tags a,b` keeps tagged sections and entries, drops the rest, names the artifact after the variant; integration test builds two variants from one file; docs example. Files: `crates/cac/src/commands/build.rs`, `crates/cac/src/cli.rs`, `docs/examples/job-specific-cv/` (new).
-- [x] **T0 · Windows-clean tests and file:// registry** ✅ 00bc1ee — Windows suite proof pending CI — Path-separator-agnostic assertions in `crates/cac/tests/command_tests.rs`, help snapshot accepting `cac.exe`, `file://` handling in the registry fetch, a `windows-latest` CI job. Verified by CI, not locally. Files: `crates/cac/tests/command_tests.rs`, `crates/cac/src/commands/theme.rs`, `.github/workflows/ci.yaml`.
+- [ ] **C1 · Model contract** — In `crates/cac-core`: a field table as data
+  (key, label, accepted entry kinds, parser kind); `Entry.fields` as an
+  ordered open map; core extension types for photo, headline, address, skill
+  level, language proficiency, reference, education score. Types and serde
+  round-trip tests only. Files: `crates/cac-core/src/fields.rs`,
+  `document.rs`, `lib.rs`.
+- [ ] **C2 · Style contract** — One style vocabulary as serde structs with
+  `schemars`: page, fonts, colors, text, headings, spacing, lists, links,
+  entry presentation, locale; `ResolvedStyle`; a `theme.toml` schema; a
+  table mapping all 20 legacy settings keys to new keys. Committed schemas;
+  defaults validate. Files: `crates/cac-render/src/style/`,
+  `crates/cac-render/schema/`.
+- [ ] **C3 · Layout contract** — The four hook signatures, the `ctx` shape,
+  the named view slots, structured dates with locale/calendar; a stub
+  `contract.typ` that compiles with plain `typst`. Files:
+  `docs/development/shared-theme-contract.md`,
+  `crates/cac-render/src/view/types.rs`,
+  `crates/cac-render/src/typst/contract.typ`.
+- [ ] **C4 · Grammar spec and corpus** — The AST-based FieldMark grammar as
+  rules in `docs/authoring/markdown.md` (structure only); fixture pairs
+  `input.md` + `expected.json` covering plain, labeled, mixed, post-Prettier,
+  post-markdownlint, edge cases, legacy directives, and front matter.
+  Files: `docs/authoring/markdown.md`,
+  `crates/cac-io/tests/fixtures/markdown/`.
+- [ ] **T1 · Tags to variants** — `cac build --tags a,b`: untagged content
+  is shared, entries tagged for another job never leak, the artifact name
+  comes from the normalized sorted tag set, `--only-tagged` keeps the
+  strict spelling. Files: `crates/cac/src/commands/build.rs`,
+  `crates/cac-core/src/document.rs`, `docs/examples/job-specific-cv/`.
+- [ ] **T0 · Windows-clean tests and file:// registry** — Path-separator-
+  agnostic assertions, `cac.exe` in help snapshots, `file://` handling in
+  the registry fetch, a `windows-latest` CI job.
 
-**Gate 0** ✅ 6435091 — contracts read end to end and frozen:
-
-- **subtitle** is the one word: view slot (`ViewEntry.subtitle`), grammar rule G, style documentation. Payload names (`organization`, `institution`, `publisher`) stay model-side.
-- **dates** cross the boundary as canonical strings (`"2023"`, `"2023-01"`, `"2023-01-15"`, `"Present"`, parsed case-insensitively); Typst formatters also accept `(y:, m:, d:)` dicts for hand-written layouts. Display orders: en month-first with comma, de/fr/vi day-first, ja year-first (年月日).
-- **style groups** are the C2 set: page, fonts, colors, text, header, headings, spacing, lists, links, entry, locale — mirrored in `contract.typ`'s `ctx.style` documentation.
-- **entry kinds** use `EntryKindName` kebab spellings; `text`/`prose` remain model spellings for one release.
-- **rich text** stays the tagged node array (`InlineView`); kinds match `base.typ`'s `rich()` for theme compatibility.
+Gate 0: contracts read end to end and frozen — subtitle is the one word for
+the view slot; dates cross the boundary as canonical strings; style groups
+are the C2 set; entry kinds use kebab spellings; rich text stays the tagged
+node array.
 
 ## Wave 1 — Implementations against the frozen contracts
 
-- [x] **P1 · Two-phase AST parser** ✅ c8aa4d4 — Phase one pulldown-cmark (headings, paragraphs, lists, HTML comments, front matter), phase two maps structure to model. First paragraph after a heading is the field block when its lines are fields/dates/contacts and ≥1 key is known or declared; undeclared keys become open fields with an advisory; an all-undeclared paragraph is prose with an advisory. Blank lines carry no meaning. Per-field heading sugar (`### A, B` fills subtitle only when the kind has a subtitle slot and no explicit subtitle). Directives become fields. The 400-line loop and mode flags are gone. Done when all C4 fixtures pass and the post-Prettier fixture parses identical to the labeled fixture. Files: `crates/cac-io/src/markdown/mod.rs`, new `ast.rs`, `entries.rs`, `fields.rs`.
-- [x] **P2 · Writer and fmt styles** ✅ 0ec91dd — markdownlint project config lands with Q1 — `cac fmt --style explicit|compact|preserve(default)`; blank line after every heading; directives emitted only when needed; formatter-stable output (a Prettier/markdownlint no-op). Files: `crates/cac-io/src/markdown/write.rs`, `crates/cac/src/commands/fmt.rs`.
-- [x] **S1 · Style resolver** ✅ 301181f — Defaults ← theme.toml `[style]` ← settings.json `[style]`, merged and validated once in Rust into resolved style; legacy key shim with deprecation warnings; world serves `/.cac/style.json`; project settings move out of the render crate's rendering path. Snapshot test: every `docs/examples` settings.json resolves equivalently through the shim. Files: `crates/cac-render/src/style/resolve.rs`, `legacy.rs`, `settings.rs`, `pdf.rs`, `crates/cac/src/commands/theme/project.rs`.
-- [x] **S2 · Typst reads the sheet** ✅ 4a5a99d — Tokens, page, typography from the resolved sheet; delete `apply-settings` and its `eval`; lengths arrive as numbers with unit tags. Done when the corpus renders byte-identical classic PDFs. Files: `crates/cac-render/src/typst/style.typ` (new), `base.typ`, `main.typ`.
-- [x] **V1 · View slots and structured dates** ✅ slices 1+2 (2af5bc3 for slice 2) b8a1c5a — named slots/structured dates/open fields in the view + locale snapshots; slice 2: the classic family and HTML render open fields; legacy period strings stay the PDF spelling until the locale tables move Typst-side — View emits named slots from C3, open fields, structured dates; one locale-aware date formatter (en, de, fr, vi, ja) shared by both renderers. Files: `crates/cac-render/src/view.rs`, `view/dates.rs` (new), `lib.rs`.
-- [x] **S3 · HTML on the sheet and the view** ✅ cfcb11c — CSS custom properties from the resolved sheet; renderer walks the view; dates from the shared formatter. Done when HTML and PDF print identical date strings for the corpus and a theme accent shows in HTML. Files: `crates/cac-render/src/html.rs`, `html/theme.css` (new).
-- [x] **L1 · Layout hooks and families** ✅ slice 1 4352f2e 353b7e8 — hooks + classic family + adapter landed; sidebar family moves to L2 with regions (slice 2 cee0819 + this commit landed table/compact + the NOTE) — Four hooks over pure helpers; `classic_components` rewritten as the classic family; sidebar, table, compact families; adapter accepting the old components dictionary for one release. Done when classic, classic-blue, classic-left render the corpus with every marker. Files: `crates/cac-render/src/typst/layout.typ` (new), `families/{classic,sidebar,table,compact}.typ` (new), `themes/classic.typ`.
+- [ ] **P1 · Two-phase AST parser** — Phase one pulldown-cmark, phase two
+  maps structure to model. Blank lines carry no meaning; undeclared keys
+  become open fields; heading sugar fills the subtitle per field. Done when
+  all C4 fixtures pass and the post-Prettier fixture parses identical to
+  the labeled fixture. Files: `crates/cac-io/src/markdown/`.
+- [ ] **P2 · Writer and fmt styles** — `cac fmt --style
+  explicit|compact|preserve`; formatter-stable output; `preserve` takes its
+  spelling from the parser, refuses to drop plain comments, and re-emits
+  front-matter declarations. Files: `crates/cac-io/src/markdown/write.rs`,
+  `crates/cac/src/commands/fmt.rs`.
+- [ ] **S1 · Style resolver** — Defaults ← theme `[style]` ← settings
+  `[style]`, merged and validated once into a resolved sheet; legacy key
+  shim with advisories; the world serves `/.cac/style.json`. Files:
+  `crates/cac-render/src/style/`.
+- [ ] **S2 · Typst reads the sheet** — Tokens, page, typography from the
+  resolved sheet; the sparse settings layer carries only set keys with
+  lengths already in `(value, unit)` form. Files:
+  `crates/cac-render/src/typst/style.typ`, `base.typ`, `main.typ`.
+- [ ] **V1 · View slots and structured dates** — Named slots, structured
+  dates, open fields in the view; one locale-aware date formatter shared by
+  both renderers. Files: `crates/cac-render/src/view.rs`,
+  `crates/cac-render/src/view/dates.rs`.
+- [ ] **S3 · HTML on the sheet and the view** — CSS custom properties from
+  the resolved sheet; the renderer walks the view; dates from the shared
+  formatter. Files: `crates/cac-render/src/html.rs`.
+- [ ] **L1 · Layout hooks and families** — Four hooks over pure helpers;
+  classic, table, compact, sidebar families; the legacy components adapter
+  accepted for one release. Files: `crates/cac-render/src/typst/layout.typ`,
+  `themes/classic.typ`.
 
-**Gate 1** ✅ d1ea75b — verified: base.typ is a thin include of style.typ and layout.typ (S2/L1); the round-trip spot-check runs over every Markdown fixture and the shared corpus in all four native formats (gate1_roundtrip.rs); registry theme parity verified byte-identical (9fd5c3f2… adapter); HTML and PDF print identical date strings through the shared formatter (S3 html_sheet tests).
+Gate 1: the round-trip gate runs every Markdown fixture and the shared
+corpus in all four native formats; HTML and PDF print identical date
+strings through the shared formatter.
 
 ## Wave 2 — Features
 
-- [x] **M1 · Core extension behavior** ✅ 4c8ce72 — Markdown spellings and JSON Resume mapping both ways for photo, headline, address, skill levels, languages, references, score; rich fixture joins the corpus and renders through classic with no marker lost. Files: `crates/cac-io/src/json_resume.rs`, `markdown/fields.rs`, `markdown/write.rs`, `crates/cac-render/fixtures/shared/rich.md` (new).
-- [x] **M2 · Field packs** ✅ 253762a — `fields.toml` loader; typed open fields with labels; packs declared in front matter or settings; `cac check` validates values and reports pack coverage; native formats keep unknown fields. A jp-rirekisho pack types a fixture; undeclared key → advisory, mistyped declared value → error. Files: `crates/cac-core/src/packs.rs` (new), `crates/cac-io/src/packs.rs` (new), `crates/cac-io/src/markdown/front_matter.rs`, `crates/cac-check/src/packs.rs` (new).
-- [~] **L2 · Layout capabilities** ✅ slices 1+2 (1102ce8) d914c0b — sidebar family (two-column regions, numbered sections) landed; photo slot, backgrounds, level bars over skills, and overflow diagnostics remain for slice 2 (remaining: backgrounds, skill level bars over skill entries, overflow diagnostics (photo slot + project-file jail landed in slice 2)) — Regions and placement (sidebar family), photo slot with masks, per-page backgrounds, level bars, section numbering, date gutter. Sidebar fixture with photo, bars, background renders on A4 and Letter without overflow. Files: `families/sidebar.typ`, `regions.typ`, `photo.typ`, `backgrounds.typ`, `levels.typ` (new, in `crates/cac-render/src/typst/`).
-- [x] **L3 · Form template class** ✅ bdfe9fc — `kind = "form"` with `[requires]`; a form may own the document and reject unsupported sections by name; fixed grids; CJK font embedding; Japanese era calendar in the date formatter. Files: `crates/cac-render/src/typst/form.typ` (new), `crates/cac-render/src/theme/form.rs` (new), `view/dates.rs`, `fonts/`.
-- [x] **Y1 · Lifecycle commands** ✅ 48c1f15 — `cac theme new` writes theme.toml, optional layout.typ, real `.cac/` files so `typst watch` works; `theme check` is pure/read-only; `theme pack` alone generates README, preview, index checksums; drop `themeProject` marker and ZIP packaging. Files: `crates/cac/src/commands/theme/{init,test,pack,metadata}.rs` (restructure), `crates/cac-render/src/pdf.rs`, `themes/index.json`, `themes/README.md`.
-- [x] **D1 · Diagnostics and document date** ✅ slices 1+2 commit pending 8ebdf2e — document_date landed; overflow and ATS diagnostics remain — Overflow and page-count checks from frame inspection; `cac check --ats`; explicit `document_date` setting for deterministic builds (never the clock). Files: `crates/cac-render/src/diagnostics.rs` (new), `shared.rs`, `crates/cac/src/commands/check.rs`, `crates/cac-render/src/settings.rs`.
-- [x] **Q1 · CI formatter fixed point** ✅ 6d671c0 — CI job runs Prettier + markdownlint on formatted examples and asserts a no-op with pinned tool versions. Files: `.github/workflows/ci.yaml`, `scripts/tests/test_formatter_fixed_point.sh` (new), `package.json` (new).
-- [x] **W1 · Tutorial and generated reference** ✅ e6983ad — the tutorial, the generated style-key reference linked from it, and the FieldMark guide re-pointed; the full FieldMark-guide-to-appendix move tracked with the docs pass — Ten-minute theme tutorial; style-key reference generated from the schema; FieldMark guide becomes an appendix to the grammar spec. Files: `docs/authoring/your-first-theme.md` (new), `docs/reference/style-keys.md` (new), `docs/authoring/themes.md`, `docs/authoring/fieldmark.md`, `README.md`.
+- [ ] **M1 · Core extension behavior** — Markdown spellings and JSON Resume
+  mapping both ways for photo, headline, address, skill levels, languages,
+  references, score. Files: `crates/cac-io/src/json_resume.rs`,
+  `crates/cac-io/src/markdown/`, `crates/cac-core/src/fields.rs`.
+- [ ] **M2 · Field packs** — `fields.toml` loader; typed open fields with
+  labels; `cac check --pack`; text coerces to the declared type; required
+  keys check the model slots with the JSON Resume spellings as aliases;
+  filesystem access lives in the `cac` crate. Files:
+  `crates/cac-core/src/packs.rs`, `crates/cac-io/src/packs.rs`,
+  `crates/cac-check/src/packs.rs`, `packs/`.
+- [ ] **L2 · Layout capabilities** — Sidebar regions and numbering, photo
+  slot with the project jail, overflow diagnostics. Skill level bars stay
+  open until the view carries per-skill levels. Files:
+  `crates/cac-render/src/typst/layout.typ`,
+  `crates/cac-render/src/diagnostics.rs`.
+- [ ] **L3 · Form template class** — `kind = "form"` with `requires`; the
+  family contract is enforced by the dispatcher no matter which document
+  hook a theme overrides; fixed grids; CJK fonts; era dates from the shared
+  formatter. Files: `crates/cac-render/src/typst/layout.typ`,
+  `crates/cac-render/src/view/dates.rs`.
+- [ ] **Y1 · Lifecycle commands** — `cac theme init` writes real `.cac/`
+  files plus the data inputs the bridge reads, so `typst watch --root .`
+  works and `cac build` honours the on-disk scaffold; `theme check` is
+  pure; `theme pack` generates README, preview, checksums. Files:
+  `crates/cac/src/commands/theme/`, `crates/cac-render/src/pdf.rs`.
+- [ ] **D1 · Diagnostics and document date** — Overflow surfaced from frame
+  inspection; `document_date` for deterministic builds (never the clock);
+  the world serves the date with its era spellings. Files:
+  `crates/cac-render/src/diagnostics.rs`,
+  `crates/cac-render/src/pdf.rs`.
+- [ ] **Q1 · CI formatter fixed point** — CI runs Prettier + markdownlint
+  on formatted examples and asserts a no-op with pinned tool versions;
+  the job gates the merge. Files: `.github/workflows/ci.yaml`,
+  `scripts/tests/test_formatter_fixed_point.sh`.
+- [ ] **W1 · Tutorial and generated reference** — Ten-minute theme
+  tutorial; the style-key reference generated from the schema and linked
+  from the tutorial; FieldMark guide as the grammar appendix. Files:
+  `docs/authoring/your-first-theme.md`, `docs/reference/style-keys.md`.
 
-**Gate 2** — full corpus through every family; examples and previews regenerated; tutorial dry run; changelog and migration notes.
+Gate 2: the corpus through every family; examples and previews
+regenerated; changelog and migration notes.
 
 ## Wave 3 — Reference templates and release
 
-- [x] **R1 · `shapes` sidebar theme** ✅ 54fc466 — Declarative sidebar theme with photo, background shapes, levels, references (original design in the resume.io "shapes" genre, not a clone). Files: `themes/shapes/` (new).
-- [x] **R2 · `leaves` full-bleed theme** ✅ 97b703d — Full-bleed background art, level bars, languages; ATS diagnostic documents the trade-off. Files: `themes/leaves/` (new).
-- [x] **R3 · `rirekisho` Japanese form** ✅ 49b5cec — JIS-style 履歴書 form with jp packs: era dates, computed age, photo cell, fixed grids, CJK fonts; rejects sections it cannot place. Files: `themes/rirekisho/` (new), `packs/jp-rirekisho/` (new), `packs/jp-shokumu/` (new).
-- [x] **Q2 · Property-based round trips** ✅ 2f8bbd8 — Generated documents through Markdown, JSON, YAML, TOML, both fmt styles, and packs; 1,000 cases in CI under a minute. Files: `crates/cac-io/tests/proptest_roundtrip.rs` (new), `crates/cac-core/src/arbitrary.rs` (new).
-- [x] **Z1 · Release 0.4** ✅ 68a5df1 — release complete; the roadmap stays as the record — Changelog, migration guide for 0.3 themes and settings, version bump, tag. Files: `CHANGELOG.md`, `docs/migration-0.4.md` (new), `Cargo.toml`.
+Reference templates ship as their own theme-only pull requests (one per
+theme, `themes/` files only), after the renderer changes they depend on
+have merged. Each registers in the schema-2 registry (`themes/index.v2.json`)
+with a `min_cac` gate; the frozen schema-1 index stays untouched for
+released clients.
 
-## Demo sweep (post-release verification)
+- [ ] **R1 · `shapes` sidebar theme** — Declarative sidebar theme with
+  photo, background shapes, references (original design in the resume.io
+  "shapes" genre, not a clone). Files: `themes/shapes/`.
+- [ ] **R2 · `leaves` full-bleed theme** — Full-bleed background art, level
+  bars, languages; the ATS diagnostic documents the trade-off. Files:
+  `themes/leaves/`.
+- [ ] **R3 · `rirekisho` Japanese form** — JIS-style 履歴書 form with the
+  jp packs: era dates from the shared formatter, photo cell, fixed grids,
+  CJK fonts with their licence; rejects sections it cannot place. Files:
+  `themes/rirekisho/`, `packs/jp-rirekisho/`, `packs/jp-shokumu/`.
+- [ ] **Q2 · Property-based round trips** — Generated documents through
+  Markdown, JSON, YAML, TOML, and packs. Files:
+  `crates/cac-io/tests/q2_property.rs`.
+- [ ] **Z1 · Release 0.4** — Dated changelog section with the preserved
+  history, version bump, migration guide, tag: a separate final release
+  pull request, not part of a feature branch.
 
-- [x] **D-sweep · feature demos with screenshot evidence** ✅ baefc17 (2026-11-08) — every 0.4 feature exercised against the locally built CLI; the captured evidence (screenshots, one section per feature) lives in the pull-request description, not in the repository. The sweep found and fixed four real defects: the Markdown writer dropped Headline/Photo/Address and mislabeled Score as URL; an explicit `Summary:` was clobbered by the prose summary path; JSON Resume export emitted `location: {}` when absent; the rirekisho theme's deep render path crashed on hyphenated identifiers and direct access to skip-serialized address keys, and its era column missed the `structured_period` slot. Baselines after-prettier and labeled-style regenerated for the summary fix (the reviewed diff is the two fixtures gaining `summary`). Four-check gate re-run after the fixes: fmt clean, clippy `-D warnings` clean, 232 tests / 0 failed, release resolution pass, formatter fixed point pass.
+## Feature verification
+
+Every shipped feature was exercised against the locally built CLI before
+review, with the captured output embedded in the pull-request description
+rather than the repository. Demoing found and fixed real defects: writer
+payload gaps, an explicit `Summary:` clobbered by the prose path, a
+spurious `location: {}` in JSON Resume export, and the rirekisho theme's
+era column.
 
 ## Invariants (from the review; every task must preserve them)
 
 - Dependency direction points inward; `cac-core` never touches the filesystem.
-- Rendering safety: CV strings travel to Typst as JSON, never interpolated; theme file access jailed; `cac check` read-only.
-- Deterministic builds: no `today()`; pinned timestamps; byte-identical rebuilds.
+- Rendering safety: CV strings travel to Typst as JSON, never interpolated;
+  themes read only the renderer-collected assets plus their own files;
+  `cac check` read-only.
+- Deterministic builds: no `today()` without `document_date`; pinned
+  timestamps; byte-identical rebuilds.
 - Lossy conversions are refused before writing.
-- Themes must render the shared corpus (`crates/cac-render/fixtures/shared/`) without losing a marker.
-- PRs touching `themes/` contain only theme files; code/changelog changes go separately.
+- Themes must render the shared corpus (`crates/cac-render/fixtures/shared/`)
+  without losing a marker.
+- PRs touching `themes/` contain only theme files; code/changelog changes
+  go separately.
