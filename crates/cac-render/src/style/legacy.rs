@@ -179,6 +179,7 @@ fn without_deprecated_leaves(sheet: &StyleOverrides) -> StyleOverrides {
 }
 
 /// Whether the deprecated spellings were used at all.
+#[allow(dead_code)] // superseded by the shim; kept for the diagnostics road
 pub fn uses_legacy_keys(settings: &Settings) -> bool {
     settings.page.is_some()
         || settings.typography.is_some()

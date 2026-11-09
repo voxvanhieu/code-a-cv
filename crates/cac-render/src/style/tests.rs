@@ -57,7 +57,10 @@ fn defaults_round_trip_through_json() {
 
 #[test]
 fn legacy_map_covers_all_twenty_style_keys() {
-    let legacy_keys: Vec<&str> = LEGACY_SETTINGS_MAP.iter().map(|entry| entry.old).collect();
+    let legacy_keys: Vec<&str> = schema::LEGACY_SETTINGS_MAP
+        .iter()
+        .map(|entry| entry.old)
+        .collect();
     assert_eq!(
         legacy_keys,
         [
@@ -86,7 +89,7 @@ fn legacy_map_covers_all_twenty_style_keys() {
     // Project settings are not style keys and must not appear in the map.
     for key in ["root", "naming", "theme", "themeProject"] {
         assert!(
-            legacy_key(key).is_none(),
+            schema::legacy_key(key).is_none(),
             "`{key}` is a project key, not a style key"
         );
     }
@@ -98,7 +101,7 @@ fn legacy_map_targets_use_known_groups() {
         "page", "fonts", "colors", "text", "header", "headings", "spacing", "lists", "links",
         "entry", "locale",
     ];
-    for entry in LEGACY_SETTINGS_MAP {
+    for entry in schema::LEGACY_SETTINGS_MAP {
         let group = entry.new.split('.').next().expect("new key has a group");
         assert!(
             GROUPS.contains(&group),
@@ -107,7 +110,7 @@ fn legacy_map_targets_use_known_groups() {
         );
     }
     // The inverted mapping is flagged so the shim flips the boolean.
-    let page_break = legacy_key("pagination.allow_entry_page_break").unwrap();
+    let page_break = schema::legacy_key("pagination.allow_entry_page_break").unwrap();
     assert_eq!(page_break.note, "inverted");
     assert_eq!(page_break.new, "entry.keep_together");
 }
@@ -190,7 +193,7 @@ fn theme_manifest_parses_the_classic_blue_example() {
         [options]
         date_width = "30mm"
     "##;
-    let manifest: ThemeManifest = toml::from_str(source).unwrap();
+    let manifest: schema::ThemeManifest = toml::from_str(source).unwrap();
     assert_eq!(manifest.theme.name, "classic-blue");
     assert_eq!(manifest.theme.extends.as_deref(), Some("classic"));
     assert_eq!(
@@ -211,7 +214,7 @@ fn theme_manifest_parses_the_classic_blue_example() {
     );
     assert_eq!(
         manifest.options.get("date_width"),
-        Some(&OptionValue::Text("30mm".into()))
+        Some(&schema::OptionValue::Text("30mm".into()))
     );
 }
 
@@ -245,12 +248,12 @@ fn form_manifest_parses_regions_and_requires() {
         sections = ["education", "experience", "certifications"]
         profile = ["photo", "birth_date", "furigana"]
     "##;
-    let manifest: ThemeManifest = toml::from_str(source).unwrap();
-    assert_eq!(manifest.theme.kind, Some(ThemeKind::Form));
+    let manifest: schema::ThemeManifest = toml::from_str(source).unwrap();
+    assert_eq!(manifest.theme.kind, Some(schema::ThemeKind::Form));
     assert_eq!(manifest.style.locale.as_deref(), Some("ja"));
     let photo = manifest.layout.photo.as_ref().unwrap();
     assert_eq!(photo.region, "header-right");
-    assert_eq!(photo.shape, Some(PhotoShape::Circle));
+    assert_eq!(photo.shape, Some(schema::PhotoShape::Circle));
     assert_eq!(
         photo.size.as_ref().unwrap().parse().unwrap().unit,
         LengthUnit::Mm
@@ -264,9 +267,9 @@ fn form_manifest_parses_regions_and_requires() {
         ]
     );
     let options = &manifest.layout.options;
-    assert_eq!(options.levels, Some(LevelStyle::Label));
+    assert_eq!(options.levels, Some(schema::LevelStyle::Label));
     assert_eq!(options.max_pages, Some(2));
-    assert_eq!(options.ats, Some(AtsMode::Friendly));
+    assert_eq!(options.ats, Some(schema::AtsMode::Friendly));
     let requires = manifest.requires.as_ref().unwrap();
     assert_eq!(requires.packs, ["jp-rirekisho"]);
     assert_eq!(requires.profile, ["photo", "birth_date", "furigana"]);
@@ -274,8 +277,8 @@ fn form_manifest_parses_regions_and_requires() {
 
 #[test]
 fn manifest_without_a_theme_name_is_rejected() {
-    let error =
-        toml::from_str::<ThemeManifest>("[style.colors]\naccent = \"#000000\"\n").unwrap_err();
+    let error = toml::from_str::<schema::ThemeManifest>("[style.colors]\naccent = \"#000000\"\n")
+        .unwrap_err();
     assert!(
         error.to_string().contains("theme"),
         "missing table is reported: {error}"

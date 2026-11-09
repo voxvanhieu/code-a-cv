@@ -1,9 +1,9 @@
-pub mod diagnostics;
+mod diagnostics;
 mod html;
 mod pdf;
 mod settings;
 mod shared;
-pub mod style;
+mod style;
 mod view;
 
 pub use html::{render_html, render_html_for_sheet, render_html_with};
@@ -25,9 +25,12 @@ pub use shared::{SharedThemeArtifact, SharedThemeError, test_shared_theme};
 pub use style::{
     ColorSpec, HeaderAlign, HeadingTransform, Length, LengthUnit, ResolvedStyle, RuleStyle,
     ShimmedSettings, StyleContractError, StyleOverrides, TextAlign, Weight, classic_family,
-    defaults, resolve, resolve_layered, resolved_style_for, shim, style_schema_document,
+    defaults, resolve_layered, resolved_style_for, shim, style_schema_document,
     theme_schema_document,
 };
+// The two-layer fold; the module and the function share a name, so the
+// function takes its own path.
+pub use style::resolve::resolve;
 pub use view::dates::{format_date_locale, format_event_locale, format_period_locale};
 #[doc(hidden)]
 pub use view::test_render_view;

@@ -9,18 +9,13 @@ pub mod resolve;
 pub mod schema;
 
 pub use legacy::{ShimmedSettings, classic_family, shim};
-pub use resolve::{materialize, overlay, resolve, resolve_layered};
+pub use resolve::resolve_layered;
 pub use schema::{
-    AtsMode, BackgroundSpecs, ColorOverrides, ColorSpec, ColorSpecs, DatePosition, EntryStyles,
-    FontSpecs, HeaderAlign, HeaderStyles, HeadingSlot, HeadingStyles, HeadingTransform,
-    LEGACY_SETTINGS_MAP, LayoutOptions, LayoutSpec, LegacyKeyMap, Length, LengthSpec, LengthUnit,
-    LevelStyle, LinkStyles, ListStyles, MarginSpecs, OptionValue, PageStyles, Paper, PhotoShape,
-    PhotoSlot, Requires, ResolvedColors, ResolvedEntry, ResolvedFonts, ResolvedHeader,
-    ResolvedHeading, ResolvedHeadings, ResolvedLinks, ResolvedLists, ResolvedMargins, ResolvedPage,
-    ResolvedSectionHeading, ResolvedSpacing, ResolvedStyle, ResolvedText, RuleStyle,
-    SectionHeadingSlot, SpacingStyles, StyleContractError, StyleLayer, StyleOverrides,
-    SubtitleStyle, TextAlign, TextStyles, ThemeKind, ThemeManifest, ThemeMeta, Weight, legacy_key,
-    parse_length, style_schema_document, theme_schema_document,
+    ColorOverrides, ColorSpec, DatePosition, EntryStyles, FontSpecs, HeaderAlign, HeaderStyles,
+    HeadingSlot, HeadingStyles, HeadingTransform, Length, LengthSpec, LengthUnit, LinkStyles,
+    ListStyles, MarginSpecs, PageStyles, Paper, ResolvedStyle, RuleStyle, SectionHeadingSlot,
+    SpacingStyles, StyleContractError, StyleOverrides, SubtitleStyle, TextAlign, TextStyles,
+    Weight, style_schema_document, theme_schema_document,
 };
 
 /// The built-in style sheet. Values mirror `base.typ`'s default tokens,

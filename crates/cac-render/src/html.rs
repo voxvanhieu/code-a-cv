@@ -26,8 +26,10 @@ pub fn render_html_with(
     style: &ResolvedStyle,
     format_dates: impl Fn(Option<&Period>, Option<&DatePoint>) -> Option<String>,
 ) -> String {
-    let mut output = String::from(
-        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>",
+    // The document language follows the sheet's locale (primary subtag).
+    let language = style.locale.split(['-', '_']).next().unwrap_or("en");
+    let mut output = format!(
+        "<!doctype html><html lang=\"{language}\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>",
     );
     output.push_str(&html_escape::encode_text(&format!(
         "{} CV",
@@ -35,7 +37,7 @@ pub fn render_html_with(
     )));
     output.push_str("</title><style>");
     output.push_str(&css_variables(style));
-    output.push_str("body{font-family:var(--font-body);color:var(--color-text);font-size:var(--text-size);line-height:var(--text-leading);background:#fff}p{margin:0 0 var(--text-paragraph-gap) 0;text-align:var(--text-align)}header{text-align:var(--header-align)}h1{margin-bottom:var(--heading-name-space-after);font-size:var(--heading-name-size,var(--text-size));font-weight:var(--heading-name-weight);color:var(--heading-name-color)}h2{font-size:var(--heading-section-size,var(--text-size));font-weight:var(--heading-section-weight);color:var(--heading-section-color);text-transform:var(--heading-section-transform);border-bottom:var(--heading-section-rule-width) var(--heading-section-rule-style) var(--color-rule);margin-top:var(--spacing-section);margin-bottom:var(--spacing-heading-gap);padding-bottom:.15rem}h3,.entry-title{font-size:var(--heading-entry-size,var(--text-size));font-weight:var(--heading-entry-weight);color:var(--heading-entry-color)}h1,h2,h3{font-family:var(--font-heading)}.contact{display:flex;gap:.75rem;justify-content:var(--header-align);flex-wrap:wrap}a{color:inherit;text-decoration:var(--link-underline)}article.entry{margin:0 0 var(--spacing-entry) 0}.entry-head{display:flex;justify-content:space-between;gap:1rem}.period{white-space:nowrap}.field-label{color:var(--color-muted);margin-right:.35rem}ul{margin:.35rem 0;padding-left:1.3rem}::marker{color:var(--color-accent)}@media print{body{margin:0;max-width:none}@page{size:var(--page-paper);margin:var(--page-margin-top) var(--page-margin-right) var(--page-margin-bottom) var(--page-margin-left)}}@media (prefers-color-scheme: dark){body{background:#111;color:var(--color-text)}}");
+    output.push_str("body{font-family:var(--font-body);color:var(--color-text);font-size:var(--text-size);line-height:var(--text-leading);background:#fff}p{margin:0 0 var(--text-paragraph-gap) 0;text-align:var(--text-align)}header{text-align:var(--header-align)}h1{margin-bottom:var(--heading-name-space-after);font-size:var(--heading-name-size,var(--text-size));font-weight:var(--heading-name-weight);color:var(--heading-name-color)}h2{font-size:var(--heading-section-size,var(--text-size));font-weight:var(--heading-section-weight);color:var(--heading-section-color);text-transform:var(--heading-section-transform);border-bottom:var(--heading-section-rule-width) var(--heading-section-rule-style) var(--color-rule);margin-top:var(--spacing-section);margin-bottom:var(--spacing-heading-gap);padding-bottom:.15rem}h3,.entry-title{font-size:var(--heading-entry-size,var(--text-size));font-weight:var(--heading-entry-weight);color:var(--heading-entry-color)}h1,h2,h3{font-family:var(--font-heading)}.contact{display:flex;gap:.75rem;justify-content:var(--header-align);flex-wrap:wrap}a{color:inherit;text-decoration:var(--link-underline)}article.entry{margin:0 0 var(--spacing-entry) 0}.entry-head{display:flex;justify-content:space-between;gap:1rem}.period{white-space:nowrap}.field-label{color:var(--color-muted);margin-right:.35rem}ul{margin:.35rem 0;padding-left:1.3rem}::marker{color:var(--color-accent)}@media print{body{margin:0;max-width:none}}");
     output.push_str("</style></head><body itemscope itemtype=\"https://schema.org/Person\"><header><h1 itemprop=\"name\">");
     output.push_str(&html_escape::encode_text(&cv.profile.name));
     output.push_str("</h1><div class=\"contact\">");
@@ -368,8 +370,27 @@ fn css_variables(style: &ResolvedStyle) -> String {
         style.page.margin.bottom,
         style.page.margin.left
     );
+    // @page cannot resolve custom properties and needs a CSS page size,
+    // so the paper and margins print as literals.
+    let _ = write!(
+        css,
+        "@page{{size:{};margin:{} {} {} {}}}",
+        css_paper(style.page.paper),
+        style.page.margin.top,
+        style.page.margin.right,
+        style.page.margin.bottom,
+        style.page.margin.left,
+    );
     css.push_str("}\n");
     css
+}
+
+/// The CSS page-size spelling of the paper enum.
+fn css_paper(paper: crate::style::schema::Paper) -> &'static str {
+    match paper {
+        crate::style::schema::Paper::A4 => "A4",
+        crate::style::schema::Paper::UsLetter => "letter",
+    }
 }
 
 fn heading_size(size: &Option<crate::Length>, text: &crate::Length) -> String {

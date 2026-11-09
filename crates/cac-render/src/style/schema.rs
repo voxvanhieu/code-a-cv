@@ -100,41 +100,14 @@ impl ColorSpec {
     }
 }
 
-/// Where a style key may be set from.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum StyleLayer {
-    /// Built into the binary.
-    Defaults,
-    /// A theme's `theme.toml` `[style]` table.
-    Theme,
-    /// The user's `settings.json` `[style]` table.
-    Settings,
-}
-
-impl Display for StyleLayer {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        formatter.write_str(match self {
-            Self::Defaults => "defaults",
-            Self::Theme => "theme",
-            Self::Settings => "settings",
-        })
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum StyleContractError {
     #[error(
         "invalid length `{0}`; expected a positive number with a unit (pt, mm, cm, in, em, rem, %)"
     )]
     Length(String),
-    #[error(
-        "invalid color `{0}`; expected a hex value such as `#1f4e79` or a token name (text, muted, accent, rule)"
-    )]
-    Color(String),
     #[error("unknown color token `{0}`; known tokens are text, muted, accent, rule")]
     UnknownColorToken(String),
-    #[error("`theme.extends` may not reference itself")]
-    ExtendsCycle,
 }
 
 // ---------------------------------------------------------------------------
@@ -958,7 +931,9 @@ fn schema_document(
 /// The JSON Schema for the `[style]` table shared by theme.toml and settings.json.
 /// The style-key reference page, generated from the schema so the docs
 /// cannot drift from the contract: one table per group, with the key, its
-/// type, its default, and the schema's description.
+/// type, its default, and the schema's description. Doc tooling: only the
+/// freshness test consumes it.
+#[cfg(test)]
 pub fn style_keys_markdown() -> String {
     let schema = style_schema_document();
     let mut page = String::from(
