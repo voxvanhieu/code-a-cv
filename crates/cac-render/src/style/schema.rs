@@ -970,10 +970,7 @@ pub fn style_keys_markdown() -> String {
         .and_then(|defs| defs.as_object())
         .cloned()
         .unwrap_or_default();
-    let properties = schema
-        .get("properties")
-        .and_then(|p| p.as_object())
-        .unwrap();
+    let properties = schema.get("properties").and_then(|p| p.as_object()).unwrap();
     for (group, spec) in properties {
         let reference = spec
             .get("anyOf")
@@ -986,14 +983,10 @@ pub fn style_keys_markdown() -> String {
         let Some(def) = defs.get(reference) else {
             continue;
         };
-        // A top-level scalar shortcut (accent_color, body_alignment) is a
+            // A top-level scalar shortcut (accent_color, body_alignment) is a
         // reference to a scalar type, not a group with keys; the groups
         // are what carry tables.
-        if def
-            .get("properties")
-            .and_then(|p| p.as_object())
-            .is_none_or(|p| p.is_empty())
-        {
+        if def.get("properties").and_then(|p| p.as_object()).is_none_or(|p| p.is_empty()) {
             continue;
         }
         page.push_str(&format!("\n## `{group}`\n\n"));
@@ -1008,12 +1001,7 @@ pub fn style_keys_markdown() -> String {
                     any.iter()
                         .filter_map(|item| item.get("$ref").and_then(|v| v.as_str()))
                         .map(|path| path.rsplit('/').next().unwrap_or("").to_owned())
-                        .chain(
-                            any.iter()
-                                .filter_map(|item| item.get("type"))
-                                .filter_map(|v| v.as_str())
-                                .map(str::to_owned),
-                        )
+                        .chain(any.iter().filter_map(|item| item.get("type")).filter_map(|v| v.as_str()).map(str::to_owned))
                         .collect::<Vec<_>>()
                         .join(" or ")
                 } else {

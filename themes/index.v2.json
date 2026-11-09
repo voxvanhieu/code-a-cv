@@ -12,5 +12,11 @@
       "min_cac": "0.4.0"
     }
   ],
-  "forms": []
+  "forms": [
+    {
+      "name": "rirekisho",
+      "description": "A JIS-style \u5c65\u6b74\u66f8 form with \u548c\u66a6 dates and the jp field packs",
+      "min_cac": "0.4.0"
+    }
+  ]
 }

@@ -1,0 +1,26 @@
+{
+  "name": "rirekisho",
+  "description": "A JIS-style \u5c65\u6b74\u66f8 form: fixed grid, \u548c\u66a6 era dates, photo cell, CJK font bundled",
+  "author": "Code a CV contributors",
+  "author_url": "https://github.com/voxvanhieu/code-a-cv/graphs/contributors",
+  "license": "MIT AND OFL-1.1",
+  "preview": "preview.jpg",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "49bac208b0d3eefce0cd472245b85a03fcae7c18c82cfe0dd0b37a67cde49794"
+    },
+    {
+      "path": "fonts/NotoSansJP-Regular.otf",
+      "sha256": "dff723ba59d57d136764a04b9b2d03205544f7cd785a711442d6d2d085ac5073"
+    },
+    {
+      "path": "preview.jpg",
+      "sha256": "2f21890fdab5baf4cf6ee3700f3d3f70367e295cf5123b9d99ff7dd14c6ec274"
+    },
+    {
+      "path": "theme.typ",
+      "sha256": "12be7ba0dede0b032db22135f471081a23a703ab2171979cfecaeb9912dc858c"
+    }
+  ]
+}
