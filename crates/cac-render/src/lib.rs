@@ -6,8 +6,6 @@ mod shared;
 pub mod style;
 mod view;
 
-use cac_core::DatePoint;
-
 pub use html::{render_html, render_html_for_sheet, render_html_with};
 pub use pdf::{BASE_TYP_SOURCE, LAYOUT_TYP_SOURCE, MAIN_TYP_SOURCE, STYLE_TYP_SOURCE};
 pub use pdf::{
@@ -34,21 +32,5 @@ pub use view::types::{
     InlineView, RichSlot, ViewContact, ViewDocument, ViewEntry, ViewProfile, ViewSection,
 };
 
-pub fn format_date(value: &DatePoint) -> String {
-    const MONTHS: [&str; 12] = [
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-    ];
-
-    match value {
-        DatePoint::Year(year) => year.to_string(),
-        DatePoint::YearMonth(year, month) => {
-            let name = MONTHS
-                .get(usize::from(*month).saturating_sub(1))
-                .copied()
-                .unwrap_or("???");
-            format!("{name} {year}")
-        }
-        DatePoint::Full(date) => date.format("%b %-d, %Y").to_string(),
-        DatePoint::Present => "Present".into(),
-    }
-}
+// The English-only `format_date` is gone: `view::dates` is the one
+// formatter, and both renderers print its strings.

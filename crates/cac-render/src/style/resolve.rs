@@ -211,37 +211,41 @@ fn overlay_entry(lower: Option<&EntryStyles>, upper: Option<&EntryStyles>) -> Op
 
 /// Materialize a style sheet into the resolved form both renderers read.
 pub fn materialize(sheet: &StyleOverrides) -> Result<ResolvedStyle, StyleContractError> {
-    let colors = ColorSpecs {
-        text: sheet
-            .colors
-            .as_ref()
-            .and_then(|colors| colors.text.as_ref())
-            .map(|color| color.resolve(&ColorSpecs::default()))
-            .transpose()?
-            .unwrap_or_else(|| "#000000".into()),
-        muted: sheet
-            .colors
-            .as_ref()
-            .and_then(|colors| colors.muted.as_ref())
-            .map(|color| color.resolve(&ColorSpecs::default()))
-            .transpose()?
-            .unwrap_or_else(|| "#aaaaaa".into()),
-        accent: sheet
-            .colors
-            .as_ref()
-            .and_then(|colors| colors.accent.as_ref())
-            .map(|color| color.resolve(&ColorSpecs::default()))
-            .transpose()?
-            .unwrap_or_else(|| "#000000".into()),
+    // Token references resolve against the built-in palette plus the
+    // sibling tokens this sheet already resolved, in one pass — so
+    // `accent: "text"` yields the builtin text color instead of an empty
+    // string that breaks the compile, and an unknown token is an error
+    // rather than silence.
+    let mut palette = ColorSpecs {
+        text: "#000000".into(),
+        muted: "#aaaaaa".into(),
+        accent: "#000000".into(),
         rule: "#000000".into(),
     };
-    let rule = sheet
-        .colors
-        .as_ref()
-        .and_then(|colors| colors.rule.as_ref())
-        .map(|color| color.resolve(&colors))
-        .transpose()?
-        .unwrap_or_else(|| colors.accent.clone());
+    let sheet_colors = sheet.colors.clone().unwrap_or_default();
+    let resolve_color = |spec: &Option<super::schema::ColorSpec>,
+                         palette: &ColorSpecs|
+     -> Result<Option<String>, StyleContractError> {
+        spec.as_ref()
+            .map(|color| color.resolve(palette))
+            .transpose()
+    };
+    let text = resolve_color(&sheet_colors.text, &palette)?.unwrap_or_else(|| palette.text.clone());
+    palette.text = text.clone();
+    let muted =
+        resolve_color(&sheet_colors.muted, &palette)?.unwrap_or_else(|| palette.muted.clone());
+    palette.muted = muted.clone();
+    let accent =
+        resolve_color(&sheet_colors.accent, &palette)?.unwrap_or_else(|| palette.accent.clone());
+    palette.accent = accent.clone();
+    let rule = resolve_color(&sheet_colors.rule, &palette)?.unwrap_or_else(|| accent.clone());
+    palette.rule = rule.clone();
+    let colors = ColorSpecs {
+        text,
+        muted,
+        accent,
+        rule: rule.clone(),
+    };
     let text = sheet.text.as_ref();
     let length = |spec: &Option<LengthSpec>| spec.as_ref().map(|spec| spec.parse()).transpose();
     let headings = sheet.headings.as_ref();
@@ -359,7 +363,8 @@ pub fn materialize(sheet: &StyleOverrides) -> Result<ResolvedStyle, StyleContrac
                     .map(|item| item.parse_or_auto())
                     .transpose()?
                     .unwrap_or(None),
-                heading_gap: Length::new(0.65, LengthUnit::Em),
+                heading_gap: length(&spacing.heading_gap)?
+                    .unwrap_or(Length::new(0.65, LengthUnit::Em)),
             }
         },
         lists: ResolvedLists {

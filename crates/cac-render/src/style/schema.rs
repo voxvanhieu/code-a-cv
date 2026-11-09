@@ -31,24 +31,15 @@ use serde::{Deserialize, Serialize};
 /// A length as the author writes it: a non-negative number with an explicit
 /// unit. Zero is allowed where spacing allows it (heading space, gaps).
 ///
-/// Deserializes from the authoring string (`"16mm"`); serializes as the
-/// resolved `{value, unit}` object the renderers read, so a sparse
-/// settings layer is renderer-ready without a second conversion.
+/// Deserializes and serializes as the authoring string (`"16mm"`) — the
+/// same spelling, so a settings file the tool writes back parses again.
+/// The renderers read the parsed [`Length`], not this type.
 #[derive(Clone, Debug, PartialEq, Eq, JsonSchema, Deserialize)]
 pub struct LengthSpec(pub String);
 
 impl Serialize for LengthSpec {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        use serde::ser::SerializeMap;
-        match parse_length(&self.0) {
-            Some(length) => {
-                let mut map = serializer.serialize_map(Some(2))?;
-                map.serialize_entry("value", &length.value)?;
-                map.serialize_entry("unit", &length.unit)?;
-                map.end()
-            }
-            None => serializer.serialize_str(&self.0),
-        }
+        serializer.serialize_str(&self.0)
     }
 }
 
@@ -969,7 +960,7 @@ pub fn style_schema_document() -> serde_json::Value {
     schema_document(
         "Code a CV style sheet",
         "One style vocabulary shared by defaults, theme.toml [style], and settings.json [style]. Every key is optional; layers merge over the built-in defaults.",
-        "https://raw.githubusercontent.com/voxvanhieu/code-a-cv/main/schema/style.schema.json",
+        "https://raw.githubusercontent.com/voxvanhieu/code-a-cv/main/crates/cac-render/schema/style.schema.json",
         schemars::schema_for!(StyleOverrides),
     )
 }
@@ -979,7 +970,7 @@ pub fn theme_schema_document() -> serde_json::Value {
     schema_document(
         "Code a CV theme manifest",
         "A declarative theme: metadata, style overrides, family options, layout regions, and form requirements.",
-        "https://raw.githubusercontent.com/voxvanhieu/code-a-cv/main/schema/theme.schema.json",
+        "https://raw.githubusercontent.com/voxvanhieu/code-a-cv/main/crates/cac-render/schema/theme.schema.json",
         schemars::schema_for!(ThemeManifest),
     )
 }

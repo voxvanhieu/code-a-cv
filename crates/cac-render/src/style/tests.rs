@@ -351,8 +351,17 @@ fn schema_documents_match_committed_files() {
                 );
             }
             Err(_) => {
-                std::fs::write(&path, format!("{canonical}\n")).expect("write schema");
-                panic!("`{file}` was missing and has been written; commit it");
+                // Read-only by default: the test never writes into the
+                // source tree on its own. Regenerate deliberately:
+                //   CAC_WRITE_SCHEMAS=1 cargo test -p cac-render --lib
+                if std::env::var("CAC_WRITE_SCHEMAS").as_deref() == Ok("1") {
+                    std::fs::write(&path, format!("{canonical}\n")).expect("write schema");
+                    println!("`{file}` regenerated; review and commit it");
+                } else {
+                    panic!(
+                        "`{file}` is missing from the source tree; regenerate deliberately with CAC_WRITE_SCHEMAS=1 cargo test -p cac-render --lib"
+                    );
+                }
             }
         }
     }

@@ -147,10 +147,11 @@ pub(crate) fn render_pdf_document(
         serde_json::to_vec(&render_settings)?,
         &render_settings,
         serde_json::to_vec_pretty(&style_sheet)?,
-        // Sparse: only the keys settings set. The overlay re-asserts the
+        // Sparse: only the keys settings set, with lengths already in the
+        // (value, unit) form the bridge reads. The overlay re-asserts the
         // settings layer above legacy theme dictionaries; unset keys must
         // not clobber the family values beneath them.
-        serde_json::to_vec(&shimmed.style)?,
+        serde_json::to_vec(&renderer_style_json(&shimmed.style))?,
         &resolved,
         assets,
     )?;
@@ -228,10 +229,11 @@ pub fn render_pdf_and_preview_with_options(
         serde_json::to_vec(&render_settings)?,
         &render_settings,
         serde_json::to_vec_pretty(&style_sheet)?,
-        // Sparse: only the keys settings set. The overlay re-asserts the
+        // Sparse: only the keys settings set, with lengths already in the
+        // (value, unit) form the bridge reads. The overlay re-asserts the
         // settings layer above legacy theme dictionaries; unset keys must
         // not clobber the family values beneath them.
-        serde_json::to_vec(&shimmed.style)?,
+        serde_json::to_vec(&renderer_style_json(&shimmed.style))?,
         &resolved,
         assets,
     )?;
@@ -330,12 +332,67 @@ fn resolve_theme(name: &str, options: &RenderOptions) -> Result<ResolvedTheme, R
     }
 }
 
+/// The sparse settings layer, renderer-ready: a `LengthSpec` serializes as
+/// its authoring string (`"16mm"`), but the Typst bridge reads
+/// `(value, unit)` pairs — so lengths convert here, once, in Rust, and no
+/// string ever reaches a Typst `length()` helper.
+fn renderer_style_json(style: &crate::style::schema::StyleOverrides) -> serde_json::Value {
+    fn walk(value: serde_json::Value) -> serde_json::Value {
+        match value {
+            serde_json::Value::String(text) => {
+                let spec: crate::style::schema::LengthSpec =
+                    serde_json::from_value(serde_json::Value::String(text.clone()))
+                        .expect("a string rebuilds a length spec");
+                match spec.parse() {
+                    Ok(length) => {
+                        serde_json::to_value(length).unwrap_or(serde_json::Value::String(text))
+                    }
+                    Err(_) => serde_json::Value::String(text),
+                }
+            }
+            serde_json::Value::Array(items) => {
+                serde_json::Value::Array(items.into_iter().map(walk).collect())
+            }
+            serde_json::Value::Object(map) => serde_json::Value::Object(
+                map.into_iter()
+                    .filter(|(_, value)| !value.is_null())
+                    .map(|(key, value)| (key, walk(value)))
+                    .collect(),
+            ),
+            other => other,
+        }
+    }
+    walk(serde_json::to_value(style).expect("style overrides serialize"))
+}
+
 /// The jail root for project files: the `.cac` directory's parent.
 fn project_root(options: &RenderOptions) -> Option<PathBuf> {
     options
         .project_dir
         .as_deref()
         .and_then(|dir| dir.parent().map(Path::to_path_buf))
+}
+
+/// The pinned document date with its locale spellings, computed here so no
+/// theme keeps a second era table: form themes print the 和暦 line from
+/// this file instead of reading the clock.
+fn document_date_json(settings: &Settings) -> String {
+    let date = settings
+        .document_date
+        .as_deref()
+        .and_then(|value| chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d").ok());
+    let payload = match date {
+        Some(date) => {
+            let point = cac_core::DatePoint::Full(date);
+            serde_json::json!({
+                "date": date.to_string(),
+                "era": crate::view::dates::era_date_full(date),
+                "japanese": crate::view::dates::format_date_locale("ja", &point),
+            })
+        }
+        None => serde_json::json!({ "date": null, "era": null, "japanese": null }),
+    };
+    serde_json::to_string(&payload).unwrap_or_else(|_| "{}".into())
 }
 
 fn format_diagnostics<T: fmt::Debug>(diagnostics: &[T]) -> String {
@@ -355,7 +412,8 @@ struct CacWorld {
     settings: Bytes,
     style: Bytes,
     settings_style: Bytes,
-    document_date: Option<Datetime>,
+    document_date: Bytes,
+    document_date_value: Option<Datetime>,
     theme: ResolvedTheme,
     /// The only project files Typst may read: the paths the renderer itself
     /// collected (the document's photo), keyed by the view's spelling.
@@ -439,7 +497,8 @@ impl CacWorld {
             settings: Bytes::new(settings),
             style: Bytes::new(style),
             settings_style: Bytes::new(settings_style),
-            document_date,
+            document_date: Bytes::new(document_date_json(settings_parsed).into_bytes()),
+            document_date_value: document_date,
             theme: ResolvedTheme {
                 source_text: theme.source_text.clone(),
                 source: theme.source,
@@ -500,6 +559,7 @@ impl World for CacWorld {
             ".cac/settings.json" => Ok(self.settings.clone()),
             ".cac/style.json" => Ok(self.style.clone()),
             ".cac/settings-style.json" => Ok(self.settings_style.clone()),
+            ".cac/document-date.json" => Ok(self.document_date.clone()),
             value if value.starts_with(".cac/") => self.theme_file(Path::new(&value[5..])),
             // Project files: only the renderer-collected assets (the
             // document's photo) are reachable. A theme asking for anything
@@ -517,7 +577,7 @@ impl World for CacWorld {
     }
     fn today(&self, _: Option<Duration>) -> Option<Datetime> {
         // Deterministic builds: the document date setting, never the clock.
-        self.document_date
+        self.document_date_value
     }
 }
 

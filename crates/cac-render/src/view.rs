@@ -1,11 +1,15 @@
 pub mod dates;
 pub mod types;
 
-use crate::format_date;
+use crate::view::dates::{era_period, format_date_locale, format_period_locale};
 use cac_core::{CvDocument, Entry, EntryKind, SectionKind};
 use serde::Serialize;
 
 use types::{InlineView, rich_view};
+
+/// The locale the view's display strings use; the English 0.3 spellings
+/// when no locale is chosen.
+pub const DEFAULT_VIEW_LOCALE: &str = "en";
 
 #[derive(Serialize)]
 struct RenderView {
@@ -39,6 +43,9 @@ struct EntryView {
     primary: Vec<InlineView>,
     secondary: Option<Vec<InlineView>>,
     period: Option<String>,
+    // The 和暦 spelling of the period, computed here so no theme keeps a
+    // second era table (A5).
+    era_period: Option<String>,
     // Named slots (C3/V1): structured dates, scalar metadata, and open
     // fields ride beside the legacy keys for one release. Every key is
     // present; absent values serialize as null.
@@ -67,7 +74,7 @@ fn entry_kind_name(kind: &EntryKind) -> &'static str {
     }
 }
 
-fn entry_view(entry: &Entry) -> EntryView {
+fn entry_view(entry: &Entry, locale: &str) -> EntryView {
     let (primary, secondary) = entry.kind.heading();
     EntryView {
         kind: entry_kind_name(&entry.kind),
@@ -76,14 +83,14 @@ fn entry_view(entry: &Entry) -> EntryView {
         period: entry
             .kind
             .period()
-            .map(|period| {
-                format!(
-                    "{} – {}",
-                    period.start.as_ref().map(format_date).unwrap_or_default(),
-                    period.end.as_ref().map(format_date).unwrap_or_default()
-                )
-            })
-            .or_else(|| entry.kind.date().map(format_date)),
+            .and_then(|period| format_period_locale(locale, period))
+            .or_else(|| {
+                entry
+                    .kind
+                    .date()
+                    .map(|date| format_date_locale(locale, date))
+            }),
+        era_period: entry.kind.period().and_then(era_period),
         structured_period: entry.kind.period().cloned(),
         date: entry.kind.date().cloned(),
         location: match &entry.kind {
@@ -111,7 +118,7 @@ fn entry_view(entry: &Entry) -> EntryView {
     }
 }
 
-fn entry_views(entries: &[Entry]) -> Vec<EntryView> {
+fn entry_views(entries: &[Entry], locale: &str) -> Vec<EntryView> {
     let mut views: Vec<EntryView> = Vec::new();
     for entry in entries {
         if let EntryKind::Text(value) = &entry.kind
@@ -121,13 +128,13 @@ fn entry_views(entries: &[Entry]) -> Vec<EntryView> {
             previous.highlights.push(rich_view(&value.body));
             continue;
         }
-        views.push(entry_view(entry));
+        views.push(entry_view(entry, locale));
     }
     views
 }
 
-impl From<&CvDocument> for RenderView {
-    fn from(cv: &CvDocument) -> Self {
+impl RenderView {
+    fn for_locale(cv: &CvDocument, locale: &str) -> Self {
         let mut contacts: Vec<_> = [
             (
                 "email",
@@ -180,7 +187,7 @@ impl From<&CvDocument> for RenderView {
                     id: section.id.clone(),
                     kind: section.kind.clone(),
                     title: section.title.clone(),
-                    entries: entry_views(&section.entries),
+                    entries: entry_views(&section.entries, locale),
                     tags: section.tags.clone(),
                 })
                 .collect(),
@@ -260,13 +267,23 @@ fn metadata_view(kind: &EntryKind) -> Vec<MetadataView> {
 }
 
 pub(crate) fn render_view(cv: &CvDocument) -> Result<Vec<u8>, serde_json::Error> {
-    serde_json::to_vec(&RenderView::from(cv))
+    render_view_with_locale(cv, DEFAULT_VIEW_LOCALE)
+}
+
+/// The view with display strings in the sheet's locale — the one formatter
+/// lives in `dates`, so PDF and HTML always print the same spellings.
+pub(crate) fn render_view_with_locale(
+    cv: &CvDocument,
+    locale: &str,
+) -> Result<Vec<u8>, serde_json::Error> {
+    serde_json::to_vec(&RenderView::for_locale(cv, locale))
 }
 
 /// The rendered view as a serializable value, for snapshot tests.
 #[doc(hidden)]
 pub fn test_render_view(cv: &CvDocument) -> serde_json::Value {
-    serde_json::to_value(RenderView::from(cv)).expect("the view serializes")
+    serde_json::to_value(RenderView::for_locale(cv, DEFAULT_VIEW_LOCALE))
+        .expect("the view serializes")
 }
 
 #[cfg(test)]

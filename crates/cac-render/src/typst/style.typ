@@ -13,6 +13,11 @@
 // luma, matching the grayscale the renderer emitted before the sheet
 // existed, so the default palette stays byte-identical.
 #let color-of(hex) = {
+  // A token name (`"text"`) is not a color yet; the merged tokens
+  // dictionary resolves it, so hand it through instead of slicing bytes.
+  if not hex.starts-with("#") {
+    return hex
+  }
   let digits = hex.slice(1)
   let channel = slice => int(slice, base: 16)
   let red = channel(digits.slice(0, 2))
@@ -75,8 +80,11 @@
   }
   dict.insert("weight", slot.at("weight", default: "regular"))
   // The styles dictionaries reference colors by token name; the bridge
-  // registers non-token colors in the tokens dictionary for them.
-  dict.insert("color", color-name)
+  // registers non-token colors in the tokens dictionary for them. A
+  // sparse layer may set no color, and absence keeps the merged default.
+  if color-name != none {
+    dict.insert("color", color-name)
+  }
   dict.insert("space_before", length(slot.at("space_before", default: (value: 0.0, unit: "pt"))))
   dict.insert("space_after", length(slot.at("space_after", default: (value: 0.65, unit: "em"))))
   dict
@@ -209,7 +217,9 @@
   }
   let styles = (:)
   let text-group = group(sheet, "text")
-  if text != (:) {
+  // `text` names the built-in function here, so the old comparison was
+  // always true; the group itself is what may be empty.
+  if text-group != (:) {
     let body = (:)
     if text-group.at("size", default: none) != none { body.insert("font_size", length(text-group.size)) }
     if text-group.at("leading", default: none) != none { body.insert("line_spacing", length(text-group.leading)) }
@@ -239,9 +249,11 @@
     // The 0.3 shim carried the bullet as a plain string; keep that shape.
     styles.insert("highlight", (bullet: lists.bullet))
   }
-  if spacing.at("item", default: none) != none {
+  let item = spacing.at("item", default: none)
+  if item != none and type(item) == dictionary {
+    // The auto spelling means "follow the leading" and stays unset here.
     let list-dict = styles.at("list", default: (:))
-    list-dict.insert("item_spacing", length(spacing.item))
+    list-dict.insert("item_spacing", length(item))
     styles.insert("list", list-dict)
   }
   let headings = group(sheet, "headings")
@@ -252,7 +264,17 @@
   ) {
     let slot = headings.at(key, default: none)
     if slot != none {
-      let slot-dict = heading-slot(slot, color-ref(tokens.colors, color-of(slot.at("color", default: "#000000")), "heading-" + key))
+      let slot-color = slot.at("color", default: none)
+      let color-name = if slot-color == none {
+        none
+      } else if slot-color.starts-with("#") {
+        // A concrete color registers beside the tokens under its own key.
+        color-ref(tokens.at("colors", default: (:)), color-of(slot-color), "heading-" + key)
+      } else {
+        // A token name resolves against the merged tokens later.
+        slot-color
+      }
+      let slot-dict = heading-slot(slot, color-name)
       styles.insert(slot-name, slot-dict)
     }
   }

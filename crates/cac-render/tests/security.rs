@@ -99,3 +99,35 @@ fn theme_code_cannot_read_files_outside_the_asset_allowlist() {
     let message = error.to_string();
     assert!(!message.contains("TOPSECRET"), "secret leaked: {message}");
 }
+
+#[test]
+fn partial_style_overrides_render_without_crashing() {
+    // A settings file that sets one nested key — and nothing else — must
+    // compile: the sparse layer carries only set keys, lengths arrive as
+    // (value, unit) pairs, and absent siblings keep their defaults.
+    let directory = tempdir().unwrap();
+    let theme = directory.path().join(".cac/themes/classic");
+    fs::create_dir_all(&theme).unwrap();
+    fs::write(
+        theme.join("theme.typ"),
+        "#let theme = (layout: (family: \"classic\"))",
+    )
+    .unwrap();
+    fs::write(
+        directory.path().join("settings.json"),
+        r#"{"theme":"classic","style":{"headings":{"section":{"size":"14pt"}},"text":{"size":"11pt"}}}"#,
+    )
+    .unwrap();
+    let cv: CvDocument =
+        serde_json::from_str(r#"{"profile":{"name":"Ada"},"sections":[{"id":"e","title":"Experience","kind":"experience","entries":[{"type":"experience","role":"Engineer","organization":"Acme"}]}]}"#).unwrap();
+    let rendered = render_pdf_with_options(
+        &cv,
+        &RenderOptions {
+            project_dir: Some(directory.path().join(".cac")),
+            user_dir: None,
+            settings: Settings::from_path(&directory.path().join("settings.json")).unwrap(),
+        },
+    );
+    let rendered = rendered.expect("partial overrides compile");
+    assert!(rendered.pages >= 1);
+}
