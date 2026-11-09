@@ -386,3 +386,36 @@ fn canonical_schema(value: &serde_json::Value) -> String {
     }
     serde_json::to_string(&sort(value)).unwrap()
 }
+
+#[test]
+fn style_keys_reference_matches_the_schema() {
+    // The reference under docs/reference is generated from the schema, the
+    // same way the committed schemas are. Regenerate deliberately:
+    //   CAC_WRITE_STYLE_KEYS=1 cargo test -p cac-render --lib
+    let generated = super::schema::style_keys_markdown();
+    let path = format!(
+        "{}/../../docs/reference/style-keys.md",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    match std::fs::read_to_string(&path) {
+        Ok(committed) => {
+            assert_eq!(
+                committed, generated,
+                "docs/reference/style-keys.md drifted from the schema; \
+                 regenerate with CAC_WRITE_STYLE_KEYS=1 cargo test -p cac-render --lib"
+            );
+        }
+        Err(_) => {
+            if std::env::var("CAC_WRITE_STYLE_KEYS").as_deref() == Ok("1") {
+                std::fs::create_dir_all(std::path::Path::new(&path).parent().unwrap()).unwrap();
+                std::fs::write(&path, &generated).unwrap();
+                println!("docs/reference/style-keys.md regenerated; review and commit it");
+            } else {
+                panic!(
+                    "docs/reference/style-keys.md is missing; generate it with \
+                     CAC_WRITE_STYLE_KEYS=1 cargo test -p cac-render --lib"
+                );
+            }
+        }
+    }
+}

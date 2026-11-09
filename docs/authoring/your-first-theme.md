@@ -40,9 +40,9 @@ and `-` bullets for highlights. Full grammar:
 
 ## 3. Make it yours with a style sheet (3 minutes)
 
-Create `my-style.toml` and point `settings.json` at it… actually — the
-simplest styling has no extra file at all: open `.cac/themes/my-theme/theme.typ`
-and set a family plus overrides. Two supported shapes:
+The simplest styling has no extra file at all: open
+`.cac/themes/my-theme/theme.typ` and set a family plus overrides. Two
+supported shapes:
 
 **Pick a family and override style keys** (recommended):
 
@@ -85,8 +85,8 @@ fail.
 - **More layouts**: `layout: (family: "table")` for table rows, or
   `"compact"` for a tight one-page look.
 - **Colors and fonts**: every style key is listed in the
-  [style sheet schema](https://raw.githubusercontent.com/voxvanhieu/code-a-cv/main/schema/style.schema.json)
-  — the same table `theme.toml` and `settings.json` `[style]` accept.
+  [generated style-key reference](../reference/style-keys.md) — the same
+  table `theme.toml` and `settings.json` `[style]` accept.
 - **Deeper changes**: override one of the four layout hooks (document,
   header, section, entry) — see the [shared theme contract](../development/shared-theme-contract.md).
 - **Reference**: the [theme contract appendix](themes.md) covers

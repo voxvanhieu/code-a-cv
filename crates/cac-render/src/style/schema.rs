@@ -956,6 +956,75 @@ fn schema_document(
 }
 
 /// The JSON Schema for the `[style]` table shared by theme.toml and settings.json.
+/// The style-key reference page, generated from the schema so the docs
+/// cannot drift from the contract: one table per group, with the key, its
+/// type, its default, and the schema's description.
+pub fn style_keys_markdown() -> String {
+    let schema = style_schema_document();
+    let mut page = String::from(
+        "# Style keys\n\nThe style sheet every renderer reads: defaults, then the theme's \
+`[style]`, then the settings' `[style]`. Generated from `crates/cac-render/schema/style.schema.json` — do not edit by hand;\n\n```sh\nCAC_WRITE_STYLE_KEYS=1 cargo test -p cac-render --lib\n```\n\nregenerates it.\n",
+    );
+    let defs = schema
+        .get("$defs")
+        .and_then(|defs| defs.as_object())
+        .cloned()
+        .unwrap_or_default();
+    let properties = schema.get("properties").and_then(|p| p.as_object()).unwrap();
+    for (group, spec) in properties {
+        let reference = spec
+            .get("anyOf")
+            .and_then(|any| any.as_array())
+            .and_then(|any| any.first())
+            .and_then(|first| first.get("$ref"))
+            .and_then(|value| value.as_str())
+            .and_then(|ref_path| ref_path.rsplit('/').next())
+            .unwrap_or(group);
+        let Some(def) = defs.get(reference) else {
+            continue;
+        };
+            // A top-level scalar shortcut (accent_color, body_alignment) is a
+        // reference to a scalar type, not a group with keys; the groups
+        // are what carry tables.
+        if def.get("properties").and_then(|p| p.as_object()).is_none_or(|p| p.is_empty()) {
+            continue;
+        }
+        page.push_str(&format!("\n## `{group}`\n\n"));
+        if let Some(description) = def.get("description").and_then(|d| d.as_str()) {
+            page.push_str(description);
+            page.push_str("\n\n");
+        }
+        page.push_str("| Key | Type | Description |\n| --- | --- | --- |\n");
+        if let Some(props) = def.get("properties").and_then(|p| p.as_object()) {
+            for (key, key_spec) in props {
+                let kind = if let Some(any) = key_spec.get("anyOf").and_then(|a| a.as_array()) {
+                    any.iter()
+                        .filter_map(|item| item.get("$ref").and_then(|v| v.as_str()))
+                        .map(|path| path.rsplit('/').next().unwrap_or("").to_owned())
+                        .chain(any.iter().filter_map(|item| item.get("type")).filter_map(|v| v.as_str()).map(str::to_owned))
+                        .collect::<Vec<_>>()
+                        .join(" or ")
+                } else {
+                    key_spec
+                        .get("type")
+                        .and_then(|t| t.as_str())
+                        .unwrap_or("value")
+                        .to_owned()
+                };
+                let description = key_spec
+                    .get("description")
+                    .and_then(|d| d.as_str())
+                    .unwrap_or("");
+                page.push_str(&format!(
+                    "| `{key}` | {kind} | {} |\n",
+                    description.replace('|', "\\|").replace('\n', " ")
+                ));
+            }
+        }
+    }
+    page
+}
+
 pub fn style_schema_document() -> serde_json::Value {
     schema_document(
         "Code a CV style sheet",
