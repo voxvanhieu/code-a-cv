@@ -702,6 +702,72 @@ fn check_reads_markdown_from_stdin() {
 }
 
 #[test]
+fn check_validates_open_fields_against_a_pack_file() {
+    let directory = tempdir().unwrap();
+    let cv = directory.path().join("cv.md");
+    let pack = directory.path().join("fields.toml");
+    fs::write(
+        &pack,
+        "name = \"jp-rirekisho\"\n\n[fields.entry.commute]\nlabel = \"Commute\"\ntype = \"text\"\nrequired = true\n\n[fields.entry.dependents]\nlabel = \"Dependents\"\ntype = \"integer\"\n",
+    )
+    .unwrap();
+    // Markdown stores every open field as text; the pack says integer, so
+    // `Dependents: 2` passes. Diagnostics name the declared pack name, not
+    // the file stem.
+    fs::write(
+        &cv,
+        "# Ada\nEmail: ada@example.com\n\n## Facts\nKind: custom\n\n### Personal\nKind: custom\nDependents: 2\nCommute: 40 minutes\n",
+    )
+    .unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["check", "cv.md", "--pack", "fields.toml"])
+        .assert()
+        .success()
+        .stdout("PASS\n")
+        .stderr("");
+
+    fs::write(
+        &cv,
+        "# Ada\nEmail: ada@example.com\n\n## Facts\nKind: custom\n\n### Personal\nKind: custom\nDependents: two\nCommute: 40 minutes\n",
+    )
+    .unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["check", "cv.md", "--pack", "fields.toml"])
+        .assert()
+        .failure()
+        .stdout(predicates::str::contains(
+            "pack `jp-rirekisho` field `dependents`",
+        ))
+        .stdout(predicates::str::contains("FAIL\n"));
+
+    // An unknown key in the pack is a load error naming the file, and a
+    // missing pack file is one too.
+    fs::write(&pack, "name = \"jp\"\nrequird = true\n").unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["check", "cv.md", "--pack", "fields.toml"])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "invalid field pack at fields.toml",
+        ));
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["check", "cv.md", "--pack", "missing.toml"])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "invalid field pack at missing.toml",
+        ));
+}
+
+#[test]
 fn convert_reads_structured_data_from_stdin() {
     Command::cargo_bin("cac")
         .unwrap()

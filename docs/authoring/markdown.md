@@ -93,6 +93,47 @@ be misread (rule F decides; the directives stay for the rare tie). The legacy
 `cac fmt`. Front matter is the standard place for declarations, because every
 Markdown tool preserves it.
 
+## Field packs
+
+A pack is a `fields.toml` file that types and requires open fields.
+`cac check cv.md --pack fields.toml` (repeatable) validates against it:
+
+```toml
+name = "jp-rirekisho"
+
+[fields.entry.commute]
+label = "通勤時間"
+type = "text"
+required = true
+```
+
+The loading and checking rules:
+
+- The declared `name` identifies the pack in diagnostics — not the file
+  stem. Unknown keys at any level (`requird`), a scope other than
+  `profile`/`entry`, and two keys that normalize to the same form are load
+  errors naming the pack file.
+- Keys normalize like CV keys: case-, underscore-, and
+  whitespace-insensitive, so `Commute_Time` and `commute-time` are one
+  field.
+- `type` is `text` (the default), `integer`, `boolean`, `length`, or
+  `date`. Markdown and front matter carry every open field as text, so the
+  checker coerces through the declared kind before it judges:
+  `Dependents: 2` passes an `integer` field, `Remote: yes` a `boolean`
+  field, `Available From: 2026-04` a `date` field. Values that already
+  carry a type (JSON, YAML, TOML) validate directly.
+- A required **profile** field is missing when the profile has neither the
+  typed slot for the core key (`photo`, `email`, `phone`, `location`,
+  `website`, `summary`, `headline`, `address`) nor a matching open field.
+- A required **entry** field is checked only on entries that can carry it.
+  Core keys use the core field table's entry scopes: a required
+  `organization` flags experience entries only. Pack-only keys are
+  required on an entry when the entry's section already uses the key —
+  at least one sibling entry declares it. A rirekisho pack can therefore
+  require `commute` without firing on a Skills section, while an entry
+  whose siblings declare `Commute` and does not is an error.
+- Identical diagnostics are reported once, however many loaded packs agree.
+
 ## The two spellings
 
 The plain style (0.1) is sugar over the labeled style (0.3), defined by

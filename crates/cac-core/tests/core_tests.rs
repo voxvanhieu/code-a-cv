@@ -116,3 +116,52 @@ fn plain_imports_keep_line_breaks_and_literal_markdown() {
         );
     }
 }
+
+#[test]
+fn entries_report_the_core_fields_their_typed_slots_carry() {
+    let experience: cac_core::Entry = serde_json::from_str(
+        r#"{"type":"experience","role":"Engineer","organization":"Acme","period":{"start":"2020","end":"2021"}}"#,
+    )
+    .unwrap();
+    assert!(experience.carries_core_field("organization"));
+    assert!(experience.carries_core_field("Organization"));
+    assert!(experience.carries_core_field("role"));
+    assert!(experience.carries_core_field("period"));
+    assert!(
+        !experience.carries_core_field("institution"),
+        "fields outside the kind's scopes are not carried"
+    );
+    let bare: cac_core::Entry =
+        serde_json::from_str(r#"{"type":"experience","role":"Engineer"}"#).unwrap();
+    assert!(!bare.carries_core_field("organization"));
+    assert!(!bare.carries_core_field("nonexistent-field"));
+
+    let skill: cac_core::Entry =
+        serde_json::from_str(r#"{"type":"skill-group","name":"Spoken","skills":["Japanese"]}"#)
+            .unwrap();
+    assert!(skill.carries_core_field("name"));
+    assert!(skill.carries_core_field("skills"));
+    assert!(
+        !skill.carries_core_field("organization"),
+        "a required organization must not fire on a skill group"
+    );
+    assert_eq!(skill.kind.kind_name(), cac_core::EntryKindName::SkillGroup);
+}
+
+#[test]
+fn profiles_report_core_fields_through_their_typed_slots() {
+    let profile: cac_core::Profile =
+        serde_json::from_str(r#"{"name":"Ada","email":"ada@x.io","photo":"p.jpg"}"#).unwrap();
+    assert!(profile.carries_core_field("email"));
+    assert!(profile.carries_core_field("PHOTO"));
+    assert!(!profile.carries_core_field("phone"));
+    assert!(!profile.carries_core_field("address"));
+    assert!(
+        !profile.carries_core_field("empty"),
+        "non-core keys fall back to the open fields"
+    );
+    let blank: cac_core::Profile =
+        serde_json::from_str(r#"{"name":"Ada","email":"  ","fields":{"extra":"x"}}"#).unwrap();
+    assert!(!blank.carries_core_field("email"), "blank text is missing");
+    assert!(blank.carries_core_field("extra"));
+}

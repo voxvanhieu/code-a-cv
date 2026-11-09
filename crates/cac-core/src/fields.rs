@@ -122,6 +122,13 @@ impl FieldDef {
             other => self.scopes.contains(&other),
         }
     }
+
+    /// Whether the field may appear on an entry of the given kind.
+    pub fn applies_to_entry_kind(&self, kind: EntryKindName) -> bool {
+        self.scopes
+            .iter()
+            .any(|scope| matches!(scope, FieldScope::Entries(kinds) if kinds.contains(&kind)))
+    }
 }
 
 /// Entry scope shorthands for the table below.

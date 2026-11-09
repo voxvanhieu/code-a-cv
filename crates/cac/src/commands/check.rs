@@ -1,6 +1,9 @@
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 use cac_check::{Severity, check_content};
+use cac_core::FieldPack;
+use cac_io::ParseError;
 use clap::Args as ClapArgs;
 
 use crate::cli::CvFormat;
@@ -46,7 +49,7 @@ pub fn run(args: Args) -> Result<()> {
     let mut diagnostics = check_content(&cv);
     let mut packs = Vec::new();
     for path in &args.pack {
-        packs.push(cac_io::packs::load_pack_file(path)?);
+        packs.push(load_pack(path)?);
     }
     diagnostics.extend(cac_check::packs::check_packs(&cv, &packs));
     for diagnostic in &diagnostics {
@@ -65,4 +68,15 @@ pub fn run(args: Args) -> Result<()> {
     } else {
         Ok(())
     }
+}
+
+/// Read a pack file and parse it. Filesystem access lives in the `cac`
+/// crate; cac-io parses the text with the path used only as an error label.
+fn load_pack(path: &Path) -> Result<FieldPack> {
+    let label = path.display().to_string();
+    let source = fs::read_to_string(path).map_err(|error| ParseError::Pack {
+        path: label.clone(),
+        message: format!("could not be read: {error}"),
+    })?;
+    cac_io::packs::parse_pack(&source, &label).map_err(Error::from)
 }

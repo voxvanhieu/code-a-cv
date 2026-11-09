@@ -1,8 +1,26 @@
 //! Pack validation: open fields checked against declared packs, with
 //! coverage for required fields and advisories for undeclared keys.
+//!
+//! Required fields resolve against the model, not the pack's spelling:
+//!
+//! - A required **profile** key is missing when the profile has neither the
+//!   typed slot for a core key (`photo`, `email`, `phone`, `location`,
+//!   `website`, `summary`, `headline`, `address`) nor a matching open field
+//!   ([`cac_core::Profile::carries_core_field`]).
+//! - A required **entry** key is checked only on entries that can carry it.
+//!   A core key uses the core field table's entry scopes, so a required
+//!   `organization` flags experience entries only. A pack-only key is
+//!   required on an entry when the entry's section already uses the key —
+//!   at least one sibling entry declares it. A locale pack can therefore
+//!   require `commute` without firing on sections that never carry it,
+//!   while an entry that skips a field its siblings carry is an error.
+//!
+//! Identical diagnostics are reported once, however many packs agree.
+
+use std::collections::BTreeSet;
 
 use crate::{Diagnostic, Severity};
-use cac_core::{CvDocument, FieldPack, PackScope, validate_field_value};
+use cac_core::{CvDocument, FieldPack, PackScope, core_field, validate_field_value};
 
 /// Validate a document's open fields against the loaded packs. Undeclared
 /// keys are advisories; mistyped declared values and missing required
@@ -59,20 +77,9 @@ pub fn check_packs(cv: &CvDocument, packs: &[FieldPack]) -> Vec<Diagnostic> {
             &field.value.clone(),
         );
     }
-    // Required profile fields resolve through the model keys they map to:
-    // `image` is the photo, `label` the headline, everything else an open
-    // field on the profile.
     for pack in packs {
         for (key, def) in &pack.profile {
-            if !def.required {
-                continue;
-            }
-            let missing = match key.as_str() {
-                "image" => cv.profile.photo.is_none(),
-                "label" => cv.profile.headline.is_none(),
-                other => cv.profile.fields.get(other).is_none(),
-            };
-            if missing {
+            if def.required && !cv.profile.carries_core_field(key) {
                 output.push(Diagnostic {
                     code: "CACPACK3",
                     severity: Severity::Error,
@@ -100,13 +107,22 @@ pub fn check_packs(cv: &CvDocument, packs: &[FieldPack]) -> Vec<Diagnostic> {
             }
             for pack in packs {
                 for (key, def) in &pack.entry {
-                    if def.required
-                        && entry.fields.get(key).is_none()
-                        && section
+                    if !def.required
+                        || entry.fields.get(key).is_some()
+                        || entry.carries_core_field(key)
+                    {
+                        continue;
+                    }
+                    let applies = match core_field(key) {
+                        // Core key: every entry whose kind can carry it.
+                        Some(field) => field.applies_to_entry_kind(entry.kind.kind_name()),
+                        // Pack-only key: the section already uses it.
+                        None => section
                             .entries
                             .iter()
-                            .all(|sibling| sibling.fields.get(key).is_none())
-                    {
+                            .any(|sibling| sibling.fields.get(key).is_some()),
+                    };
+                    if applies {
                         output.push(Diagnostic {
                             code: "CACPACK3",
                             severity: Severity::Error,
@@ -121,5 +137,15 @@ pub fn check_packs(cv: &CvDocument, packs: &[FieldPack]) -> Vec<Diagnostic> {
             }
         }
     }
+    // Several packs can agree on the same problem; report it once.
+    let mut seen = BTreeSet::new();
+    output.retain(|diagnostic| {
+        seen.insert((
+            diagnostic.code,
+            diagnostic.severity,
+            diagnostic.message.clone(),
+            diagnostic.path.clone(),
+        ))
+    });
     output
 }
