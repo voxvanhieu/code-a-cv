@@ -138,6 +138,10 @@ pub(crate) fn render_pdf_document(
     for advisory in &advisories {
         eprintln!("NOTE {}", advisory.message);
     }
+    let assets = collect_assets(
+        cv.profile.photo.as_deref(),
+        project_root(options).as_deref(),
+    )?;
     let world = CacWorld::new(
         crate::view::render_view(cv)?,
         serde_json::to_vec(&render_settings)?,
@@ -147,11 +151,8 @@ pub(crate) fn render_pdf_document(
         // settings layer above legacy theme dictionaries; unset keys must
         // not clobber the family values beneath them.
         serde_json::to_vec(&shimmed.style)?,
-        options
-            .project_dir
-            .as_deref()
-            .and_then(|dir| dir.parent().map(Path::to_path_buf)),
         &resolved,
+        assets,
     )?;
     let warned = typst::compile::<PagedDocument>(&world);
     let document = warned
@@ -218,6 +219,10 @@ pub fn render_pdf_and_preview_with_options(
     for advisory in &advisories {
         eprintln!("NOTE {}", advisory.message);
     }
+    let assets = collect_assets(
+        cv.profile.photo.as_deref(),
+        project_root(options).as_deref(),
+    )?;
     let world = CacWorld::new(
         crate::view::render_view(cv)?,
         serde_json::to_vec(&render_settings)?,
@@ -227,11 +232,8 @@ pub fn render_pdf_and_preview_with_options(
         // settings layer above legacy theme dictionaries; unset keys must
         // not clobber the family values beneath them.
         serde_json::to_vec(&shimmed.style)?,
-        options
-            .project_dir
-            .as_deref()
-            .and_then(|dir| dir.parent().map(Path::to_path_buf)),
         &resolved,
+        assets,
     )?;
     let document = typst::compile::<PagedDocument>(&world)
         .output
@@ -328,6 +330,14 @@ fn resolve_theme(name: &str, options: &RenderOptions) -> Result<ResolvedTheme, R
     }
 }
 
+/// The jail root for project files: the `.cac` directory's parent.
+fn project_root(options: &RenderOptions) -> Option<PathBuf> {
+    options
+        .project_dir
+        .as_deref()
+        .and_then(|dir| dir.parent().map(Path::to_path_buf))
+}
+
 fn format_diagnostics<T: fmt::Debug>(diagnostics: &[T]) -> String {
     diagnostics
         .iter()
@@ -345,9 +355,62 @@ struct CacWorld {
     settings: Bytes,
     style: Bytes,
     settings_style: Bytes,
-    project_root: Option<PathBuf>,
     document_date: Option<Datetime>,
     theme: ResolvedTheme,
+    /// The only project files Typst may read: the paths the renderer itself
+    /// collected (the document's photo), keyed by the view's spelling.
+    assets: std::collections::BTreeMap<String, Bytes>,
+}
+
+/// Read a project asset inside the jail: canonicalized root, no `..`, no
+/// symlink escapes, absolute paths refused.
+fn jailed_read(root: &Path, relative: &Path) -> Result<Vec<u8>, FileError> {
+    if relative.is_absolute() {
+        return Err(FileError::AccessDenied);
+    }
+    let canonical_root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    let canonical = canonical_root
+        .join(relative)
+        .canonicalize()
+        .map_err(|error| FileError::Other(Some(error.to_string().into())))?;
+    if !canonical.starts_with(&canonical_root) {
+        return Err(FileError::AccessDenied);
+    }
+    fs::read(canonical).map_err(|error| FileError::Other(Some(error.to_string().into())))
+}
+
+/// Collect the project assets the render may read: only the document's
+/// photo. Everything else stays unreachable from theme code, so a theme
+/// cannot embed `.env`, `.git/config`, or settings contents in its output.
+fn collect_assets(
+    photo: Option<&str>,
+    root: Option<&Path>,
+) -> Result<std::collections::BTreeMap<String, Bytes>, RenderError> {
+    let mut assets = std::collections::BTreeMap::new();
+    let Some(photo) = photo else {
+        return Ok(assets);
+    };
+    let Some(root) = root else {
+        return Ok(assets);
+    };
+    // A photo the file cannot supply is a warning, not a hard error: the
+    // corpus renders without one, and a theme that needs the image gets
+    // Typst's own not-found error at compile time.
+    let Ok(data) = jailed_read(root, Path::new(photo)) else {
+        eprintln!(
+            "NOTE photo `{photo}` was not found in the project directory; rendering without it"
+        );
+        return Ok(assets);
+    };
+    const MAX_ASSET_BYTES: usize = 32 * 1024 * 1024;
+    if data.len() > MAX_ASSET_BYTES {
+        eprintln!(
+            "NOTE photo `{photo}` is larger than the {MAX_ASSET_BYTES}-byte asset cap; rendering without it"
+        );
+        return Ok(assets);
+    }
+    assets.insert(photo.to_owned(), Bytes::new(data));
+    Ok(assets)
 }
 
 impl CacWorld {
@@ -357,8 +420,8 @@ impl CacWorld {
         settings_parsed: &Settings,
         style: Vec<u8>,
         settings_style: Vec<u8>,
-        project_root: Option<PathBuf>,
         theme: &ResolvedTheme,
+        assets: std::collections::BTreeMap<String, Bytes>,
     ) -> Result<Self, RenderError> {
         let main = file_id("main.typ");
         let mut fonts = FontStore::new();
@@ -376,7 +439,6 @@ impl CacWorld {
             settings: Bytes::new(settings),
             style: Bytes::new(style),
             settings_style: Bytes::new(settings_style),
-            project_root,
             document_date,
             theme: ResolvedTheme {
                 source_text: theme.source_text.clone(),
@@ -384,6 +446,7 @@ impl CacWorld {
                 directory: theme.directory.clone(),
                 embedded_source: theme.embedded_source,
             },
+            assets,
         })
     }
 
@@ -391,19 +454,7 @@ impl CacWorld {
         let Some(root) = &self.theme.directory else {
             return Err(FileError::NotFound(relative.into()));
         };
-        let root = root
-            .canonicalize()
-            .map_err(|error| FileError::Other(Some(error.to_string().into())))?;
-        let canonical = root
-            .join(relative)
-            .canonicalize()
-            .map_err(|error| FileError::Other(Some(error.to_string().into())))?;
-        if !canonical.starts_with(&root) {
-            return Err(FileError::AccessDenied);
-        }
-        fs::read(canonical)
-            .map(Bytes::new)
-            .map_err(|error| FileError::Other(Some(error.to_string().into())))
+        jailed_read(root, relative).map(Bytes::new)
     }
 }
 
@@ -450,31 +501,15 @@ impl World for CacWorld {
             ".cac/style.json" => Ok(self.style.clone()),
             ".cac/settings-style.json" => Ok(self.settings_style.clone()),
             value if value.starts_with(".cac/") => self.theme_file(Path::new(&value[5..])),
-            other => {
-                // Project files (photos, assets): resolved inside the
-                // project root, refusing anything that escapes it. The
-                // root canonicalizes too, so symlinked roots (/tmp on
-                // macOS) still match.
-                let root = self
-                    .project_root
-                    .as_ref()
-                    .ok_or_else(|| FileError::NotFound(other.to_string().into()))?;
-                let relative = Path::new(other);
-                if relative.is_absolute() {
-                    return Err(FileError::AccessDenied);
-                }
-                let canonical_root = root.canonicalize().unwrap_or_else(|_| root.clone());
-                let canonical = canonical_root
-                    .join(relative)
-                    .canonicalize()
-                    .map_err(|error| FileError::Other(Some(error.to_string().into())))?;
-                if !canonical.starts_with(&canonical_root) {
-                    return Err(FileError::AccessDenied);
-                }
-                fs::read(canonical)
-                    .map(Bytes::new)
-                    .map_err(|error| FileError::Other(Some(error.to_string().into())))
-            }
+            // Project files: only the renderer-collected assets (the
+            // document's photo) are reachable. A theme asking for anything
+            // else — `.env`, `.git/config`, settings — is refused before
+            // the filesystem is touched.
+            other => self
+                .assets
+                .get(other)
+                .cloned()
+                .ok_or(FileError::AccessDenied),
         }
     }
     fn font(&self, index: usize) -> Option<Font> {

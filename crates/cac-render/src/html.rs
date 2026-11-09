@@ -86,11 +86,10 @@ pub fn render_html_with(
         }
     }
     for field in cv.profile.fields.iter() {
-        let _ = write!(
-            output,
-            "<div class=\"field\"><span class=\"field-label\">{}</span> {}</div>",
-            html_escape::encode_text(&capitalize_label(&field.key)),
-            html_escape::encode_text(&field.value.as_text())
+        render_field(
+            &capitalize_label(&field.key),
+            &field.value.as_text(),
+            &mut output,
         );
     }
     output.push_str("</div></header>");
@@ -168,11 +167,10 @@ pub fn render_html_with(
                 );
             }
             for field in entry.fields.iter() {
-                let label = capitalize_label(&field.key);
-                let _ = write!(
-                    output,
-                    "<div class=\"field\"><span class=\"field-label\">{label}</span> {}</div>",
-                    html_escape::encode_text(&field.value.as_text())
+                render_field(
+                    &capitalize_label(&field.key),
+                    &field.value.as_text(),
+                    &mut output,
                 );
             }
             if let Some(body) = &entry.content {
@@ -251,8 +249,38 @@ fn render_rich_html(value: &RichText, output: &mut String) {
     render(&value.0, output);
 }
 
-/// CSS custom properties from the resolved style sheet. Lengths keep their
-/// unit spelling; hex colors pass through; enums become CSS spellings.
+/// A string value inside a CSS `"..."`: every character that could close
+/// the string or the surrounding `<style>` element becomes a CSS escape, so
+/// a font name from settings or a theme can never inject CSS or HTML.
+fn css_string(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len());
+    for character in value.chars() {
+        match character {
+            '\\' => escaped.push_str("\\5c "),
+            '"' => escaped.push_str("\\22 "),
+            '<' => escaped.push_str("\\3c "),
+            '>' => escaped.push_str("\\3e "),
+            ';' => escaped.push_str("\\3b "),
+            '{' => escaped.push_str("\\7b "),
+            '}' => escaped.push_str("\\7d "),
+            c if c.is_control() => escaped.push_str(&format!("\\{:x} ", c as u32)),
+            c => escaped.push(c),
+        }
+    }
+    escaped
+}
+
+/// One open field as HTML: both the label and the value are escaped here so
+/// the profile and entry loops cannot drift apart on escaping.
+fn render_field(label: &str, value: &str, output: &mut String) {
+    let _ = write!(
+        output,
+        "<div class=\"field\"><span class=\"field-label\">{}</span> {}</div>",
+        html_escape::encode_text(label),
+        html_escape::encode_text(value)
+    );
+}
+
 /// Capitalize a normalized field key into a display label.
 fn capitalize_label(key: &str) -> String {
     let mut label = String::new();
@@ -274,7 +302,9 @@ fn css_variables(style: &ResolvedStyle) -> String {
     let _ = write!(
         css,
         "--font-body:\"{}\";--font-heading:\"{}\";--font-mono:\"{}\";",
-        style.fonts.body, style.fonts.heading, style.fonts.mono
+        css_string(&style.fonts.body),
+        css_string(&style.fonts.heading),
+        css_string(&style.fonts.mono)
     );
     let _ = write!(
         css,

@@ -585,6 +585,14 @@ impl<'de> Deserialize<'de> for FieldMap {
                     if key.trim().is_empty() {
                         return Err(de::Error::custom("field key must not be empty"));
                     }
+                    if key.chars().any(|character| {
+                        character.is_control()
+                            || matches!(character, '<' | '>' | '&' | '"' | '\'' | '\\' | '`')
+                    }) {
+                        return Err(de::Error::custom(
+                            "field key must not contain markup or control characters",
+                        ));
+                    }
                     map.insert(key, value);
                 }
                 Ok(map)
@@ -800,6 +808,17 @@ mod tests {
     fn field_map_rejects_empty_keys() {
         let result = serde_json::from_str::<FieldMap>(r#"{"": "v"}"#);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn field_map_rejects_markup_keys() {
+        // Defense in depth for the renderers: a key is plain text data and
+        // never carries markup into any output.
+        let result = serde_json::from_str::<FieldMap>(r#"{"<b>bold</b>": "v"}"#);
+        assert!(result.is_err());
+        // Unicode keys keep working.
+        let ok: FieldMap = serde_json::from_str(r#"{"学歴": "v"}"#).unwrap();
+        assert_eq!(ok.len(), 1);
     }
 
     #[test]
