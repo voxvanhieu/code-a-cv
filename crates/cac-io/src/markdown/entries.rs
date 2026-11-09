@@ -552,7 +552,7 @@ fn entry_key_known(default_kind: &str) -> impl Fn(&str) -> bool + '_ {
         if matches!(key, "body" | "content") {
             return false;
         }
-        core_field(key).is_some_and(|field| field.applies_to_entry_kind(default_kind))
+        core_field(key).is_some_and(|field| field.applies_to_entry_kind_name(default_kind))
     }
 }
 

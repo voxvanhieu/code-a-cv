@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
+use crate::fields::{EntryKindName, core_field};
 use crate::{DatePoint, FieldMap, Period, RichText, SkillLevel};
 
 pub type TagSet = BTreeSet<String>;
@@ -44,6 +45,27 @@ pub struct Profile {
     /// the model does not type (a pack declares what they mean).
     #[serde(default, skip_serializing_if = "FieldMap::is_empty")]
     pub fields: FieldMap,
+}
+
+impl Profile {
+    /// Whether the profile carries a value for `key`: the typed slot for a
+    /// profile-scoped core field (a pack may require `photo` or `email` by
+    /// its core name), the open fields for any other key.
+    pub fn carries_core_field(&self, key: &str) -> bool {
+        let present =
+            |value: &Option<String>| value.as_ref().is_some_and(|value| !value.trim().is_empty());
+        match core_field(key).map(|field| field.key) {
+            Some("address") => self.address.is_some(),
+            Some("email") => present(&self.email),
+            Some("headline") => present(&self.headline),
+            Some("location") => present(&self.location),
+            Some("phone") => present(&self.phone),
+            Some("photo") => present(&self.photo),
+            Some("summary") => self.summary.as_ref().is_some_and(|v| !v.is_empty()),
+            Some("website") => self.website.is_some(),
+            _ => self.fields.get(key).is_some(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -348,6 +370,98 @@ impl EntryKind {
             Self::Custom(value) => &value.highlights,
             Self::Text(_) | Self::Prose(_) => &[],
             Self::Language(_) | Self::Reference(_) => &[],
+        }
+    }
+
+    /// The canonical kind name the core field table uses for this entry.
+    pub fn kind_name(&self) -> EntryKindName {
+        match self {
+            Self::Experience(_) => EntryKindName::Experience,
+            Self::Education(_) => EntryKindName::Education,
+            Self::Project(_) => EntryKindName::Project,
+            Self::Publication(_) => EntryKindName::Publication,
+            Self::SkillGroup(_) => EntryKindName::SkillGroup,
+            Self::Custom(_) => EntryKindName::Custom,
+            Self::Text(_) | Self::Prose(_) => EntryKindName::Text,
+            Self::Language(_) => EntryKindName::Language,
+            Self::Reference(_) => EntryKindName::Reference,
+        }
+    }
+}
+
+impl Entry {
+    /// Whether the entry carries a value for the core field `key`: the
+    /// entry's kind must be one of the field's declared entry scopes, and
+    /// the typed slot (`role`, `period`, `tags`, `content`, …) must be
+    /// present. Open fields (`self.fields`) are not consulted; callers
+    /// combine the two.
+    pub fn carries_core_field(&self, key: &str) -> bool {
+        let Some(field) = core_field(key) else {
+            return false;
+        };
+        let name = self.kind.kind_name();
+        if !field.applies_to_entry_kind(name) {
+            return false;
+        }
+        match field.key {
+            "body" => match &self.kind {
+                EntryKind::Text(value) | EntryKind::Prose(value) => !value.body.is_empty(),
+                _ => false,
+            },
+            "content" => self.content.as_ref().is_some_and(|value| !value.is_empty()),
+            "date" => self.kind.date().is_some(),
+            "heading" => {
+                matches!(&self.kind, EntryKind::Custom(value) if !value.heading.is_empty())
+            }
+            "highlights" => !self.kind.highlights().is_empty(),
+            "institution" => {
+                matches!(&self.kind, EntryKind::Education(value) if !value.institution.is_empty())
+            }
+            "location" => matches!(&self.kind, EntryKind::Experience(value) if value
+                .location
+                .as_ref()
+                .is_some_and(|value| !value.trim().is_empty())),
+            "name" => match &self.kind {
+                EntryKind::Project(value) => !value.name.is_empty(),
+                EntryKind::SkillGroup(value) => !value.name.is_empty(),
+                EntryKind::Language(value) => !value.name.is_empty(),
+                EntryKind::Reference(value) => !value.name.is_empty(),
+                _ => false,
+            },
+            "organization" => {
+                matches!(&self.kind, EntryKind::Experience(value) if !value.organization.is_empty())
+            }
+            "period" => self.kind.period().is_some(),
+            "proficiency" => {
+                matches!(&self.kind, EntryKind::Language(value) if value.proficiency.is_some())
+            }
+            "publisher" => matches!(&self.kind, EntryKind::Publication(value) if value
+                .publisher
+                .as_ref()
+                .is_some_and(|value| !value.is_empty())),
+            "qualification" => {
+                matches!(&self.kind, EntryKind::Education(value) if !value.qualification.is_empty())
+            }
+            "role" => matches!(&self.kind, EntryKind::Experience(value) if !value.role.is_empty()),
+            "score" => matches!(&self.kind, EntryKind::Education(value) if value
+                .score
+                .as_ref()
+                .is_some_and(|value| !value.trim().is_empty())),
+            "skills" => {
+                matches!(&self.kind, EntryKind::SkillGroup(value) if !value.skills.is_empty())
+            }
+            "tags" => !self.tags.is_empty(),
+            "title" => {
+                matches!(&self.kind, EntryKind::Publication(value) if !value.title.is_empty())
+            }
+            "url" => match &self.kind {
+                EntryKind::Project(value) => value.url.is_some(),
+                EntryKind::Publication(value) => value.url.is_some(),
+                _ => false,
+            },
+            // `id` and `kind` are section-scoped; `level` lives on skill
+            // items — no entry can carry them.
+            _ => false,
         }
     }
 }

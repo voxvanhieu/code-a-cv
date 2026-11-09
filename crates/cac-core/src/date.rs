@@ -75,6 +75,27 @@ impl DatePoint {
             .then_some(Self::YearMonth(year, month))
     }
 
+    /// Parse a date point from text: a year, `YYYY-MM`, `YYYY-MM-DD`, or
+    /// `Present` (case-insensitive). Shared by deserialization and pack
+    /// validation of `date`-typed open fields.
+    pub fn parse(text: &str) -> Option<Self> {
+        if text.eq_ignore_ascii_case("present") {
+            return Some(Self::Present);
+        }
+        if let Ok(year) = text.parse::<i32>() {
+            return Some(Self::Year(year));
+        }
+        if let Ok(date) = NaiveDate::parse_from_str(text, "%Y-%m-%d") {
+            return Some(Self::Full(date));
+        }
+        if let Some((year, month)) = text.split_once('-')
+            && let (Ok(year), Ok(month)) = (year.parse(), month.parse())
+        {
+            return Self::year_month(year, month);
+        }
+        None
+    }
+
     pub fn granularity(&self) -> u8 {
         match self {
             Self::Year(_) => 1,
@@ -154,22 +175,8 @@ impl<'de> Deserialize<'de> for DatePoint {
             where
                 E: de::Error,
             {
-                if value.eq_ignore_ascii_case("present") {
-                    return Ok(DatePoint::Present);
-                }
-                if let Ok(year) = value.parse::<i32>() {
-                    return Ok(DatePoint::Year(year));
-                }
-                if let Ok(date) = NaiveDate::parse_from_str(value, "%Y-%m-%d") {
-                    return Ok(DatePoint::Full(date));
-                }
-                if let Some((year, month)) = value.split_once('-')
-                    && let (Ok(year), Ok(month)) = (year.parse(), month.parse())
-                    && let Some(point) = DatePoint::year_month(year, month)
-                {
-                    return Ok(point);
-                }
-                Err(E::custom(format!("invalid date point `{value}`")))
+                DatePoint::parse(value)
+                    .ok_or_else(|| E::custom(format!("invalid date point `{value}`")))
             }
         }
         deserializer.deserialize_any(DatePointVisitor)

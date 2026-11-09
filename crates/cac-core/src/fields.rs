@@ -123,14 +123,20 @@ impl FieldDef {
         }
     }
 
+    /// Whether the field may appear on an entry of the given kind.
+    pub fn applies_to_entry_kind(&self, kind: EntryKindName) -> bool {
+        self.scopes
+            .iter()
+            .any(|scope| matches!(scope, FieldScope::Entries(kinds) if kinds.contains(&kind)))
+    }
+
     /// Whether the field may appear on an entry of the given kebab-case
     /// kind name — the question a parser asks while the entry's kind is
     /// still its section's default.
-    pub fn applies_to_entry_kind(&self, kind: &str) -> bool {
-        self.scopes.iter().any(|scope| match scope {
-            FieldScope::Entries(kinds) => kinds.iter().any(|name| name.as_str() == kind),
-            _ => false,
-        })
+    pub fn applies_to_entry_kind_name(&self, kind: &str) -> bool {
+        self.scopes
+            .iter()
+            .any(|scope| matches!(scope, FieldScope::Entries(kinds) if kinds.iter().any(|name| name.as_str() == kind)))
     }
 }
 
