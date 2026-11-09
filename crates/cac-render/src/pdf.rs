@@ -142,16 +142,20 @@ pub(crate) fn render_pdf_document(
         cv.profile.photo.as_deref(),
         project_root(options).as_deref(),
     )?;
+    // The view carries display strings, so it needs the sheet's locale.
+    let view = crate::view::render_view_with_locale(cv, &style_sheet.locale)?;
     let world = CacWorld::new(
-        crate::view::render_view(cv)?,
-        serde_json::to_vec(&render_settings)?,
+        WorldInputs {
+            json: view,
+            settings: serde_json::to_vec(&render_settings)?,
+            style: serde_json::to_vec_pretty(&style_sheet)?,
+            // Sparse: only the keys settings set, with lengths already in
+            // the (value, unit) form the bridge reads. Unset keys must not
+            // clobber the family values beneath them.
+            settings_style: serde_json::to_vec(&renderer_style_json(&shimmed.style))?,
+            document_date: String::new(),
+        },
         &render_settings,
-        serde_json::to_vec_pretty(&style_sheet)?,
-        // Sparse: only the keys settings set, with lengths already in the
-        // (value, unit) form the bridge reads. The overlay re-asserts the
-        // settings layer above legacy theme dictionaries; unset keys must
-        // not clobber the family values beneath them.
-        serde_json::to_vec(&renderer_style_json(&shimmed.style))?,
         &resolved,
         assets,
         options.project_dir.clone(),
@@ -225,16 +229,20 @@ pub fn render_pdf_and_preview_with_options(
         cv.profile.photo.as_deref(),
         project_root(options).as_deref(),
     )?;
+    // The view carries display strings, so it needs the sheet's locale.
+    let view = crate::view::render_view_with_locale(cv, &style_sheet.locale)?;
     let world = CacWorld::new(
-        crate::view::render_view(cv)?,
-        serde_json::to_vec(&render_settings)?,
+        WorldInputs {
+            json: view,
+            settings: serde_json::to_vec(&render_settings)?,
+            style: serde_json::to_vec_pretty(&style_sheet)?,
+            // Sparse: only the keys settings set, with lengths already in
+            // the (value, unit) form the bridge reads. Unset keys must not
+            // clobber the family values beneath them.
+            settings_style: serde_json::to_vec(&renderer_style_json(&shimmed.style))?,
+            document_date: String::new(),
+        },
         &render_settings,
-        serde_json::to_vec_pretty(&style_sheet)?,
-        // Sparse: only the keys settings set, with lengths already in the
-        // (value, unit) form the bridge reads. The overlay re-asserts the
-        // settings layer above legacy theme dictionaries; unset keys must
-        // not clobber the family values beneath them.
-        serde_json::to_vec(&renderer_style_json(&shimmed.style))?,
         &resolved,
         assets,
         options.project_dir.clone(),
@@ -430,6 +438,15 @@ fn format_diagnostics<T: fmt::Debug>(diagnostics: &[T]) -> String {
         .join("; ")
 }
 
+/// The generated payloads the world serves, built once before compiling.
+struct WorldInputs {
+    json: Vec<u8>,
+    settings: Vec<u8>,
+    style: Vec<u8>,
+    settings_style: Vec<u8>,
+    document_date: String,
+}
+
 struct CacWorld {
     library: LazyHash<Library>,
     fonts: FontStore,
@@ -438,11 +455,7 @@ struct CacWorld {
     /// The project `.cac` directory, when one exists; on-disk bridge files
     /// there win over the embedded library, so author edits are real.
     project_cac: Option<PathBuf>,
-    json: Bytes,
-    settings: Bytes,
-    style: Bytes,
-    settings_style: Bytes,
-    document_date: Bytes,
+    inputs: WorldInputs,
     document_date_value: Option<Datetime>,
     theme: ResolvedTheme,
     /// The only project files Typst may read: the paths the renderer itself
@@ -503,11 +516,8 @@ fn collect_assets(
 
 impl CacWorld {
     fn new(
-        json: Vec<u8>,
-        settings: Vec<u8>,
+        inputs: WorldInputs,
         settings_parsed: &Settings,
-        style: Vec<u8>,
-        settings_style: Vec<u8>,
         theme: &ResolvedTheme,
         assets: std::collections::BTreeMap<String, Bytes>,
         project_cac: Option<PathBuf>,
@@ -534,11 +544,13 @@ impl CacWorld {
             fonts,
             main,
             main_source,
-            json: Bytes::new(json),
-            settings: Bytes::new(settings),
-            style: Bytes::new(style),
-            settings_style: Bytes::new(settings_style),
-            document_date: Bytes::new(document_date_json(settings_parsed).into_bytes()),
+            inputs: WorldInputs {
+                json: inputs.json,
+                settings: inputs.settings,
+                style: inputs.style,
+                settings_style: inputs.settings_style,
+                document_date: document_date_json(settings_parsed),
+            },
             document_date_value: document_date,
             project_cac,
             theme: ResolvedTheme {
@@ -612,11 +624,13 @@ impl World for CacWorld {
     fn file(&self, id: FileId) -> FileResult<Bytes> {
         let virtual_path = id.vpath().get_without_slash();
         match virtual_path {
-            ".cac/cv.json" => Ok(self.json.clone()),
-            ".cac/settings.json" => Ok(self.settings.clone()),
-            ".cac/style.json" => Ok(self.style.clone()),
-            ".cac/settings-style.json" => Ok(self.settings_style.clone()),
-            ".cac/document-date.json" => Ok(self.document_date.clone()),
+            ".cac/cv.json" => Ok(Bytes::new(self.inputs.json.clone())),
+            ".cac/settings.json" => Ok(Bytes::new(self.inputs.settings.clone())),
+            ".cac/style.json" => Ok(Bytes::new(self.inputs.style.clone())),
+            ".cac/settings-style.json" => Ok(Bytes::new(self.inputs.settings_style.clone())),
+            ".cac/document-date.json" => {
+                Ok(Bytes::new(self.inputs.document_date.clone().into_bytes()))
+            }
             value if value.starts_with(".cac/") => self.theme_file(Path::new(&value[5..])),
             // Project files: only the renderer-collected assets (the
             // document's photo) are reachable. A theme asking for anything
