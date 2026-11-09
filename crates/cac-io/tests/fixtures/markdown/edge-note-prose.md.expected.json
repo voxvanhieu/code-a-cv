@@ -1,0 +1,25 @@
+{
+  "profile": {
+    "name": "Ada Lovelace"
+  },
+  "sections": [
+    {
+      "id": "experience",
+      "title": "Experience",
+      "kind": "experience",
+      "entries": [
+        {
+          "type": "experience",
+          "role": "Director, Data and AI",
+          "organization": "Analytical Engines Ltd",
+          "period": {
+            "start": "2023-01",
+            "end": "Present"
+          },
+          "highlights": [],
+          "content": "Note: joined through an acquisition; retained the full team."
+        }
+      ]
+    }
+  ]
+}

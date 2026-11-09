@@ -1,0 +1,22 @@
+{
+  "profile": {
+    "name": "Ada Lovelace",
+    "email": "ada@example.com"
+  },
+  "sections": [
+    {
+      "id": "skills",
+      "title": "Skills",
+      "kind": "skills",
+      "entries": [
+        {
+          "type": "skill-group",
+          "name": "Languages",
+          "skills": [
+            "Rust"
+          ]
+        }
+      ]
+    }
+  ]
+}

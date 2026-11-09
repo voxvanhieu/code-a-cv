@@ -1,0 +1,20 @@
+{
+  "profile": {
+    "name": "Ada Lovelace"
+  },
+  "sections": [
+    {
+      "id": "experience",
+      "title": "Experience",
+      "kind": "experience",
+      "entries": [
+        {
+          "type": "experience",
+          "role": "Director, Data and AI",
+          "organization": "Analytical Engines Ltd",
+          "highlights": []
+        }
+      ]
+    }
+  ]
+}

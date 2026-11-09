@@ -1,0 +1,60 @@
+{
+  "profile": {
+    "name": "Ada Lovelace",
+    "email": "ada@example.com",
+    "phone": "+44 20 7000 0000",
+    "location": "London",
+    "website": "https://ada.example.com/",
+    "summary": "Pioneer of computing."
+  },
+  "sections": [
+    {
+      "id": "career",
+      "title": "Experience",
+      "kind": "experience",
+      "entries": [
+        {
+          "type": "experience",
+          "role": "Director, Data and AI",
+          "organization": "Analytical Engines Ltd",
+          "location": "London",
+          "period": {
+            "start": "2023-01",
+            "end": "Present"
+          },
+          "highlights": [
+            "Led the analytical engine team.",
+            "Published the design notes."
+          ]
+        },
+        {
+          "type": "experience",
+          "role": "Independent Consultant",
+          "organization": "Self-employed",
+          "period": {
+            "start": "2020",
+            "end": "2022"
+          },
+          "highlights": [
+            "Advised small teams."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "skills",
+      "title": "Skills",
+      "kind": "skills",
+      "entries": [
+        {
+          "type": "skill-group",
+          "name": "Languages",
+          "skills": [
+            "Rust",
+            "SQL"
+          ]
+        }
+      ]
+    }
+  ]
+}
