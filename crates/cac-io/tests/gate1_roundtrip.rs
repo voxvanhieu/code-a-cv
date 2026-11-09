@@ -46,7 +46,14 @@ fn the_shared_corpus_round_trips_in_every_native_format() {
         env!("CARGO_MANIFEST_DIR"),
         "/../cac-render/fixtures/shared/"
     );
-    let formats = [InputFormat::Json, InputFormat::Yaml, InputFormat::Toml];
+    // Markdown is a native format too: the corpus must round-trip through
+    // it, not only through the three lossless spellings.
+    let formats = [
+        InputFormat::Json,
+        InputFormat::Yaml,
+        InputFormat::Toml,
+        InputFormat::Markdown,
+    ];
     for entry in std::fs::read_dir(dir).expect("corpus dir") {
         let path = entry.unwrap().path();
         if path
@@ -56,7 +63,16 @@ fn the_shared_corpus_round_trips_in_every_native_format() {
             let source = std::fs::read_to_string(&path).unwrap();
             let cv = parse(&source, InputFormat::Json).unwrap();
             for format in formats {
-                let written = serialize(&cv, format);
+                // Markdown refuses documents it cannot spell unambiguously
+                // (checked conversion never writes a corruption); the
+                // corpus round trip covers the spellable documents.
+                let written = match format {
+                    InputFormat::Markdown => match cac_io::to_markdown_checked(&cv) {
+                        Ok(written) => written,
+                        Err(_) => continue,
+                    },
+                    _ => serialize(&cv, format),
+                };
                 let reparsed = parse(&written, format).unwrap();
                 assert_eq!(
                     reparsed,

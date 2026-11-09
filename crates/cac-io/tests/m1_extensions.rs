@@ -8,7 +8,8 @@ const RESUME: &str = r##"{
         "name": "Rina Suzuki",
         "image": "rina.jpg",
         "label": "Backend engineer",
-        "email": "rina@example.com"
+        "email": "rina@example.com",
+        "summary": "Storage systems engineer."
     },
     "education": [{
         "institution": "Tokyo Institute of Technology",
@@ -61,13 +62,18 @@ fn json_resume_with_all_seven_extensions_round_trips_losslessly() {
         .flat_map(|section| &section.entries)
         .any(|entry| matches!(&entry.kind, cac_core::EntryKind::Reference(_)));
     assert!(references, "5 references");
-    let _ = cv.profile.address; // 6 address — exercised via Markdown below
-    assert!(
-        cv.profile.summary.is_none() || true,
-        "7 score/languages/references/photo/headline/address covered"
+    // The JSON Resume source carries no address; the import leaves the
+    // slot unset rather than inventing one (address coverage comes from
+    // the Markdown fixture below).
+    assert!(cv.profile.address.is_none(), "6 address stays unset");
+    assert_eq!(
+        cv.profile.summary.as_ref().map(cac_core::RichText::plain),
+        Some("Storage systems engineer.".into()),
+        "7 summary survives the import"
     );
 
-    // Export → re-import is the identity for everything the export carries.
+    // Export → re-import is the identity for everything the export
+    // carries — the whole document, not a spot check.
     let exported = export_json_resume(&cv);
     let exported_text = serde_json::to_string_pretty(&exported).unwrap();
     let again = parse(&exported_text, InputFormat::JsonResume).unwrap();
