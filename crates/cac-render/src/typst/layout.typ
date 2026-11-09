@@ -369,7 +369,5 @@
 
 #let families = (classic: classic, table: table, compact: compact, sidebar: sidebar, form: form)
 
-// The form family contract, exported for base.render's family check.
-#let form-requirements-check = form-requirements
 
 

@@ -153,7 +153,7 @@ pub(crate) fn render_pdf_document(
             // the (value, unit) form the bridge reads. Unset keys must not
             // clobber the family values beneath them.
             settings_style: serde_json::to_vec(&renderer_style_json(&shimmed.style))?,
-            document_date: String::new(),
+            document_date: document_date_json(&render_settings),
         },
         &render_settings,
         &resolved,
@@ -240,7 +240,7 @@ pub fn render_pdf_and_preview_with_options(
             // the (value, unit) form the bridge reads. Unset keys must not
             // clobber the family values beneath them.
             settings_style: serde_json::to_vec(&renderer_style_json(&shimmed.style))?,
-            document_date: String::new(),
+            document_date: document_date_json(&render_settings),
         },
         &render_settings,
         &resolved,
@@ -549,7 +549,7 @@ impl CacWorld {
                 settings: inputs.settings,
                 style: inputs.style,
                 settings_style: inputs.settings_style,
-                document_date: document_date_json(settings_parsed),
+                document_date: inputs.document_date,
             },
             document_date_value: document_date,
             project_cac,

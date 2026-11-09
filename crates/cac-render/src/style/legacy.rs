@@ -178,22 +178,6 @@ fn without_deprecated_leaves(sheet: &StyleOverrides) -> StyleOverrides {
     sheet
 }
 
-/// Whether the deprecated spellings were used at all.
-#[allow(dead_code)] // superseded by the shim; kept for the diagnostics road
-pub fn uses_legacy_keys(settings: &Settings) -> bool {
-    settings.page.is_some()
-        || settings.typography.is_some()
-        || settings.spacing.is_some()
-        || settings.pagination.is_some()
-        || settings.style.as_ref().is_some_and(|sheet| {
-            sheet.accent_color.is_some()
-                || sheet.body_alignment.is_some()
-                || sheet.header_alignment.is_some()
-                || sheet.link_underline.is_some()
-                || sheet.highlight_bullet.is_some()
-        })
-}
-
 /// The classic family's own values, which used to live in the embedded
 /// classic.typ. They sit between the defaults and user settings: the sheet
 /// resolver layers them below the theme and settings so a user's 9.5pt
