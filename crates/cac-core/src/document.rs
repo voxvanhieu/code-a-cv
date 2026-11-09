@@ -50,10 +50,18 @@ pub struct Profile {
 impl Profile {
     /// Whether the profile carries a value for `key`: the typed slot for a
     /// profile-scoped core field (a pack may require `photo` or `email` by
-    /// its core name), the open fields for any other key.
+    /// its core name), the open fields for any other key. The JSON Resume
+    /// spellings are aliases (`image` is `photo`, `label` is `headline`),
+    /// so a pack written against the schema and one written against the
+    /// core names behave the same.
     pub fn carries_core_field(&self, key: &str) -> bool {
         let present =
             |value: &Option<String>| value.as_ref().is_some_and(|value| !value.trim().is_empty());
+        let key = match key {
+            "image" => "photo",
+            "label" => "headline",
+            other => other,
+        };
         match core_field(key).map(|field| field.key) {
             Some("address") => self.address.is_some(),
             Some("email") => present(&self.email),

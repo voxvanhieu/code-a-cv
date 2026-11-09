@@ -1,0 +1,25 @@
+# The 履歴書 open-field vocabulary: the keys the rirekisho form's fixed
+# grid reads beside its typed slots. Load with
+#   cac check cv.md --pack packs/jp-rirekisho/fields.toml
+name = "jp-rirekisho"
+
+[fields.profile.image]
+label = "Photo"
+type = "text"
+required = true
+
+[fields.profile.address]
+label = "Address"
+type = "text"
+
+[fields.entry.commute]
+label = "通勤時間"
+type = "text"
+
+[fields.entry.dependents]
+label = "扶養家族（配偶者を除く）"
+type = "integer"
+
+[fields.entry.spouse]
+label = "配偶者"
+type = "boolean"
