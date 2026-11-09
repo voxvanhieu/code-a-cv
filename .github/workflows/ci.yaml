@@ -55,7 +55,8 @@ jobs:
 
               case "${path}" in
                 Cargo.lock | Cargo.toml | dist-workspace.toml | CHANGELOG.md | \
-                  crates/* | themes/* | docs/examples/customized-layout/* | scripts/* | .cargo/* | .github/workflows/* | rust-toolchain*)
+                  crates/* | themes/* | docs/examples/customized-layout/* | scripts/* | .cargo/* | .github/workflows/* | rust-toolchain* | \
+                  docs/examples/** | package.json | package-lock.json | .markdownlint.jsonc)
                   code=true
                   ;;
               esac
@@ -92,6 +93,49 @@ jobs:
           key: quality
       - run: cargo fmt --all --check
       - run: bash scripts/tests/test_release_resolution.sh
+      - run: cargo test --workspace --all-features --locked
+      - run: cargo clippy --workspace --all-features --all-targets --locked -- -D warnings
+
+  formatter:
+    name: Formatter fixed point
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Install pinned Rust toolchain
+        run: rustup show
+      # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
+        if: github.event_name == 'pull_request'
+        with:
+          key: formatter
+      - run: cargo build --locked --package cac
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - run: npm ci
+      - run: bash scripts/tests/test_formatter_fixed_point.sh
+
+  quality-windows:
+    name: Test and lint (Windows)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Install pinned Rust toolchain
+        run: rustup show
+      # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
+        if: github.event_name == 'pull_request'
+        with:
+          key: quality-windows
       - run: cargo test --workspace --all-features --locked
       - run: cargo clippy --workspace --all-features --all-targets --locked -- -D warnings
 
@@ -172,6 +216,8 @@ jobs:
     needs:
       - changes
       - quality
+      - formatter
+      - quality-windows
       - build
     if: always()
     runs-on: ubuntu-22.04
@@ -182,7 +228,9 @@ jobs:
           BUILD_RESULT: ${{ needs.build.result }}
           CODE_CHANGED: ${{ needs.changes.outputs.code }}
           DETECTION_RESULT: ${{ needs.changes.result }}
+          FORMATTER_RESULT: ${{ needs.formatter.result }}
           QUALITY_RESULT: ${{ needs.quality.result }}
+          WINDOWS_RESULT: ${{ needs.quality-windows.result }}
         shell: bash
         run: |
           test "${DETECTION_RESULT}" = "success"
@@ -190,6 +238,8 @@ jobs:
           if [[ "${CODE_CHANGED}" = "true" ]]; then
             test "${QUALITY_RESULT}" = "success"
             test "${BUILD_RESULT}" = "success"
+            test "${FORMATTER_RESULT}" = "success"
+            test "${WINDOWS_RESULT}" = "success"
           else
             test "${CODE_CHANGED}" = "false"
           fi

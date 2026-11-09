@@ -1,0 +1,9 @@
+{
+  // FieldMark content is data, not prose: bare URLs (email/website values),
+  // long labeled lines, and inline HTML escapes are part of the format.
+  "default": true,
+  "MD013": false,
+  "MD034": false,
+  "MD033": { "allowed_elements": ["span", "time"] },
+  "MD041": false
+}
