@@ -4,3 +4,4 @@
 docs/examples/**/.cac/settings.schema.json
 /cv.md
 **/*.rs.bk
+node_modules/
