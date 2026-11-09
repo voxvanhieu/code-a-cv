@@ -234,17 +234,24 @@ fn theme_test_and_pack_generate_verified_reproducible_artifacts() {
 #[test]
 fn theme_project_restricts_install_and_selected_removal() {
     let directory = tempdir().unwrap();
-    fs::write(
-        directory.path().join("settings.json"),
-        r#"{"theme":"developing","themeProject":"developing"}"#,
-    )
-    .unwrap();
-    fs::create_dir_all(directory.path().join(".cac/themes/developing")).unwrap();
-    fs::write(
-        directory.path().join(".cac/themes/developing/theme.typ"),
-        "",
-    )
-    .unwrap();
+    // Real `theme init` output: the themeProject marker is retired, so the
+    // guards must detect the project from the settings plus the theme
+    // directory. (A hand-written marker here would pass while every fresh
+    // init project stayed unprotected and `theme remove` could delete the
+    // theme under development.)
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["theme", "init", "developing", "--author", "Ada"])
+        .write_stdin("\n")
+        .assert()
+        .success();
+    assert!(
+        directory
+            .path()
+            .join(".cac/themes/developing/theme.typ")
+            .is_file()
+    );
     Command::cargo_bin("cac")
         .unwrap()
         .current_dir(directory.path())
@@ -338,10 +345,30 @@ fn build_tags_builds_named_variants_from_one_file() {
         assert!(text.contains(marker), "variant {tags} contains {marker}");
         assert!(!text.contains(absent), "variant {tags} drops {absent}");
         assert!(
-            !text.contains("Languages"),
-            "untagged sections drop under --tags"
+            text.contains("Languages"),
+            "untagged sections are shared and survive under --tags"
         );
     }
+
+    // The strict spelling drops the shared section instead.
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args([
+            "build",
+            "--tags",
+            "backend",
+            "--only-tagged",
+            "--format",
+            "html",
+        ])
+        .assert()
+        .success();
+    let strict = fs::read_to_string(directory.path().join("offering/cv-backend.html")).unwrap();
+    assert!(
+        !strict.contains("Languages"),
+        "--only-tagged drops untagged sections"
+    );
 
     // A tag that matches nothing fails with a diagnostic, not an empty CV.
     Command::cargo_bin("cac")
@@ -1349,4 +1376,43 @@ fn fmt_refuses_to_drop_plain_comments() {
         .failure()
         .stderr(predicates::str::contains("would drop 1 HTML comment"));
     assert_eq!(fs::read_to_string(&path).unwrap(), source);
+}
+
+#[test]
+fn build_tags_names_come_from_the_normalized_sorted_set() {
+    // The variant name comes from the normalized set: order does not
+    // matter, and a tag that could smuggle a path component is an error.
+    let directory = tempdir().unwrap();
+    fs::write(directory.path().join("cv.md"), VARIANT_MARKDOWN).unwrap();
+    fs::write(
+        directory.path().join("settings.json"),
+        r#"{"$schema":".cac/settings.schema.json","root":"cv.md","theme":"classic"}"#,
+    )
+    .unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .arg("schema")
+        .assert()
+        .success();
+    for tags in ["frontend,backend", "backend,frontend", "Backend, FRONTEND"] {
+        let offering = directory.path().join("offering");
+        let pdf = offering.join("cv-backend_frontend.pdf");
+        Command::cargo_bin("cac")
+            .unwrap()
+            .current_dir(directory.path())
+            .args(["build", "--tags", tags, "--format", "pdf"])
+            .assert()
+            .success()
+            .stdout(predicates::str::contains("VARIANT backend_frontend"));
+        // Every spelling lands on the same artifact name.
+        assert!(pdf.is_file(), "{tags}: {pdf:?} exists");
+    }
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["build", "--tags", "../evil"])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("must be lowercase letters"));
 }

@@ -466,10 +466,18 @@ fn address_segments_keep_their_slots_when_leading_parts_are_absent() {
 
 #[test]
 fn tags_round_trip_without_escaping_artifacts() {
-    let cv = parse(r#"{"profile":{"name":"A"},"sections":[{"id":"s","title":"Experience","kind":"experience","tags":["C#","backend"],"entries":[]}]}"#, InputFormat::Json).unwrap();
+    // Markdown normalizes tag spelling to lowercase (tags are build
+    // selectors), so the round trip uses normalized tags; `c#` still
+    // proves the hash survives unescaped.
+    let cv = parse(r#"{"profile":{"name":"A"},"sections":[{"id":"s","title":"Experience","kind":"experience","tags":["c#","backend"],"entries":[]}]}"#, InputFormat::Json).unwrap();
     let written = to_markdown_checked(&cv).unwrap();
-    assert!(written.contains("Tags: C#, backend"), "{written}");
+    // Tags render in their canonical (sorted) order.
+    assert!(written.contains("Tags: backend, c#"), "{written}");
     assert_eq!(parse_markdown(&written).unwrap(), cv);
+    // Uppercase tags convert honestly: the checked writer refuses rather
+    // than silently rewriting the spelling.
+    let cv = parse(r#"{"profile":{"name":"A"},"sections":[{"id":"s","title":"Experience","kind":"experience","tags":["Backend"],"entries":[]}]}"#, InputFormat::Json).unwrap();
+    assert!(to_markdown_checked(&cv).is_err());
 }
 
 #[test]

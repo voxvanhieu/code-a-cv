@@ -53,9 +53,14 @@ pub struct Args {
         long,
         value_name = "TAGS",
         value_delimiter = ',',
-        help = "Build a job-specific variant: keep sections and entries tagged with any of TAGS, drop the rest, and name the artifact after the variant"
+        help = "Build a job-specific variant: keep shared content plus everything tagged with any of TAGS, drop the rest, and name the artifact after the variant"
     )]
     tags: Vec<String>,
+    #[arg(
+        long,
+        help = "With --tags: keep only content explicitly tagged for the variant, dropping shared sections and entries"
+    )]
+    only_tagged: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -109,23 +114,42 @@ pub fn run(args: Args) -> Result<()> {
     let cv = if args.tags.is_empty() {
         cv
     } else {
+        // The variant name comes from the normalized, deduplicated, sorted
+        // set, so `--tags a,b` and `--tags b,a` build the same artifact;
+        // joining with `_` (which a tag cannot contain) keeps different
+        // sets from spelling the same name. Tags normalize to lowercase
+        // when parsed, so `--tags Backend` selects `backend`.
         let tags: std::collections::BTreeSet<String> = args
             .tags
             .iter()
-            .map(|tag| tag.trim().to_string())
-            .filter(|tag| !tag.is_empty())
+            .filter_map(|tag| normalize_variant_tag(tag))
             .collect();
+        for tag in &tags {
+            if let Err(message) = valid_variant_tag(tag) {
+                return Err(crate::error::Error::Message(message));
+            }
+        }
         let listed = tags.iter().cloned().collect::<Vec<_>>().join(", ");
-        let kept = cv
-            .variant(&tags)
-            .ok_or(crate::error::Error::NoTagMatches(listed))?;
-        let variant = args
-            .tags
-            .iter()
-            .map(|tag| tag.trim())
-            .filter(|tag| !tag.is_empty())
-            .collect::<Vec<_>>()
-            .join("-");
+        // Shared content alone is not a variant: a tag set that matches
+        // nothing is a typo, and the diagnostic fires instead of writing a
+        // coincidental artifact.
+        let matched = cv.sections.iter().any(|section| {
+            !section.tags.is_disjoint(&tags)
+                || section
+                    .entries
+                    .iter()
+                    .any(|entry| !entry.tags.is_disjoint(&tags))
+        });
+        if !matched {
+            return Err(crate::error::Error::NoTagMatches(listed));
+        }
+        let kept = if args.only_tagged {
+            cv.only_tagged_variant(&tags)
+        } else {
+            cv.variant(&tags)
+        }
+        .ok_or(crate::error::Error::NoTagMatches(listed))?;
+        let variant = tags.iter().cloned().collect::<Vec<_>>().join("_");
         println!("VARIANT {variant}");
         stem = format!("{stem}-{variant}");
         kept
@@ -160,6 +184,34 @@ pub fn run(args: Args) -> Result<()> {
         print_result("built", &path);
     }
     Ok(())
+}
+
+/// Normalize one `--tags` value: trimmed, lowercased; underscores fold to
+/// hyphens the way field keys do.
+fn normalize_variant_tag(tag: &str) -> Option<String> {
+    let tag = tag.trim().to_ascii_lowercase().replace('_', "-");
+    (!tag.is_empty()).then_some(tag)
+}
+
+/// A variant tag is a lowercase word with hyphens inside — it never
+/// carries path separators, and never an underscore (the variant name's
+/// own join mark).
+fn valid_variant_tag(tag: &str) -> std::result::Result<(), String> {
+    let valid = !tag.is_empty()
+        && tag
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_digit() || c.is_ascii_lowercase())
+        && tag
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
+    if valid {
+        Ok(())
+    } else {
+        Err(format!(
+            "variant tag `{tag}` must be lowercase letters, digits, and inner hyphens"
+        ))
+    }
 }
 
 fn project_directory(input: &Path) -> Result<PathBuf> {

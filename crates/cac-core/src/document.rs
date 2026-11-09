@@ -358,31 +358,24 @@ pub struct Origin {
 }
 
 impl CvDocument {
-    /// Project the document onto a tagged variant: sections whose tags
-    /// intersect `tags` survive whole, untagged sections survive only
-    /// through their tagged entries, and everything else drops. The
-    /// profile always survives; a variant without the name block is not a
-    /// CV. Returns `None` when nothing matches, so callers can report a
-    /// diagnostic instead of writing an empty document.
+    /// Project the document onto a tagged variant. Untagged content is
+    /// shared: an untagged section survives in every variant, carrying its
+    /// untagged entries plus the entries tagged for this variant. A
+    /// section tagged for this variant keeps its shared and matching
+    /// entries; a section tagged for another job drops whole — its tag is
+    /// the more specific claim. Entry tags inside a matching section work
+    /// the same way, so an entry tagged for another job never leaks into
+    /// this variant's artifact. The profile always survives. Returns
+    /// `None` when nothing matches, so callers can report a diagnostic
+    /// instead of writing an empty document.
     pub fn variant(&self, tags: &TagSet) -> Option<CvDocument> {
+        if tags.is_empty() {
+            return None;
+        }
         let sections: Vec<Section> = self
             .sections
             .iter()
-            .filter_map(|section| {
-                if !section.tags.is_disjoint(tags) {
-                    return Some(section.clone());
-                }
-                let entries: Vec<Entry> = section
-                    .entries
-                    .iter()
-                    .filter(|entry| !entry.tags.is_disjoint(tags))
-                    .cloned()
-                    .collect();
-                (!entries.is_empty()).then_some(Section {
-                    entries,
-                    ..section.clone()
-                })
-            })
+            .filter_map(|section| self.variant_section(section, tags, false))
             .collect();
         if sections.is_empty() {
             return None;
@@ -390,6 +383,57 @@ impl CvDocument {
         Some(CvDocument {
             profile: self.profile.clone(),
             sections,
+        })
+    }
+
+    /// The strict projection the 0.4 CLI originally shipped: untagged
+    /// sections and entries drop; only content explicitly tagged for the
+    /// variant survives. Available as `cac build --only-tagged`.
+    pub fn only_tagged_variant(&self, tags: &TagSet) -> Option<CvDocument> {
+        if tags.is_empty() {
+            return None;
+        }
+        let sections: Vec<Section> = self
+            .sections
+            .iter()
+            .filter_map(|section| self.variant_section(section, tags, true))
+            .collect();
+        if sections.is_empty() {
+            return None;
+        }
+        Some(CvDocument {
+            profile: self.profile.clone(),
+            sections,
+        })
+    }
+
+    fn variant_section(
+        &self,
+        section: &Section,
+        tags: &TagSet,
+        only_tagged: bool,
+    ) -> Option<Section> {
+        let section_matches = !section.tags.is_disjoint(tags);
+        if only_tagged {
+            if !section_matches {
+                return None;
+            }
+            return Some(section.clone());
+        }
+        if !section.tags.is_empty() && !section_matches {
+            // Tagged for another job: the specific claim wins, shared
+            // entries inside do not leak.
+            return None;
+        }
+        let entries: Vec<Entry> = section
+            .entries
+            .iter()
+            .filter(|entry| entry.tags.is_empty() || !entry.tags.is_disjoint(tags))
+            .cloned()
+            .collect();
+        (!entries.is_empty()).then_some(Section {
+            entries,
+            ..section.clone()
         })
     }
 }

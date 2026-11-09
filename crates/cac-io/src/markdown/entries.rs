@@ -534,7 +534,9 @@ fn parse_tag_values(value: &str) -> TagSet {
         .split(',')
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .map(str::to_owned)
+        // Tags are build selectors; spelling is normalized so `--tags
+        // Backend` selects a `backend` tag.
+        .map(str::to_ascii_lowercase)
         .collect()
 }
 
