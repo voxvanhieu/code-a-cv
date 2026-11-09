@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use cac_io::{InputFormat, parse};
+use cac_io::{InputFormat, MarkdownStyle, parse, parse_markdown_with_info, to_markdown_with_style};
 use clap::Args as ClapArgs;
 
 use crate::cli::CvFormat;
@@ -26,6 +26,30 @@ pub struct Args {
         help = "Report whether formatting is needed without writing; fail if changes are needed"
     )]
     dry_run: bool,
+    #[arg(
+        long,
+        value_enum,
+        default_value = "preserve",
+        help = "Choose the Markdown spelling: preserve keeps what the source used, explicit spells every field, compact uses heading and date sugar"
+    )]
+    style: Style,
+}
+
+#[derive(Clone, Copy, Debug, clap::ValueEnum)]
+enum Style {
+    Explicit,
+    Compact,
+    Preserve,
+}
+
+impl From<Style> for MarkdownStyle {
+    fn from(style: Style) -> Self {
+        match style {
+            Style::Explicit => MarkdownStyle::Explicit,
+            Style::Compact => MarkdownStyle::Compact,
+            Style::Preserve => MarkdownStyle::Preserve,
+        }
+    }
 }
 
 pub fn run(args: Args) -> Result<()> {
@@ -55,12 +79,39 @@ pub fn run(args: Args) -> Result<()> {
             .ok_or_else(|| Error::Unsupported(input.clone()))?
     };
     let source = read_source(&input)?;
-    let cv = parse(&source, format).map_err(|error| Error::SourceParse {
+    let parsed = if format == InputFormat::Markdown {
+        parse_markdown_with_info(&source)
+    } else {
+        parse(&source, format).map(|cv| (cv, cac_io::MarkdownParseInfo::default()))
+    };
+    let (cv, info) = parsed.map_err(|error| Error::SourceParse {
         path: input.clone(),
         error,
     })?;
+    if format == InputFormat::Markdown && info.plain_comments > 0 {
+        // The model has no slot for a plain comment; rewriting the file
+        // would delete it, so formatting refuses instead.
+        return Err(cac_io::ParseError::Validation(format!(
+            "formatting would drop {} HTML comment{}; move the notes into prose or delete them; source left unchanged",
+            info.plain_comments,
+            if info.plain_comments == 1 { "" } else { "s" }
+        ))
+        .into());
+    }
     let formatted = match format {
-        InputFormat::Markdown => format_markdown(&source),
+        InputFormat::Markdown => {
+            let style = match args.style {
+                // The spelling the source used, as the parser recorded it.
+                Style::Preserve => info.style,
+                Style::Explicit => MarkdownStyle::Explicit,
+                Style::Compact => MarkdownStyle::Compact,
+            };
+            let mut formatted = to_markdown_with_style(&cv, style);
+            if let Some(declarations) = &info.declarations {
+                formatted = format!("---\n{declarations}\n---\n\n{formatted}");
+            }
+            formatted
+        }
         InputFormat::Json | InputFormat::JsonResume => {
             let value: serde_json::Value = serde_json::from_str(&source)?;
             format!("{}\n", serde_json::to_string_pretty(&value)?)
@@ -96,21 +147,4 @@ pub fn run(args: Args) -> Result<()> {
     } else {
         write_stdout(&formatted)
     }
-}
-
-// Keep syntax and metadata boundaries intact, including Markdown hard breaks.
-fn format_markdown(source: &str) -> String {
-    let mut output = String::new();
-    for line in source.lines() {
-        let trimmed = line.trim_end_matches([' ', '\t']);
-        output.push_str(trimmed);
-        if !trimmed.is_empty() && line.ends_with("  ") {
-            output.push_str("  ");
-        }
-        output.push('\n');
-    }
-    while output.ends_with("\n\n") {
-        output.pop();
-    }
-    output
 }

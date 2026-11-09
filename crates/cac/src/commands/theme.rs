@@ -80,6 +80,11 @@ struct LocationArgs {
 struct Registry {
     schema_version: u32,
     themes: Vec<ThemeSummary>,
+    /// Form themes are listed separately: they reject sections by design,
+    /// so the universal-theme search does not surface them. Schema 2
+    /// carries them; find_theme searches both lists.
+    #[serde(default)]
+    forms: Vec<ThemeSummary>,
 }
 
 #[derive(Deserialize)]
@@ -87,6 +92,33 @@ struct Registry {
 struct ThemeSummary {
     name: String,
     description: String,
+    /// The minimum cac version that renders the theme (schema 2). Old
+    /// clients never see the field: they keep reading the frozen schema-1
+    /// index, which only lists themes they can render.
+    #[serde(default)]
+    min_cac: Option<String>,
+}
+
+/// Whether the running binary satisfies a `major.minor` requirement.
+fn version_at_least(required: &str) -> bool {
+    let parse = |text: &str| -> Vec<u64> {
+        text.split('.')
+            .map(|part| part.trim().parse::<u64>().unwrap_or(0))
+            .collect()
+    };
+    let required = parse(required);
+    let running = parse(env!("CARGO_PKG_VERSION"));
+    for index in 0..required.len().max(running.len()) {
+        let need = required.get(index).copied().unwrap_or(0);
+        let have = running.get(index).copied().unwrap_or(0);
+        if have > need {
+            return true;
+        }
+        if have < need {
+            return false;
+        }
+    }
+    true
 }
 
 pub fn run(args: Args) -> Result<()> {
@@ -138,13 +170,18 @@ fn collect_themes(
 fn search(args: SearchArgs) -> Result<()> {
     let registry = registry()?;
     let query = args.query.unwrap_or_default().to_ascii_lowercase();
-    for theme in registry.themes {
-        if query.is_empty()
+    let matches = |theme: &ThemeSummary| {
+        query.is_empty()
             || theme.name.to_ascii_lowercase().contains(&query)
             || theme.description.to_ascii_lowercase().contains(&query)
-        {
-            println!("{}: {}", theme.name, theme.description);
-        }
+    };
+    for theme in registry.themes.iter().filter(|theme| matches(theme)) {
+        println!("{}: {}", theme.name, theme.description);
+    }
+    // Form themes surface with their kind, so `cac theme search` finds
+    // them and `install` works through the same lookup.
+    for theme in registry.forms.iter().filter(|theme| matches(theme)) {
+        println!("{} (form): {}", theme.name, theme.description);
     }
     Ok(())
 }
@@ -191,7 +228,15 @@ fn install(args: InstallArgs) -> Result<()> {
 
 fn install_downloadable(name: &str, directory: &Path, force: bool) -> Result<()> {
     let registry = registry()?;
-    find_theme(&registry, name)?;
+    let summary = find_theme(&registry, name)?;
+    if let Some(required) = &summary.min_cac
+        && !version_at_least(required)
+    {
+        return Err(Error::ThemeRegistry(format!(
+            "theme `{name}` requires cac {required} or newer; you are running {}",
+            env!("CARGO_PKG_VERSION")
+        )));
+    }
     let theme = metadata(name)?;
     let base = registry_base();
     let files = theme
@@ -244,19 +289,30 @@ fn remove(args: LocationArgs) -> Result<()> {
 }
 
 fn registry() -> Result<Registry> {
+    // Schema 2 first, at its own path: released 0.3 clients only ever
+    // read `index.json`, which stays frozen at the spellings they can
+    // render, so the schema-2 file can carry new themes, forms, and
+    // `min_cac` without breaking a single installed binary.
+    if let Ok(bytes) = fetch(&resource(&registry_base(), "index.v2.json")) {
+        return parse_registry(&bytes, "index.v2.json");
+    }
     let bytes = fetch(&resource(&registry_base(), "index.json"))?;
-    let registry: Registry = serde_json::from_slice(&bytes)
-        .map_err(|source| Error::ThemeRegistry(format!("invalid index.json: {source}")))?;
-    if registry.schema_version != 1 {
+    parse_registry(&bytes, "index.json")
+}
+
+fn parse_registry(bytes: &[u8], file: &str) -> Result<Registry> {
+    let registry: Registry = serde_json::from_slice(bytes)
+        .map_err(|source| Error::ThemeRegistry(format!("invalid {file}: {source}")))?;
+    if registry.schema_version != 1 && registry.schema_version != 2 {
         return Err(Error::ThemeRegistry(format!(
             "unsupported registry schema version {}",
             registry.schema_version
         )));
     }
     let mut names = std::collections::BTreeSet::new();
-    for theme in &registry.themes {
+    for theme in registry.themes.iter().chain(registry.forms.iter()) {
         cac_render::validate_theme_name(&theme.name)?;
-        if theme.description.trim().is_empty() || !names.insert(&theme.name) {
+        if theme.description.trim().is_empty() || !names.insert(theme.name.as_str()) {
             return Err(Error::ThemeRegistry(format!(
                 "theme `{}` has invalid search metadata",
                 theme.name
@@ -270,6 +326,7 @@ fn find_theme<'a>(registry: &'a Registry, name: &str) -> Result<&'a ThemeSummary
     registry
         .themes
         .iter()
+        .chain(registry.forms.iter())
         .find(|theme| theme.name == name)
         .ok_or_else(|| Error::DownloadableTheme(name.into()))
 }
@@ -298,7 +355,7 @@ fn resource(base: &str, relative: &str) -> String {
 }
 
 fn fetch(resource: &str) -> Result<Vec<u8>> {
-    if let Some(path) = resource.strip_prefix("file://") {
+    if let Some(path) = file_resource_path(resource) {
         return Ok(fs::read(path)?);
     }
     let mut response = ureq::get(resource)
@@ -308,6 +365,52 @@ fn fetch(resource: &str) -> Result<Vec<u8>> {
         .body_mut()
         .read_to_vec()
         .map_err(|error| Error::ThemeRegistry(format!("could not read `{resource}`: {error}")))
+}
+
+/// The local path of a `file://` resource, or `None` for other schemes.
+///
+/// Windows file URLs keep a drive letter behind an empty authority
+/// (`file:///C:/Users/...`), so the path arrives with a leading slash that
+/// no Windows API accepts. Percent escapes are decoded the way browsers
+/// write `file:` URLs.
+fn file_resource_path(resource: &str) -> Option<PathBuf> {
+    let path = resource.strip_prefix("file://")?;
+    let path = match path.strip_prefix('/') {
+        // `file:///C:/...` carries the drive letter behind the slash;
+        // `file:///tmp/...` keeps the absolute root.
+        Some(stripped) if is_windows_drive(stripped) => stripped,
+        _ => path,
+    };
+    Some(PathBuf::from(percent_decode(path)))
+}
+
+fn is_windows_drive(path: &str) -> bool {
+    let bytes = path.as_bytes();
+    bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':'
+}
+
+fn percent_decode(path: &str) -> String {
+    let bytes = path.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%'
+            && index + 2 < bytes.len()
+            && bytes[index + 1].is_ascii_hexdigit()
+            && bytes[index + 2].is_ascii_hexdigit()
+        {
+            let hex = std::str::from_utf8(&bytes[index + 1..index + 3])
+                .expect("ASCII slice from checked bytes");
+            if let Ok(byte) = u8::from_str_radix(hex, 16) {
+                decoded.push(byte);
+                index += 3;
+                continue;
+            }
+        }
+        decoded.push(bytes[index]);
+        index += 1;
+    }
+    String::from_utf8_lossy(&decoded).into_owned()
 }
 
 fn selected_root(local: bool) -> Result<PathBuf> {
@@ -335,3 +438,7 @@ fn sha256_hex(bytes: &[u8]) -> String {
         .map(|byte| format!("{byte:02x}"))
         .collect()
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/theme_fetch.rs"]
+mod theme_fetch_tests;

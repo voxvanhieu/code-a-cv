@@ -8,6 +8,7 @@ Arguments:
 Options:
       --input-format <INPUT_FORMAT>  Set the input format; stdin defaults to markdown [possible values: markdown, yaml, json, toml, jsonresume]
       --dry-run                      Report whether formatting is needed without writing; fail if changes are needed
+      --style <STYLE>                Choose the Markdown spelling: preserve keeps what the source used, explicit spells every field, compact uses heading and date sugar [default: preserve] [possible values: explicit, compact, preserve]
   -h, --help                         Print help
 
 Examples:
