@@ -159,11 +159,11 @@ fn entry_open_fields_round_trip_in_order() {
         entry.fields.get("willing-to-relocate"),
         Some(&FieldValue::Boolean(true))
     );
+    // A string value stays text — typed dates were guessed from strings
+    // before, which turned `postal-code: "8001"` into the year 8001.
     assert_eq!(
         entry.fields.get("birth-date"),
-        Some(&FieldValue::Date(cac_core::DatePoint::Full(
-            chrono::NaiveDate::from_ymd_opt(1988, 5, 31).unwrap()
-        )))
+        Some(&FieldValue::Text("1988-05-31".into()))
     );
 
     // Reinserting an existing key replaces the value in place.

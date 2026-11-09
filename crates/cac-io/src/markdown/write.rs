@@ -39,43 +39,10 @@ impl MarkdownStyle {
     }
 }
 
-/// Detect the spelling a source used, so `preserve` keeps it.
-///
-/// Compact markers: comma sugar in an entry heading, a bare period or date
-/// line directly under an entry heading, or a `·` contact line under the
-/// name. Everything else reads as explicit.
-pub fn detect_style(source: &str) -> MarkdownStyle {
-    let mut previous_was_entry_heading = false;
-    let mut previous_was_name_heading = false;
-    for raw in source.lines() {
-        let line = raw.trim();
-        if line.starts_with("### ") {
-            if line.contains(", ") {
-                return MarkdownStyle::Compact;
-            }
-            previous_was_entry_heading = true;
-            previous_was_name_heading = false;
-            continue;
-        }
-        if line.starts_with('#') {
-            previous_was_entry_heading = false;
-            previous_was_name_heading = line.starts_with("# ");
-            continue;
-        }
-        if line.is_empty() || line.starts_with("<!--") || line.contains(": ") {
-            continue;
-        }
-        if previous_was_entry_heading {
-            return MarkdownStyle::Compact;
-        }
-        if previous_was_name_heading && line.contains(" · ") {
-            return MarkdownStyle::Compact;
-        }
-    }
-    MarkdownStyle::Explicit
-}
-
-/// Render the document in the given spelling.
+/// Render the document in the given spelling. The spelling a source used is
+/// reported by the parser itself (see [`super::parse_markdown_with_info`]);
+/// line-level scanning misread explicit files whose entries carry bullets,
+/// so there is no separate detector any more.
 pub fn to_markdown_with_style(cv: &CvDocument, style: MarkdownStyle) -> String {
     let compact = style == MarkdownStyle::Compact;
     let mut output = heading_line(1, &escape_markdown(&cv.profile.name));
@@ -96,20 +63,24 @@ pub fn to_markdown_with_style(cv: &CvDocument, style: MarkdownStyle) -> String {
         }
     }
     if let Some(address) = &cv.profile.address {
-        let parts: Vec<&str> = [
+        // Empty segments preserve the slot positions, so an address with no
+        // street reparses into the same slots instead of shifting.
+        let mut segments = vec![
             address.street.as_deref(),
             address.city.as_deref(),
             address.region.as_deref(),
             address.postal_code.as_deref(),
             address.country.as_deref(),
-        ]
-        .into_iter()
-        .flatten()
-        .collect();
-        if !parts.is_empty() {
-            let joined = parts.join(", ");
-            let _ = writeln!(output, "Address: {}", escape_markdown(&joined));
+        ];
+        while segments.last().is_some_and(|part| part.is_none()) {
+            segments.pop();
         }
+        let joined = segments
+            .iter()
+            .map(|part| part.unwrap_or(""))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let _ = writeln!(profile, "Address: {}", escape_markdown(&joined));
     }
     for contact in &cv.profile.contacts {
         let _ = writeln!(
@@ -196,11 +167,13 @@ fn heading_line(level: usize, text: &str) -> String {
 
 fn write_entry(entry: &cac_core::Entry, compact: bool, output: &mut String) {
     // Text and prose entries with a body that only a directive can carry.
+    // Their tags ride after the body as a comment: a `Tags:` field line
+    // there would parse as a section field, not the entry's.
     if let EntryKind::Prose(value) = &entry.kind {
         let rendered = value.body.to_markdown();
         if !value.body.is_inline() || body_needs_directive(&rendered) {
             let _ = write!(output, "\n<!-- cac:entry kind=prose -->\n\n{rendered}\n");
-            write_tag_field(&entry.tags, output);
+            write_tag_comment(&entry.tags, output);
             if !output.ends_with('\n') {
                 output.push('\n');
             }
@@ -212,7 +185,7 @@ fn write_entry(entry: &cac_core::Entry, compact: bool, output: &mut String) {
     {
         let rendered = value.body.to_markdown();
         let _ = write!(output, "\n<!-- cac:entry kind=text -->\n\n{rendered}\n");
-        write_tag_field(&entry.tags, output);
+        write_tag_comment(&entry.tags, output);
         if !output.ends_with('\n') {
             output.push('\n');
         }
@@ -275,7 +248,7 @@ fn write_entry(entry: &cac_core::Entry, compact: bool, output: &mut String) {
         if sugared_secondary && matches!(key, "organization" | "institution") {
             continue;
         }
-        if let Some(value) = fields.get(key).and_then(|value| value.as_str()) {
+        if let Some(value) = fields.get(key).and_then(json_scalar) {
             if value.is_empty() {
                 continue;
             }
@@ -293,9 +266,9 @@ fn write_entry(entry: &cac_core::Entry, compact: bool, output: &mut String) {
                 _ => "URL",
             };
             let value = if matches!(key, "location" | "url") {
-                escape_markdown(value)
+                escape_markdown(&value)
             } else {
-                value.to_owned()
+                value
             };
             let _ = writeln!(block, "{label}: {value}");
         }
@@ -338,6 +311,34 @@ fn write_entry(entry: &cac_core::Entry, compact: bool, output: &mut String) {
 /// the caller checks — under a heading entry the kind is always spelled.
 fn sugared_kind_implied(_kind: &str) -> bool {
     false
+}
+
+/// A typed payload slot rendered as its field-line text: strings verbatim,
+/// numbers and booleans spelled out. `Proficiency: 4` must not vanish just
+/// because the level is numeric.
+fn json_scalar(value: &serde_json::Value) -> Option<String> {
+    match value {
+        serde_json::Value::String(text) => Some(text.clone()),
+        serde_json::Value::Number(number) => Some(number.to_string()),
+        serde_json::Value::Bool(flag) => Some(if *flag { "yes".into() } else { "no".into() }),
+        _ => None,
+    }
+}
+
+/// Tags for a directive-carried body: only the comment form keeps them on
+/// the entry, and it needs blank lines around it to stay its own block.
+fn write_tag_comment(tags: &TagSet, output: &mut String) {
+    if tags.is_empty() {
+        return;
+    }
+    if !output.is_empty() && !output.ends_with("\n\n") {
+        output.push('\n');
+    }
+    let json = serde_json::to_string(tags)
+        .unwrap()
+        .replace('<', "\\u003c")
+        .replace('>', "\\u003e");
+    let _ = writeln!(output, "<!-- tags: {json} -->\n");
 }
 
 /// The summary needs its directive only when a plain paragraph would be
@@ -409,11 +410,7 @@ fn write_tag_field(tags: &TagSet, output: &mut String) {
         let _ = writeln!(output, "<!-- tags: {json} -->\n");
         return;
     }
-    let values = tags
-        .iter()
-        .map(|tag| escape_markdown(tag))
-        .collect::<Vec<_>>()
-        .join(", ");
+    let values = tags.iter().cloned().collect::<Vec<_>>().join(", ");
     let _ = writeln!(output, "Tags: {values}");
 }
 

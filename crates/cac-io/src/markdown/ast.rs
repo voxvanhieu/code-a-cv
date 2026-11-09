@@ -61,7 +61,10 @@ pub(super) fn blocks(source: &str) -> Result<Vec<Block>, ParseError> {
     let mut blocks: Vec<Block> = Vec::new();
     // Container arms (blockquote, code block) emit one block from the
     // container's own end range; the inner paragraph events are suppressed.
-    let mut suppressed = 0usize;
+    // Each Start pushes its own offset so the matching End reports the line
+    // the container starts on — searching the source for the text would
+    // match an earlier lookalike and move the block.
+    let mut container_starts: Vec<usize> = Vec::new();
     let line_of = |offset: usize| {
         stripped[..offset]
             .bytes()
@@ -74,7 +77,7 @@ pub(super) fn blocks(source: &str) -> Result<Vec<Block>, ParseError> {
             Event::Start(Tag::BlockQuote(_))
             | Event::Start(Tag::CodeBlock(_))
             | Event::Start(Tag::List(_)) => {
-                suppressed += 1;
+                container_starts.push(range.start);
             }
             Event::End(TagEnd::MetadataBlock(_)) => {
                 let raw = raw_between_metadata_fences(&stripped[range.clone()]);
@@ -84,12 +87,13 @@ pub(super) fn blocks(source: &str) -> Result<Vec<Block>, ParseError> {
                 });
             }
             Event::End(TagEnd::Heading(level)) => {
-                let raw = stripped[range.clone()].trim();
-                let text = raw.trim_start_matches('#').trim().to_string();
+                // The heading value comes from the raw range (backslash
+                // escapes must survive into the rich parser), with the
+                // setext underline and ATX closing hashes removed.
                 blocks.push(Block {
                     kind: BlockKind::Heading {
                         level: level as u32,
-                        text,
+                        text: heading_text_from(&stripped[range.clone()]),
                     },
                     line: line_of(range.start),
                 });
@@ -97,23 +101,20 @@ pub(super) fn blocks(source: &str) -> Result<Vec<Block>, ParseError> {
             Event::End(TagEnd::BlockQuote(_))
             | Event::End(TagEnd::CodeBlock)
             | Event::End(TagEnd::List(_)) => {
-                suppressed = suppressed.saturating_sub(1);
-                if suppressed > 0 {
+                let start = container_starts.pop().unwrap_or(range.start);
+                if !container_starts.is_empty() {
                     // A nested container hands its content to the outermost
                     // block, whose raw range already includes it.
                     continue;
                 }
                 let raw = stripped[range.clone()].trim().to_string();
-                // The container's end range can start after its marker line;
-                // find the raw text itself for an accurate line number.
-                let start = stripped.find(raw.as_str()).unwrap_or(range.start);
                 blocks.push(Block {
                     kind: BlockKind::Paragraph(raw),
                     line: line_of(start),
                 });
             }
             Event::End(TagEnd::Paragraph) => {
-                if suppressed == 0 {
+                if container_starts.is_empty() {
                     let raw = stripped[range.clone()].trim().to_string();
                     blocks.push(Block {
                         kind: BlockKind::Paragraph(raw),
@@ -153,33 +154,65 @@ pub(super) fn blocks(source: &str) -> Result<Vec<Block>, ParseError> {
 /// Remove `<!-- ... -->` comment lines from the source, returning the
 /// remaining text (blank where comments were, so line numbers hold), the
 /// extracted comments with their first lines, and whether every comment
-/// closed.
+/// closed. Lines inside a fenced code block keep their `<!--` markers — a
+/// comment-looking literal in an example is content, not a directive.
 fn strip_comments(source: &str) -> (String, Vec<(String, usize)>, bool) {
     let mut stripped = String::with_capacity(source.len());
     let mut comments = Vec::new();
     let mut in_comment = false;
+    let mut in_fence: Option<&'static str> = None;
     let mut current = String::new();
     let mut start_line = 0usize;
     for (index, line) in source.lines().enumerate() {
         let number = index + 1;
         let trimmed = line.trim();
         if in_comment {
-            current.push('\n');
-            current.push_str(line);
-            if trimmed.contains("-->") {
+            if let Some((closed, after)) = split_at_close(line) {
+                // The comment ends at `-->`; the rest of the line stays
+                // content, so a formatter never silently deletes it.
+                current.push('\n');
+                current.push_str(closed);
                 comments.push((std::mem::take(&mut current), start_line));
                 in_comment = false;
+                if !after.trim().is_empty() {
+                    stripped.push_str(after.trim_start());
+                    stripped.push('\n');
+                    continue;
+                }
+            } else {
+                current.push('\n');
+                current.push_str(line);
             }
+            stripped.push('\n');
+            continue;
+        }
+        if let Some(fence) = in_fence {
+            stripped.push_str(line);
+            stripped.push('\n');
+            if trimmed.starts_with(fence) {
+                in_fence = None;
+            }
+            continue;
+        }
+        if let Some(fence) = fenced_with(trimmed) {
+            in_fence = Some(fence);
+            stripped.push_str(line);
             stripped.push('\n');
             continue;
         }
         if trimmed.starts_with("<!--") {
             in_comment = true;
             start_line = number;
-            current = line.trim_end().to_string();
-            if trimmed.contains("-->") {
-                comments.push((std::mem::take(&mut current), start_line));
+            if let Some((closed, after)) = split_at_close(line) {
+                comments.push((closed.to_string(), start_line));
                 in_comment = false;
+                if !after.trim().is_empty() {
+                    stripped.push_str(after.trim_start());
+                    stripped.push('\n');
+                    continue;
+                }
+            } else {
+                current = line.trim_end().to_string();
             }
             stripped.push('\n');
             continue;
@@ -191,6 +224,21 @@ fn strip_comments(source: &str) -> (String, Vec<(String, usize)>, bool) {
         comments.push((current, start_line));
     }
     (stripped, comments, !in_comment)
+}
+
+/// Split a line at the comment close: everything through `-->`, and the
+/// text after it (often empty).
+fn split_at_close(line: &str) -> Option<(&str, &str)> {
+    let index = line.find("-->")?;
+    Some((&line[..index + 3], &line[index + 3..]))
+}
+
+/// The fence marker that opens this line, when the line opens one. Only
+/// the opening fence counts; the same marker closes it.
+fn fenced_with(line: &str) -> Option<&'static str> {
+    ["```", "~~~"]
+        .into_iter()
+        .find(|marker| line.starts_with(*marker))
 }
 
 /// Match a CommonMark link reference definition line: `[label]: target`.
@@ -208,26 +256,36 @@ fn link_reference_definition(line: &str) -> Option<(String, String)> {
         .then(|| (line[1..close].to_string(), target.to_string()))
 }
 
+/// A heading's text from its raw range: the setext underline line goes,
+/// the leading marker hashes go, and a CommonMark closing hash sequence
+/// (`Hash ##`, hashes after a space) goes — while `C#` keeps its hash.
+fn heading_text_from(raw: &str) -> String {
+    let mut text = raw.trim();
+    if let Some((head, tail)) = text.rsplit_once('\n') {
+        let underline = tail.trim();
+        if !underline.is_empty() && underline.chars().all(|c| c == '=' || c == '-') {
+            text = head.trim();
+        }
+    }
+    let text = text.trim_start_matches('#').trim();
+    // A closing hash sequence is trailing hashes preceded by a space
+    // (`Hash ##`); a hash glued to text (`C#`) stays content.
+    let mut candidate = text;
+    while candidate.ends_with('#') {
+        let stripped = candidate.trim_end_matches('#');
+        if stripped.is_empty() || stripped.ends_with(' ') {
+            candidate = stripped.trim_end();
+        } else {
+            break;
+        }
+    }
+    candidate.trim().to_string()
+}
+
 /// Strip the `---` fences a metadata block's raw range carries.
 fn raw_between_metadata_fences(raw: &str) -> String {
     let body = raw.trim();
     let body = body.strip_prefix("---").unwrap_or(body);
     let body = body.strip_suffix("---").unwrap_or(body);
     body.trim_matches('\n').to_string()
-}
-
-#[cfg(test)]
-mod quote_dump {
-    #[test]
-    fn dump() {
-        let source = "# A\n\n## Notes\n\n> A quotation\n";
-        let (stripped, _, _) = super::strip_comments(source);
-        let mut options = super::Options::empty();
-        options.insert(super::Options::ENABLE_YAML_STYLE_METADATA_BLOCKS);
-        for (event, range) in super::Parser::new_ext(&stripped, options).into_offset_iter() {
-            if let super::Event::End(super::TagEnd::BlockQuote(_)) = event {
-                println!("range {range:?} raw {:?}", &stripped[range.clone()]);
-            }
-        }
-    }
 }

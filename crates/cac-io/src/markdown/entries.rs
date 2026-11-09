@@ -30,6 +30,15 @@ pub(super) struct Mapped {
     pub sections: Vec<Section>,
 }
 
+/// What the mapping learned about the source beyond the model: whether the
+/// compact sugar was used (so `preserve` formatting keeps it), and how many
+/// plain comments the model dropped (so `fmt` can refuse to lose them).
+#[derive(Default)]
+pub(super) struct MapInfo {
+    pub sugar: bool,
+    pub plain_comments: usize,
+}
+
 /// A `Key: value` line inside a field block.
 struct FieldLine {
     key: String,
@@ -154,7 +163,10 @@ fn metadata_field(line: &str) -> Option<(&str, &str)> {
     if !valid_key || value.starts_with("//") {
         return None;
     }
-    Some((key, value.trim()))
+    // Trim the key here, once: downstream scope checks and slot matching
+    // must see the same spelling, or a known key with a stray space falls
+    // out of the slot table and panics.
+    Some((key.trim(), value.trim()))
 }
 
 /// An entry under construction; fields land per slot or stay open.
@@ -177,6 +189,9 @@ struct EntryBuilder {
     payload: Vec<(String, String, usize)>,
     content: String,
     content_line: usize,
+    /// Heading sugar (`### Role, Organization`) was consumed; `preserve`
+    /// formatting must keep the compact spelling.
+    sugar_heading: bool,
 }
 
 impl EntryBuilder {
@@ -195,9 +210,45 @@ impl EntryBuilder {
                     .push((key.to_string(), value.to_string(), line));
                 return Ok(());
             }
+            // The heading carries the primary slot. A field line repeating
+            // it is redundant spelling; a differing one is a duplicate, and
+            // neither may silently become an open field that shadows the
+            // slot.
+            "name" | "qualification" | "title" | "heading" => {
+                let spelled = inline_plain(value, line)?;
+                let current = super::heading(&self.heading, self.line)?;
+                if spelled == current {
+                    return Ok(());
+                }
+                return markdown_error(
+                    line,
+                    &format!(
+                        "duplicate `{key}`; the heading is the {key} — drop the line or change the heading"
+                    ),
+                );
+            }
+            "skills" => {
+                return markdown_error(
+                    line,
+                    "`Skills` are the bullets under the heading; write each skill as a list item",
+                );
+            }
+            "highlights" => {
+                return markdown_error(
+                    line,
+                    "`Highlights` are the bullets under the heading; write each highlight as a list item",
+                );
+            }
             other => {
+                let normalized = normalize_key(other);
+                if self.fields.get(&normalized).is_some() {
+                    return markdown_error(
+                        line,
+                        &format!("duplicate `{other}` field; keep one value"),
+                    );
+                }
                 self.fields
-                    .insert(normalize_key(other), FieldValue::Text(value.to_string()));
+                    .insert(normalized, FieldValue::Text(value.to_string()));
                 return Ok(());
             }
         };
@@ -237,13 +288,20 @@ impl EntryBuilder {
         self.content.push('\n');
     }
 
-    fn build(mut self, section_kind: &SectionKind) -> Result<Entry, ParseError> {
+    fn build(
+        mut self,
+        section_kind: &SectionKind,
+        info: &mut MapInfo,
+    ) -> Result<Entry, ParseError> {
         let kind = self
             .kind
             .as_deref()
             .filter(|value| !value.is_empty())
             .unwrap_or(super::default_entry_kind(section_kind))
             .to_owned();
+        if self.sugar_heading {
+            info.sugar = true;
+        }
         let mut object = Map::new();
         object.insert("type".into(), Value::String(kind.clone()));
         let (primary, secondary) = match kind.as_str() {
@@ -279,6 +337,7 @@ impl EntryBuilder {
             && let Some((first, second)) = title.split_once(", ")
         {
             title = first;
+            self.sugar_heading = true;
             let filled = inline(second, self.line)?;
             object.insert(
                 secondary.expect("sugar only where a slot exists").into(),
@@ -293,7 +352,7 @@ impl EntryBuilder {
         type EntrySlot<'a> = (&'a str, Option<(String, usize)>, &'a dyn Fn(&str) -> bool);
         let mut slots: Vec<EntrySlot<'_>> = Vec::new();
         slots.push(("organization", self.organization.take(), &|kind: &str| {
-            kind == "experience"
+            matches!(kind, "experience" | "reference")
         }));
         slots.push(("institution", self.institution.take(), &|kind: &str| {
             kind == "education"
@@ -479,8 +538,20 @@ fn parse_tag_values(value: &str) -> TagSet {
         .collect()
 }
 
-fn entry_key_known(key: &str) -> bool {
-    core_field(key).is_some() || key == "contact"
+/// Rule F, entry context: a key is known when the field table gives it an
+/// entry scope **for the entry's kind** — the section's default, since a
+/// `Kind:` line inside the same block can still override it. Profile-only
+/// keys (`Summary`, `Photo`, …) and other kinds' payloads (`Note:` under an
+/// experience entry) are not known, so such prose stays prose instead of
+/// vanishing into an open field or erroring. `body`/`content` are model
+/// spellings for directive-carried prose, never field lines.
+fn entry_key_known(default_kind: &str) -> impl Fn(&str) -> bool + '_ {
+    move |key: &str| {
+        if matches!(key, "body" | "content") {
+            return false;
+        }
+        core_field(key).is_some_and(|field| field.applies_to_entry_kind(default_kind))
+    }
 }
 
 fn section_key_known(key: &str) -> bool {
@@ -488,7 +559,7 @@ fn section_key_known(key: &str) -> bool {
 }
 
 /// Map the structural blocks onto the document.
-pub(super) fn map(blocks: Vec<Block>) -> Result<Mapped, ParseError> {
+pub(super) fn map(blocks: Vec<Block>, info: &mut MapInfo) -> Result<Mapped, ParseError> {
     let mut profile = Profile::default();
     let mut sections: Vec<Section> = Vec::new();
     let mut section: Option<Section> = None;
@@ -534,7 +605,7 @@ pub(super) fn map(blocks: Vec<Block>) -> Result<Mapped, ParseError> {
                             "content must start with a level-one name heading",
                         );
                     }
-                    finish_entry(&mut section, &mut entry)?;
+                    finish_entry(&mut section, &mut entry, info)?;
                     if section.is_some() {
                         flush_direct(
                             &mut section,
@@ -566,7 +637,7 @@ pub(super) fn map(blocks: Vec<Block>) -> Result<Mapped, ParseError> {
                             "an entry heading must be inside a level-two section",
                         );
                     }
-                    finish_entry(&mut section, &mut entry)?;
+                    finish_entry(&mut section, &mut entry, info)?;
                     flush_direct(
                         &mut section,
                         &mut direct,
@@ -606,7 +677,13 @@ pub(super) fn map(blocks: Vec<Block>) -> Result<Mapped, ParseError> {
                 }
                 annotation_allowed = false;
                 if let Some(builder) = &mut entry {
-                    if let Some(lines) = field_block(&raw, line, entry_key_known, false) {
+                    let default_kind = section
+                        .as_ref()
+                        .map(|active| super::default_entry_kind(&active.kind))
+                        .unwrap_or("custom");
+                    if let Some(lines) =
+                        field_block(&raw, line, entry_key_known(default_kind), false)
+                    {
                         for block_line in lines {
                             match block_line {
                                 FieldBlockLine::Field(field) => {
@@ -620,6 +697,7 @@ pub(super) fn map(blocks: Vec<Block>) -> Result<Mapped, ParseError> {
                                     value,
                                     line: number,
                                 } => {
+                                    info.sugar = true;
                                     if builder.period.is_some() {
                                         return markdown_error(
                                             number,
@@ -632,6 +710,7 @@ pub(super) fn map(blocks: Vec<Block>) -> Result<Mapped, ParseError> {
                                     value,
                                     line: number,
                                 } => {
+                                    info.sugar = true;
                                     if builder.date.is_some() {
                                         return markdown_error(
                                             number,
@@ -729,6 +808,11 @@ pub(super) fn map(blocks: Vec<Block>) -> Result<Mapped, ParseError> {
                             && summary.is_empty()
                             && legacy_contacts(&mut profile, first, line)?
                         {
+                            // Only the `·` separator line is compact sugar;
+                            // a bare email under the name is neutral.
+                            if first.contains('·') {
+                                info.sugar = true;
+                            }
                             continue;
                         }
                         summary_started = true;
@@ -769,12 +853,13 @@ pub(super) fn map(blocks: Vec<Block>) -> Result<Mapped, ParseError> {
                     &mut summary,
                     &mut summary_line,
                     &mut summary_started,
+                    info,
                 )?;
             }
         }
     }
 
-    finish_entry(&mut section, &mut entry)?;
+    finish_entry(&mut section, &mut entry, info)?;
     if section.is_some() {
         flush_direct(
             &mut section,
@@ -787,8 +872,15 @@ pub(super) fn map(blocks: Vec<Block>) -> Result<Mapped, ParseError> {
         sections.push(section);
     }
     // Prose paragraphs under the name fill the summary only when the
-    // explicit `Summary:` field did not; the buffer keeps the prose path.
+    // explicit `Summary:` field did not; both spellings together are a
+    // duplicate the model cannot hold, so refuse instead of picking one.
     if !summary.is_empty() {
+        if profile.summary.is_some() {
+            return markdown_error(
+                summary_line,
+                "duplicate summary; keep the `Summary:` field or the prose paragraph under the name, not both",
+            );
+        }
         profile.summary = take_rich(&mut summary, summary_line)?;
     }
     let mut cv = CvDocument { profile, sections };
@@ -811,6 +903,10 @@ pub(super) fn apply_profile_field(
         // Blank optional values omit the slot instead of storing emptiness.
         return Ok(());
     }
+    // Match on the normalized key: `core_field` folds case and separators,
+    // so the arms must fold the same way or a known key with a stray
+    // spelling would fall through this table.
+    let key: &str = &normalize_key(key);
     match key {
         "email" if profile.email.is_some() => return profile_duplicate(key, line),
         "phone" if profile.phone.is_some() => return profile_duplicate(key, line),
@@ -850,14 +946,29 @@ pub(super) fn apply_profile_field(
             "photo" => profile.photo = Some(inline_plain(value, line)?),
             "headline" => profile.headline = Some(inline_plain(value, line)?),
             "address" => profile.address = parse_address(value, line)?,
-            _ => unreachable!("profile_known checked the scope"),
+            // The table said this key is profile-scoped but no arm handles
+            // it — a table/arm drift bug. Refuse loudly instead of panicking
+            // or storing the value under the wrong slot.
+            _ => {
+                return markdown_error(
+                    line,
+                    &format!(
+                        "`{key}` is not supported in the profile block; put it in prose or an entry"
+                    ),
+                );
+            }
         }
         return Ok(());
     }
-    // Undeclared keys become open profile fields, never errors.
+    // Undeclared keys become open profile fields, never errors — but a
+    // repeated one is a duplicate, not a replacement.
+    let normalized = normalize_key(key);
+    if profile.fields.get(&normalized).is_some() {
+        return profile_duplicate(key, line);
+    }
     profile
         .fields
-        .insert(normalize_key(key), FieldValue::Text(value.to_string()));
+        .insert(normalized, FieldValue::Text(value.to_string()));
     Ok(())
 }
 
@@ -870,33 +981,36 @@ fn profile_duplicate(key: &str, line: usize) -> Result<(), ParseError> {
 }
 
 /// Parse an `Address:` value of comma-separated parts in the order street,
-/// city, region, postal code, country; a single part fills the street.
+/// city, region, postal code, country; a single part fills the street. An
+/// empty segment leaves its slot unset, so `{city, country}` round-trips
+/// without shifting into street and city.
 fn parse_address(value: &str, line: usize) -> Result<Option<cac_core::Address>, ParseError> {
     let text = inline_plain(value, line)?;
     if text.is_empty() {
         return Ok(None);
     }
-    let mut parts = text
-        .split(',')
-        .map(str::trim)
-        .filter(|part| !part.is_empty());
-    let street = parts.next().map(str::to_owned);
-    let city = parts.next().map(str::to_owned);
-    let region = parts.next().map(str::to_owned);
-    let postal_code = parts.next().map(str::to_owned);
-    let country = parts.next().map(str::to_owned);
-    if parts.next().is_some() {
+    let segments: Vec<&str> = text.split(',').map(str::trim).collect();
+    if segments.len() > 5 {
         return markdown_error(
             line,
             "Address carries at most street, city, region, postal code, and country, separated by commas",
         );
     }
+    let at = |index: usize| {
+        segments
+            .get(index)
+            .filter(|part| !part.is_empty())
+            .map(|part| (*part).to_owned())
+    };
+    if segments.iter().all(|part| part.is_empty()) {
+        return Ok(None);
+    }
     Ok(Some(cac_core::Address {
-        street,
-        city,
-        region,
-        postal_code,
-        country,
+        street: at(0),
+        city: at(1),
+        region: at(2),
+        postal_code: at(3),
+        country: at(4),
     }))
 }
 
@@ -934,6 +1048,16 @@ fn legacy_contacts(profile: &mut Profile, line: &str, number: usize) -> Result<b
     if parts.len() == 1 && classify(parts[0]) == "location" {
         return Ok(false);
     }
+    // Two unclassifiable parts are words, not a second home town: `Rust ·
+    // Go · https://…` is a skill line, not contacts.
+    if parts
+        .iter()
+        .filter(|part| classify(part) == "location")
+        .count()
+        > 1
+    {
+        return Ok(false);
+    }
     for part in parts {
         let kind = classify(part);
         let value = part
@@ -969,10 +1093,12 @@ fn push_summary(summary: &mut String, summary_line: &mut usize, raw: &str, line:
 fn finish_entry(
     section: &mut Option<Section>,
     entry: &mut Option<EntryBuilder>,
+    info: &mut MapInfo,
 ) -> Result<(), ParseError> {
     if let Some(builder) = entry.take() {
         let active = section.as_mut().expect("entry belongs to a section");
-        active.entries.push(builder.build(&active.kind)?);
+        let built = builder.build(&active.kind, info)?;
+        active.entries.push(built);
     }
     Ok(())
 }
@@ -1048,6 +1174,7 @@ fn apply_comment(
     _summary: &mut String,
     _summary_line: &mut usize,
     summary_started: &mut bool,
+    info: &mut MapInfo,
 ) -> Result<(), ParseError> {
     if parse_tags(raw).is_some() {
         // Anything but the section annotation itself ends its eligibility,
@@ -1109,7 +1236,7 @@ fn apply_comment(
         if section.is_none() {
             return markdown_error(line, "cac:entry must be inside a section");
         }
-        finish_entry(section, entry)?;
+        finish_entry(section, entry, info)?;
         flush_direct(section, direct, direct_line, direct_kind)?;
         *last_direct_entry = None;
         *direct_kind = match raw {
@@ -1141,6 +1268,9 @@ fn apply_comment(
             "unknown cac directive; expected cac:section or cac:entry",
         );
     }
+    // A plain comment carries no directive; the model has no slot for it,
+    // so `fmt` must refuse to rewrite the file rather than lose it.
+    info.plain_comments += 1;
     Ok(())
 }
 

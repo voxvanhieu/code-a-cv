@@ -19,9 +19,7 @@ use crate::ParseError;
 pub use fields::{parse_date_point, slugify};
 pub(crate) use write::difference;
 
-pub use write::{
-    MarkdownStyle, detect_style, to_markdown, to_markdown_checked, to_markdown_with_style,
-};
+pub use write::{MarkdownStyle, to_markdown, to_markdown_checked, to_markdown_with_style};
 
 pub const STARTER_MARKDOWN: &str = include_str!("../starter.md");
 
@@ -110,10 +108,31 @@ fn section_kind(title: &str) -> SectionKind {
     }
 }
 
-pub fn parse_markdown(source: &str) -> Result<CvDocument, ParseError> {
+/// What a Markdown parse learned about the source beyond the model, for
+/// tools that rewrite the file: the spelling the source used, the
+/// declarations front matter carried, and how many plain comments the model
+/// dropped.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct MarkdownParseInfo {
+    /// The spelling the source used: compact when sugar appeared (comma
+    /// headings, bare date lines, `·` contacts), explicit otherwise.
+    pub style: MarkdownStyle,
+    /// The `locale:`/`packs:` declarations, ready to re-emit between `---`
+    /// fences; `None` when the source declared none.
+    pub declarations: Option<String>,
+    /// Plain (non-directive) comments the model has no slot for. A
+    /// formatter that would drop them must refuse instead.
+    pub plain_comments: usize,
+}
+
+/// Parse and report what the source used, for `fmt` and checked writers.
+pub fn parse_markdown_with_info(
+    source: &str,
+) -> Result<(CvDocument, MarkdownParseInfo), ParseError> {
     let blocks = ast::blocks(source)?;
     let mut blocks = blocks.into_iter().peekable();
     let mut profile_updates = Vec::new();
+    let mut declarations = None;
     if matches!(
         blocks.peek().map(|block| &block.kind),
         Some(ast::BlockKind::FrontMatter(_))
@@ -122,10 +141,22 @@ pub fn parse_markdown(source: &str) -> Result<CvDocument, ParseError> {
         let ast::BlockKind::FrontMatter(raw) = first.kind else {
             unreachable!("peeked front matter");
         };
-        let (_, fields) = front_matter::parse(&raw, first.line)?;
+        let (front, fields) = front_matter::parse(&raw, first.line)?;
         profile_updates = fields;
+        let mut lines = Vec::new();
+        if let Some(locale) = &front.locale {
+            lines.push(format!("locale: {locale}"));
+        }
+        if !front.packs.is_empty() {
+            lines.push("packs:".into());
+            for pack in &front.packs {
+                lines.push(format!("  - {pack}"));
+            }
+        }
+        declarations = (!lines.is_empty()).then(|| lines.join("\n"));
     }
-    let mapped = entries::map(blocks.collect())?;
+    let mut map_info = entries::MapInfo::default();
+    let mapped = entries::map(blocks.collect(), &mut map_info)?;
     let mut cv = CvDocument {
         profile: mapped.profile,
         sections: mapped.sections,
@@ -135,5 +166,18 @@ pub fn parse_markdown(source: &str) -> Result<CvDocument, ParseError> {
     }
     crate::codec::normalize(&mut cv);
     crate::validate(&cv)?;
-    Ok(cv)
+    let info = MarkdownParseInfo {
+        style: if map_info.sugar {
+            MarkdownStyle::Compact
+        } else {
+            MarkdownStyle::Explicit
+        },
+        declarations,
+        plain_comments: map_info.plain_comments,
+    };
+    Ok((cv, info))
+}
+
+pub fn parse_markdown(source: &str) -> Result<CvDocument, ParseError> {
+    parse_markdown_with_info(source).map(|(cv, _)| cv)
 }

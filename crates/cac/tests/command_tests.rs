@@ -1308,3 +1308,45 @@ fn formatter_canonicalizes_markdown_and_uses_project_source_format() {
         .success()
         .stdout(predicates::str::contains("\n  \"profile\":"));
 }
+
+#[test]
+fn fmt_preserve_keeps_the_explicit_spelling_when_entries_carry_bullets() {
+    // The old line scanner misread this file as compact because bullets
+    // followed the first entry heading; the parser-derived spelling does
+    // not.
+    let directory = tempdir().unwrap();
+    let path = directory.path().join("cv.md");
+    let source = "# Ada\n\n## Experience\n\n### Engineer\n\nKind: experience\nOrganization: Acme\nPeriod: 2020–2021\n\n- Built a thing\n";
+    fs::write(&path, source).unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .arg("fmt")
+        .arg(&path)
+        .assert()
+        .success();
+    let formatted = fs::read_to_string(&path).unwrap();
+    // Entry fields stay spelled; no comma sugar, no bare period line.
+    assert!(formatted.contains("Period: 2020–2021"), "{formatted}");
+    assert!(formatted.contains("Organization: Acme"), "{formatted}");
+    assert!(formatted.contains("### Engineer\n"), "{formatted}");
+    assert!(!formatted.contains("### Engineer, "), "{formatted}");
+    assert!(!formatted.lines().any(|line| line.trim() == "2020–2021"));
+}
+
+#[test]
+fn fmt_refuses_to_drop_plain_comments() {
+    // The model has no slot for a plain comment; formatting would delete
+    // it, so fmt refuses and leaves the source unchanged.
+    let directory = tempdir().unwrap();
+    let path = directory.path().join("cv.md");
+    let source = "# Ada\n\n<!-- keep this note -->\n\nada@example.com\n";
+    fs::write(&path, source).unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .arg("fmt")
+        .arg(&path)
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("would drop 1 HTML comment"));
+    assert_eq!(fs::read_to_string(&path).unwrap(), source);
+}

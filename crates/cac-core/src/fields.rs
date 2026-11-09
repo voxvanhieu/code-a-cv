@@ -122,6 +122,16 @@ impl FieldDef {
             other => self.scopes.contains(&other),
         }
     }
+
+    /// Whether the field may appear on an entry of the given kebab-case
+    /// kind name — the question a parser asks while the entry's kind is
+    /// still its section's default.
+    pub fn applies_to_entry_kind(&self, kind: &str) -> bool {
+        self.scopes.iter().any(|scope| match scope {
+            FieldScope::Entries(kinds) => kinds.iter().any(|name| name.as_str() == kind),
+            _ => false,
+        })
+    }
 }
 
 /// Entry scope shorthands for the table below.
@@ -184,7 +194,10 @@ pub static CORE_FIELDS: &[FieldDef] = &[
     FieldDef {
         key: "email",
         label: "Email",
-        scopes: &[FieldScope::Profile],
+        scopes: &[
+            FieldScope::Profile,
+            FieldScope::Entries(&[EntryKindName::Reference]),
+        ],
         parser: FieldParser::Text,
         json_resume: Some("basics.email"),
     },
@@ -245,7 +258,7 @@ pub static CORE_FIELDS: &[FieldDef] = &[
             FieldScope::Entries(&[EntryKindName::Experience]),
         ],
         parser: FieldParser::Text,
-        json_resume: Some("work[].location"),
+        json_resume: Some("basics.location"),
     },
     FieldDef {
         key: "name",
@@ -260,9 +273,19 @@ pub static CORE_FIELDS: &[FieldDef] = &[
         json_resume: None,
     },
     FieldDef {
+        key: "note",
+        label: "Note",
+        scopes: &[FieldScope::Entries(&[EntryKindName::Reference])],
+        parser: FieldParser::Text,
+        json_resume: Some("references[].reference"),
+    },
+    FieldDef {
         key: "organization",
         label: "Organization",
-        scopes: &[FieldScope::Entries(&[EntryKindName::Experience])],
+        scopes: &[FieldScope::Entries(&[
+            EntryKindName::Experience,
+            EntryKindName::Reference,
+        ])],
         parser: FieldParser::Rich,
         json_resume: Some("work[].name"),
     },
@@ -276,7 +299,10 @@ pub static CORE_FIELDS: &[FieldDef] = &[
     FieldDef {
         key: "phone",
         label: "Phone",
-        scopes: &[FieldScope::Profile],
+        scopes: &[
+            FieldScope::Profile,
+            FieldScope::Entries(&[EntryKindName::Reference]),
+        ],
         parser: FieldParser::Text,
         json_resume: Some("basics.phone"),
     },
@@ -311,7 +337,7 @@ pub static CORE_FIELDS: &[FieldDef] = &[
     FieldDef {
         key: "role",
         label: "Role",
-        scopes: &[FieldScope::Entries(&[EntryKindName::Experience])],
+        scopes: &[FieldScope::Entries(&[EntryKindName::Reference])],
         parser: FieldParser::Rich,
         json_resume: Some("work[].position"),
     },
@@ -428,14 +454,14 @@ impl<'de> Deserialize<'de> for FieldValue {
             }
 
             fn visit_str<E: de::Error>(self, value: &str) -> Result<Self::Value, E> {
-                // Dates stored as text keep their type across round-trips;
-                // anything that is not a date stays text.
-                match DatePoint::deserialize(de::value::StrDeserializer::<de::value::Error>::new(
-                    value,
-                )) {
-                    Ok(date) => Ok(FieldValue::Date(date)),
-                    Err(_) => Ok(FieldValue::Text(value.to_owned())),
-                }
+                // A string is text — never a guessed date. Guessing turned
+                // every integer-looking string into a year and broke
+                // round-trip identity for fields like `postal-code`.
+                Ok(FieldValue::Text(value.to_owned()))
+            }
+
+            fn visit_f64<E: de::Error>(self, value: f64) -> Result<Self::Value, E> {
+                Ok(FieldValue::Text(value.to_string()))
             }
 
             fn visit_i64<E: de::Error>(self, value: i64) -> Result<Self::Value, E> {
@@ -513,7 +539,9 @@ pub fn normalize_key(key: &str) -> String {
     let mut normalized = String::with_capacity(key.len());
     let mut previous_was_separator = true;
     for character in key.trim().chars() {
-        if character.is_whitespace() || character == '_' {
+        if character.is_whitespace() || matches!(character, '_' | '-') {
+            // Whitespace, underscores, and hyphens are the same separator;
+            // runs of them fold to one hyphen instead of stacking.
             if !previous_was_separator {
                 normalized.push('-');
             }
@@ -554,6 +582,9 @@ impl<'de> Deserialize<'de> for FieldMap {
             fn visit_map<A: MapAccess<'de>>(self, mut access: A) -> Result<Self::Value, A::Error> {
                 let mut map = FieldMap::new();
                 while let Some((key, value)) = access.next_entry::<String, FieldValue>()? {
+                    if key.trim().is_empty() {
+                        return Err(de::Error::custom("field key must not be empty"));
+                    }
                     map.insert(key, value);
                 }
                 Ok(map)
@@ -575,15 +606,35 @@ pub enum SkillLevel {
 }
 
 impl SkillLevel {
-    /// Parse `4/5`, `4`, or a named level.
+    /// Parse `4/5`, `4`, or a named level. A numeric spelling outside the
+    /// 0–5 scale is an error, never a named level: `10/10` and `-1` are
+    /// mistakes, not names.
     pub fn parse(text: &str) -> Option<Self> {
         let text = text.trim();
-        let fraction = text.strip_suffix("/5").unwrap_or(text);
-        if let Ok(value) = fraction.parse::<u8>() {
-            return (value <= 5).then_some(Self::Numeric(value));
+        if text.is_empty() {
+            return None;
         }
-        let named = text.trim();
-        (!named.is_empty()).then(|| Self::Named(named.into()))
+        let number = match text.rsplit_once('/') {
+            // Only `N/5` counts as a fraction; any other slash spelling
+            // (`10/10`) is an invalid number, not a name.
+            Some((base, "5")) if !base.is_empty() && base.chars().all(|c| c.is_ascii_digit()) => {
+                base
+            }
+            Some(_) => return None,
+            None => text,
+        };
+        // Any integer spelling — signed or out of range — is an invalid
+        // level; digit strings too big for an integer are still numbers.
+        if let Ok(value) = number.parse::<i64>() {
+            return u8::try_from(value)
+                .ok()
+                .filter(|value| *value <= 5)
+                .map(Self::Numeric);
+        }
+        if number.chars().all(|c| c.is_ascii_digit()) {
+            return None;
+        }
+        Some(Self::Named(text.into()))
     }
 }
 
@@ -617,6 +668,14 @@ impl<'de> Deserialize<'de> for SkillLevel {
             }
 
             fn visit_u64<E: de::Error>(self, value: u64) -> Result<Self::Value, E> {
+                u8::try_from(value)
+                    .ok()
+                    .filter(|value| *value <= 5)
+                    .map(SkillLevel::Numeric)
+                    .ok_or_else(|| de::Error::custom("numeric levels run from 0 to 5"))
+            }
+
+            fn visit_i64<E: de::Error>(self, value: i64) -> Result<Self::Value, E> {
                 u8::try_from(value)
                     .ok()
                     .filter(|value| *value <= 5)
@@ -702,16 +761,10 @@ mod tests {
 
     #[test]
     fn core_fields_are_sorted_and_unique() {
-        let mut keys: Vec<&str> = CORE_FIELDS.iter().map(|field| field.key).collect();
-        let unique_count = keys.len();
-        keys.sort();
-        keys.dedup();
-        assert_eq!(keys.len(), unique_count, "field keys must be unique");
-        let mut sorted = keys.clone();
-        sorted.sort();
-        assert_eq!(
-            keys, sorted,
-            "CORE_FIELDS must stay sorted for binary search"
+        assert!(
+            CORE_FIELDS.windows(2).all(|pair| pair[0].key < pair[1].key),
+            "CORE_FIELDS must stay strictly sorted for binary search; \
+             sorting a copy first would hide a misordered table"
         );
     }
 
@@ -727,6 +780,42 @@ mod tests {
         assert_eq!(normalize_key("Address Furigana"), "address-furigana");
         assert_eq!(normalize_key("postal_code"), "postal-code");
         assert_eq!(normalize_key("  NAME  "), "name");
+        assert_eq!(normalize_key("commute_time"), "commute-time");
+        assert_eq!(normalize_key("a - b"), "a-b");
+    }
+
+    #[test]
+    fn field_value_keeps_strings_as_text() {
+        // Integers that look like years and the word "present" are text;
+        // guessing dates broke round-trip identity for open fields.
+        let value: FieldValue = serde_json::from_str("\"8001\"").unwrap();
+        assert_eq!(value, FieldValue::Text("8001".into()));
+        let value: FieldValue = serde_json::from_str("\"present\"").unwrap();
+        assert_eq!(value, FieldValue::Text("present".into()));
+        let value: FieldValue = serde_json::from_str("3.9").unwrap();
+        assert_eq!(value, FieldValue::Text("3.9".into()));
+    }
+
+    #[test]
+    fn field_map_rejects_empty_keys() {
+        let result = serde_json::from_str::<FieldMap>(r#"{"": "v"}"#);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn skill_level_rejects_out_of_range_numbers() {
+        assert_eq!(SkillLevel::parse("6"), None);
+        assert_eq!(SkillLevel::parse("-1"), None);
+        assert_eq!(SkillLevel::parse("10/10"), None);
+        assert_eq!(SkillLevel::parse("4/5"), Some(SkillLevel::Numeric(4)));
+        assert_eq!(
+            SkillLevel::parse("Expert"),
+            Some(SkillLevel::Named("Expert".into()))
+        );
+        // TOML integers arrive as i64.
+        let level: SkillLevel = serde_json::from_str("4").unwrap();
+        assert_eq!(level, SkillLevel::Numeric(4));
+        assert!(serde_json::from_str::<SkillLevel>("-1").is_err());
     }
 
     #[test]

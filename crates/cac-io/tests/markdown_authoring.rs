@@ -131,16 +131,18 @@ fn metadata_typos_conflicts_and_incompatible_fields_report_lines() {
         ("Organization: One\nOrganization: Two", "duplicate"),
         ("Kind: skill-group\nPeriod: 2020–2024", "not supported"),
         ("Kind: publication\nPeriod: 2020–2024", "not supported"),
-        ("URL: https://example.com", "not supported"),
         ("Kind: project\nURL: example.com", "invalid URL"),
+        // Not a payload of experience entries: the line stays prose.
+        ("URL: https://example.com", "PROSE"),
     ] {
         if expected == "PROSE" {
-            // A lone unknown key is prose; check will advise, not error.
+            // A key outside the kind's scope is not a field; the paragraph
+            // stays prose and check will advise, not error.
             let cv =
                 parse_markdown(&format!("# A\n\n## Experience\n\n### Work\n{body}\n")).unwrap();
             assert_eq!(
                 cv.sections[0].entries[0].content.as_ref().unwrap().plain(),
-                "Organzation: Acme"
+                body
             );
             continue;
         }
@@ -358,4 +360,122 @@ fn json_resume_multiline_plain_summary_exports_without_losing_text() {
         parse_markdown(&to_markdown_checked(&cv).unwrap()).unwrap(),
         cv
     );
+}
+
+#[test]
+fn a_key_with_a_stray_space_before_the_colon_parses_without_panicking() {
+    // `Email : ada@x.com` normalized once: the key is known, the slot is
+    // filled, and no `unreachable!` fires.
+    let cv = parse_markdown("# Ada\n\nEmail : ada@x.com\n").unwrap();
+    assert_eq!(cv.profile.email.as_deref(), Some("ada@x.com"));
+}
+
+#[test]
+fn lookalike_list_lines_stay_with_their_own_entries() {
+    // `- Go` must not inherit `- Google Cloud`'s position because the text
+    // is a substring of it.
+    let cv = parse_markdown(
+        "# A\n\n## Skills\n\n### Cloud\n\n- Google Cloud\n\n### Languages\n\n- Go\n",
+    )
+    .unwrap();
+    let skills: Vec<Vec<String>> = cv.sections[0]
+        .entries
+        .iter()
+        .map(|entry| match &entry.kind {
+            cac_core::EntryKind::SkillGroup(group) => {
+                group.skills.iter().map(|skill| skill.plain()).collect()
+            }
+            _ => Vec::new(),
+        })
+        .collect();
+    assert_eq!(
+        skills,
+        [vec!["Google Cloud".to_owned()], vec!["Go".to_owned()]]
+    );
+}
+
+#[test]
+fn an_explicit_summary_and_summary_prose_are_a_duplicate_error() {
+    let error = parse_markdown("# A\n\nSummary: Pioneer.\n\nI also write.\n")
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("duplicate summary"), "{error}");
+    // Either spelling alone keeps working.
+    let cv = parse_markdown("# A\n\nSummary: Pioneer.\n").unwrap();
+    assert_eq!(cv.profile.summary.as_ref().unwrap().plain(), "Pioneer.");
+    let cv = parse_markdown("# A\n\nI also write.\n").unwrap();
+    assert_eq!(
+        cv.profile.summary.as_ref().unwrap().plain(),
+        "I also write."
+    );
+}
+
+#[test]
+fn profile_only_keys_under_an_entry_stay_prose() {
+    // `Summary:` is not an experience field; the line keeps its text.
+    let cv = parse_markdown(
+        "# A\n\n## Experience\n\n### Work\n\nKind: experience\nOrganization: Acme\nPeriod: 2020–2021\n\nSummary: Led the migration to Rust.\n",
+    )
+    .unwrap();
+    assert_eq!(
+        cv.sections[0].entries[0].content.as_ref().unwrap().plain(),
+        "Summary: Led the migration to Rust."
+    );
+    assert!(cv.sections[0].entries[0].fields.is_empty());
+}
+
+#[test]
+fn setext_headings_and_closing_hashes_keep_their_text() {
+    let cv = parse_markdown("# Ada\n===\n\n## Experience ##\n\n### C#\n\n- Ships\n").unwrap();
+    assert_eq!(cv.profile.name, "Ada");
+    assert_eq!(cv.sections[0].title, "Experience");
+    assert_eq!(cv.sections[0].entries[0].kind.heading().0.plain(), "C#");
+}
+
+#[test]
+fn comments_inside_fenced_code_survive_and_text_after_a_comment_close_keeps() {
+    // The fence shields the comment-looking literal; the trailing words
+    // after `-->` are content a formatter must keep.
+    // The fenced literal reaches phase two intact — the code block is
+    // rejected loudly instead of being silently emptied by comment
+    // stripping.
+    let error = parse_markdown("# A\n\n```\n<!-- not a directive -->\n```\n")
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("code blocks are not supported"), "{error}");
+    // Text after a comment close on the same line stays content.
+    let cv = parse_markdown("# A\n\n<!-- a plain note --> with trailing text\n").unwrap();
+    assert_eq!(
+        cv.profile.summary.as_ref().unwrap().plain(),
+        "with trailing text"
+    );
+}
+
+#[test]
+fn address_segments_keep_their_slots_when_leading_parts_are_absent() {
+    let cv = parse(
+        r#"{"profile":{"name":"A","address":{"city":"Tokyo","country":"Japan"}},"sections":[]}"#,
+        InputFormat::Json,
+    )
+    .unwrap();
+    let written = to_markdown_checked(&cv).unwrap();
+    assert!(written.contains("Address: , Tokyo, , , Japan"), "{written}");
+    let reparsed = parse_markdown(&written).unwrap();
+    assert_eq!(reparsed, cv);
+}
+
+#[test]
+fn tags_round_trip_without_escaping_artifacts() {
+    let cv = parse(r#"{"profile":{"name":"A"},"sections":[{"id":"s","title":"Experience","kind":"experience","tags":["C#","backend"],"entries":[]}]}"#, InputFormat::Json).unwrap();
+    let written = to_markdown_checked(&cv).unwrap();
+    assert!(written.contains("Tags: C#, backend"), "{written}");
+    assert_eq!(parse_markdown(&written).unwrap(), cv);
+}
+
+#[test]
+fn numeric_proficiency_round_trips_through_markdown() {
+    let cv = parse(r#"{"profile":{"name":"A"},"sections":[{"id":"langs","title":"Languages","kind":"language","entries":[{"type":"language","name":"German","proficiency":4}]}]}"#, InputFormat::Json).unwrap();
+    let written = to_markdown_checked(&cv).unwrap();
+    assert!(written.contains("Proficiency: 4"), "{written}");
+    assert_eq!(parse_markdown(&written).unwrap(), cv);
 }
