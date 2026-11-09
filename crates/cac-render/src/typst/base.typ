@@ -1,6 +1,6 @@
 
 #import "style.typ": dictionaries, dictionaries-sparse
-#import "layout.typ": families
+#import "layout.typ": families, form-requirements
 
 // The built-in dictionaries come from the resolved style sheet
 // (/.cac/style.json); no defaults are written here anymore.
@@ -148,7 +148,11 @@
   // them, so existing output is unchanged.
   if entry.fields != none {
     for (key, value) in entry.fields {
-      let label = key.split("-").map(part => upper(part.slice(0, 1)) + part.slice(1)).join(" ")
+      // Clusters keep multibyte keys (学歴, điểm) off the byte boundary.
+      let label = key.split("-").map(part => {
+        let clusters = part.clusters()
+        if clusters.len() > 0 { upper(clusters.first()) + clusters.slice(1).join() } else { part }
+      }).join(" ")
       block(above: 0pt, below: ctx.styles.body.line_spacing)[#text(fill: ctx.tokens.colors.at("muted"), size: 0.9em)[#label:] #value]
     }
   }
@@ -334,7 +338,8 @@
   let resolved-components = if theme-layout != none {
     // Hooks path: a family plus optional hook overrides. Hooks left as
     // none reuse the base helper verbatim (document, header).
-    let family = merge(families.at(theme-layout.at("family", default: "classic"), default: families.classic), theme-layout)
+    let family-name = theme-layout.at("family", default: "classic")
+    let family = merge(families.at(family-name, default: families.classic), theme-layout)
     // Base defaults, then the family (which carries theme-layout extras
     // like requires/allowed), then the resolved hooks on top.
     merge(merge(components, family), (
@@ -358,5 +363,10 @@
     layout: resolved-components,
     helpers: helpers,
   )
+  // A form's requirements are the family contract, checked here so a
+  // theme that overrides `document` cannot skip them.
+  if theme-layout != none and theme-layout.at("family", default: "classic") == "form" {
+    form-requirements(ctx)
+  }
   (resolved-components.document)(ctx)
 }

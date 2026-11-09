@@ -132,18 +132,23 @@
 
 #let sidebar-render-entry(ctx, entry) = {
   let h = helpers-of(ctx)
-  if entry.kind == "language" {
-    block(above: 0.5em)[
-      #text(weight: "semibold")[#h.at("rich")(ctx, entry.primary)]
-    ]
-  } else {
-    for highlight in entry.at("highlights", default: ()) {
-      block[- #h.at("rich")(ctx, highlight)]
+  // The sidebar column holds groups, languages, and references: the entry
+  // title, its metadata (proficiency, contact details), its bullets, and
+  // its prose all print — none of them may silently vanish.
+  block(above: 0.5em)[#text(weight: "semibold")[#h.at("rich")(ctx, entry.primary)]]
+  for item in entry.at("metadata", default: ()) {
+    if item.role == "proficiency" {
+      block[#text(fill: ctx.tokens.colors.at("muted"), size: 0.9em)[#h.at("rich")(ctx, item.body)]]
+    } else {
+      block[#h.at("rich")(ctx, item.body)]
     }
-    let content = entry.at("content", default: none)
-    if content != none {
-      block[#h.at("rich")(ctx, content)]
-    }
+  }
+  for highlight in entry.at("highlights", default: ()) {
+    block[- #h.at("rich")(ctx, highlight)]
+  }
+  let content = entry.at("content", default: none)
+  if content != none {
+    block[#h.at("rich")(ctx, content)]
   }
 }
 
@@ -228,15 +233,50 @@
 
 // -- form --
 
+// The form family contract, enforced by base.render for the family no
+// matter which document hook runs: `requires.sections` must be present,
+// `requires.profile` keys must have values, and every section must be in
+// `allowed`. Rejections name what the form cannot place instead of
+// silently dropping it.
+#let form-requirements(ctx) = {
+  let layout = ctx.layout
+  let requires = layout.at("requires", default: (:))
+  let allowed = layout.at("allowed", default: requires.at("sections", default: ()))
+  for section in ctx.cv.sections {
+    let placed = allowed.contains(section.kind) or allowed.contains(section.id)
+    if not placed {
+      panic(
+        "this form does not support the section `" + section.title + "` (kind `" + section.kind
+          + "`); it accepts: " + repr(allowed) + " / kind is " + repr(section.kind),
+      )
+    }
+  }
+  for needed in requires.at("sections", default: ()) {
+    let present = ctx.cv.sections.filter(section => section.kind == needed or section.id == needed)
+    if present.len() == 0 {
+      panic("this form requires a section of kind `" + needed + "`")
+    }
+  }
+  for key in requires.at("profile", default: ()) {
+    let missing = if key == "photo" { ctx.cv.profile.photo == none }
+      else if key == "headline" { ctx.cv.profile.headline == none }
+      else if key == "summary" { ctx.cv.profile.summary == none }
+      else if key == "address" { ctx.cv.profile.address == none }
+      else {
+        // A contact kind: email, phone, website, or a custom contact.
+        ctx.cv.profile.contacts.filter(contact => contact.kind == key).len() == 0
+      }
+    if missing {
+      panic("this form requires profile `" + key + "`")
+    }
+  }
+}
+
 // The form family: a fixed grid with a photo cell, address block, and
 // labeled rows. A form declares `requires` (sections it needs and profile
 // keys it cannot do without) and `allowed` (the section kinds it can
-// place); anything else is rejected by name instead of silently dropped.
+// place).
 #let form-document(ctx) = {
-  let layout = ctx.layout
-  let hh = helpers-of(ctx)
-  let requires = layout.at("requires", default: (:))
-  let allowed = layout.at("allowed", default: requires.at("sections", default: ()))
   let hh = helpers-of(ctx)
   let body = ctx.styles.body
   set document(title: ctx.cv.profile.name + " CV", author: ctx.cv.profile.name)
@@ -248,25 +288,6 @@
     fill: ctx.tokens.colors.at(body.color),
   )
   set par(leading: body.line_spacing, spacing: body.paragraph_spacing)
-  // A form owns the document: sections it cannot place are rejected by
-  // name rather than silently flowing into a generic fallback.
-  for section in ctx.cv.sections {
-    let kind-name = section.kind
-    let placed = allowed.contains(kind-name) or allowed.contains(section.id)
-    if not placed {
-      panic(
-        "this form does not support the section `" + section.title + "` (kind `" + section.kind
-          + "`); it accepts: " + repr(allowed) + " / kind is " + repr(kind-name),
-      )
-    }
-  }
-  // Profile requirements: photo cell and address block need their data.
-  for key in requires.at("profile", default: ()) {
-    let missing = if key == "photo" { ctx.cv.profile.photo == none } else { false }
-    if missing {
-      panic("this form requires profile `" + key + "`")
-    }
-  }
   // Fixed profile grid: name across the top, photo left, address and
   // contacts right.
   let photo = if ctx.cv.profile.photo != none {
@@ -317,6 +338,14 @@
             block(above: 0.6em, below: 0.6em)[
               #hh.at("rich")(ctx, entry.primary)
               #if entry.period != none [ #entry.period ]
+              // The 和暦 spelling is a slot a Japanese form theme opts
+              // into; the generic form does not print it.
+              #for item in entry.at("metadata", default: ()) [ #hh.at("rich")(ctx, item.body) ]
+              #if entry.fields != none and entry.fields.len() > 0 {
+                for (key, value) in entry.fields [#key: #value ]
+              }
+              #for highlight in entry.at("highlights", default: ()) [ #hh.at("rich")(ctx, highlight) ]
+              #if entry.at("content", default: none) != none [#hh.at("rich")(ctx, entry.content)]
             ]
           }
         }),
@@ -339,5 +368,8 @@
 )
 
 #let families = (classic: classic, table: table, compact: compact, sidebar: sidebar, form: form)
+
+// The form family contract, exported for base.render's family check.
+#let form-requirements-check = form-requirements
 
 
