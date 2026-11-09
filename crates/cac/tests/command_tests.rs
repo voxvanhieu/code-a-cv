@@ -1416,3 +1416,64 @@ fn build_tags_names_come_from_the_normalized_sorted_set() {
         .failure()
         .stderr(predicates::str::contains("must be lowercase letters"));
 }
+
+#[test]
+fn theme_init_writes_watchable_inputs_and_the_hint_names_the_root() {
+    let directory = tempdir().unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["theme", "init", "portfolio", "--author", "Ada"])
+        .write_stdin("\n")
+        .assert()
+        .success()
+        .stderr(predicates::str::contains(
+            "typst watch --root . .cac/main.typ",
+        ));
+    // The data inputs the bridge reads exist, so the watch command
+    // compiles without running cac first.
+    let view = fs::read_to_string(directory.path().join(".cac/cv.json")).unwrap();
+    assert!(view.contains("Ada Lovelace"), "cv.json carries the CV");
+    let sheet = fs::read_to_string(directory.path().join(".cac/style.json")).unwrap();
+    assert!(
+        sheet.contains("\"fonts\""),
+        "style.json is the resolved sheet"
+    );
+    assert!(directory.path().join(".cac/settings-style.json").is_file());
+}
+
+#[test]
+fn build_honours_the_on_disk_bridge_files() {
+    // A theme project's `.cac/main.typ` is the file `cac build` runs: an
+    // edit there is visible in the artifact instead of silently ignored.
+    let directory = tempdir().unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["theme", "init", "portfolio", "--author", "Ada"])
+        .write_stdin("\n")
+        .assert()
+        .success();
+    fs::write(directory.path().join("cv.md"), CLEAN_MARKDOWN).unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["build", "--format", "pdf"])
+        .assert()
+        .success();
+    let built = directory.path().join("offering/cv.pdf");
+    let plain = fs::read(&built).unwrap();
+    // Mark the bridge and rebuild: the on-disk main.typ is what runs, so
+    // the artifact changes instead of silently ignoring the edit.
+    let main = directory.path().join(".cac/main.typ");
+    let source = fs::read_to_string(&main).unwrap();
+    fs::write(&main, format!("#text[BRIDGE-MARKER] {source}")).unwrap();
+    Command::cargo_bin("cac")
+        .unwrap()
+        .current_dir(directory.path())
+        .args(["build", "--format", "pdf"])
+        .assert()
+        .success();
+    let marked = fs::read(&built).unwrap();
+    assert_ne!(plain, marked, "the on-disk bridge ran");
+}

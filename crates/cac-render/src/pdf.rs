@@ -154,6 +154,7 @@ pub(crate) fn render_pdf_document(
         serde_json::to_vec(&renderer_style_json(&shimmed.style))?,
         &resolved,
         assets,
+        options.project_dir.clone(),
     )?;
     let warned = typst::compile::<PagedDocument>(&world);
     let document = warned
@@ -236,6 +237,7 @@ pub fn render_pdf_and_preview_with_options(
         serde_json::to_vec(&renderer_style_json(&shimmed.style))?,
         &resolved,
         assets,
+        options.project_dir.clone(),
     )?;
     let document = typst::compile::<PagedDocument>(&world)
         .output
@@ -332,6 +334,31 @@ fn resolve_theme(name: &str, options: &RenderOptions) -> Result<ResolvedTheme, R
     }
 }
 
+/// The view JSON the Typst bridge reads (`/.cac/cv.json`) — also what a
+/// theme project's on-disk scaffold carries for `typst watch`.
+pub fn view_json(cv: &CvDocument) -> String {
+    String::from_utf8(crate::view::render_view(cv).unwrap_or_default()).unwrap_or_default()
+}
+
+/// The resolved style sheet JSON (`/.cac/style.json`) for a settings file
+/// and theme — the same layering the PDF render path uses.
+pub fn style_sheet_json(settings: &Settings, theme_name: &str) -> Result<String, SettingsError> {
+    let sheet = crate::style::resolved_style_for(settings, theme_name)
+        .map_err(|error| SettingsError::Style(error.to_string()))?;
+    serde_json::to_vec_pretty(&sheet)
+        .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
+        .map_err(|error| SettingsError::Style(error.to_string()))
+}
+
+/// The sparse settings layer JSON (`/.cac/settings-style.json`), with
+/// lengths already in the (value, unit) form the bridge reads.
+pub fn settings_style_json(settings: &Settings) -> Result<String, SettingsError> {
+    let shimmed = crate::style::legacy::shim(settings);
+    serde_json::to_vec(&renderer_style_json(&shimmed.style))
+        .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
+        .map_err(|error| SettingsError::Style(error.to_string()))
+}
+
 /// The sparse settings layer, renderer-ready: a `LengthSpec` serializes as
 /// its authoring string (`"16mm"`), but the Typst bridge reads
 /// `(value, unit)` pairs — so lengths convert here, once, in Rust, and no
@@ -408,6 +435,9 @@ struct CacWorld {
     fonts: FontStore,
     main: FileId,
     main_source: Source,
+    /// The project `.cac` directory, when one exists; on-disk bridge files
+    /// there win over the embedded library, so author edits are real.
+    project_cac: Option<PathBuf>,
     json: Bytes,
     settings: Bytes,
     style: Bytes,
@@ -480,6 +510,7 @@ impl CacWorld {
         settings_style: Vec<u8>,
         theme: &ResolvedTheme,
         assets: std::collections::BTreeMap<String, Bytes>,
+        project_cac: Option<PathBuf>,
     ) -> Result<Self, RenderError> {
         let main = file_id("main.typ");
         let mut fonts = FontStore::new();
@@ -488,17 +519,28 @@ impl CacWorld {
             load_theme_fonts(&directory.join("fonts"), &mut fonts)?;
         }
         let document_date = document_date_from(settings_parsed);
+        // A theme project's scaffold owns its bridge: an on-disk
+        // main.typ renders instead of the embedded one, so the file the
+        // author edits with `typst watch` is the file `cac build` runs.
+        let main_source = project_cac
+            .as_ref()
+            .and_then(|root| fs::read_to_string(root.join("main.typ")).ok())
+            .map_or_else(
+                || Source::new(main, MAIN_TYP.into()),
+                |text| Source::new(main, text),
+            );
         Ok(Self {
             library: LazyHash::new(Library::default()),
             fonts,
             main,
-            main_source: Source::new(main, MAIN_TYP.into()),
+            main_source,
             json: Bytes::new(json),
             settings: Bytes::new(settings),
             style: Bytes::new(style),
             settings_style: Bytes::new(settings_style),
             document_date: Bytes::new(document_date_json(settings_parsed).into_bytes()),
             document_date_value: document_date,
+            project_cac,
             theme: ResolvedTheme {
                 source_text: theme.source_text.clone(),
                 source: theme.source,
@@ -507,6 +549,21 @@ impl CacWorld {
             },
             assets,
         })
+    }
+
+    /// A bridge library file: the project scaffold's copy when one
+    /// exists, the embedded library otherwise. Author edits under
+    /// `.cac/` are real for `cac build`, not just for `typst watch`.
+    fn bridge_file(&self, name: &str, embedded: &'static str) -> FileResult<Bytes> {
+        if let Some(root) = &self.project_cac {
+            let path = root.join(name);
+            if path.is_file() {
+                return fs::read(path)
+                    .map(Bytes::new)
+                    .map_err(|error| FileError::Other(Some(error.to_string().into())));
+            }
+        }
+        Ok(Bytes::new(embedded.as_bytes()))
     }
 
     fn theme_file(&self, relative: &Path) -> FileResult<Bytes> {
@@ -534,9 +591,9 @@ impl World for CacWorld {
         }
         let path = id.vpath().get_without_slash();
         let contents = match path {
-            ".cac/base.typ" => Bytes::new(BASE_TYP.as_bytes()),
-            ".cac/style.typ" => Bytes::new(STYLE_TYP.as_bytes()),
-            ".cac/layout.typ" => Bytes::new(LAYOUT_TYP.as_bytes()),
+            ".cac/base.typ" => self.bridge_file("base.typ", BASE_TYP)?,
+            ".cac/style.typ" => self.bridge_file("style.typ", STYLE_TYP)?,
+            ".cac/layout.typ" => self.bridge_file("layout.typ", LAYOUT_TYP)?,
             ".cac/theme.typ" if self.theme.directory.is_none() => Bytes::new(
                 self.theme
                     .embedded_source

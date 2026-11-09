@@ -186,6 +186,22 @@ fn scaffold(name: &str, author: &str, author_url: Option<url::Url>) -> Result<()
         theme_dir.join("theme.typ"),
         "#import \"/.cac/base.typ\" as base\n\n#let theme = (layout: base.families.classic)\n",
     )?;
+    // The data inputs the bridge reads, generated from the starter CV so
+    // `typst watch` compiles outside cac: the view, the resolved sheet,
+    // and the sparse settings layer — exactly what `cac build` serves.
+    let cv_source = fs::read_to_string("cv.md")?;
+    let cv = cac_io::parse(&cv_source, cac_io::InputFormat::Markdown)?;
+    fs::write(Path::new(".cac/cv.json"), cac_render::view_json(&cv))?;
+    let settings = cac_render::Settings::from_path(Path::new("settings.json"))?;
+    let theme_name = settings.theme.clone().unwrap_or_else(|| name.to_owned());
+    fs::write(
+        Path::new(".cac/style.json"),
+        cac_render::style_sheet_json(&settings, &theme_name)?,
+    )?;
+    fs::write(
+        Path::new(".cac/settings-style.json"),
+        cac_render::settings_style_json(&settings)?,
+    )?;
     for path in [
         Path::new("cv.md"),
         Path::new("settings.json"),
@@ -196,10 +212,15 @@ fn scaffold(name: &str, author: &str, author_url: Option<url::Url>) -> Result<()
         Path::new(".cac/layout.typ"),
         Path::new(".cac/base.typ"),
         Path::new(".cac/main.typ"),
+        Path::new(".cac/cv.json"),
+        Path::new(".cac/style.json"),
+        Path::new(".cac/settings-style.json"),
     ] {
         print_result("created", path);
     }
-    eprintln!("Run `typst watch .cac/main.typ` for live preview outside cac.");
+    // Without `--root .`, Typst resolves `/` to the input's directory and
+    // every `/.cac/...` import misses.
+    eprintln!("Run `typst watch --root . .cac/main.typ` for live preview outside cac.");
     eprintln!(
         "Edit the description in {} before running `cac theme test`.",
         theme_dir.join("theme.json").display()
